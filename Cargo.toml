@@ -1,0 +1,12 @@
+[package]
+name = "wadatsumi"
+version = "0.0.0"
+authors = [
+  "Ryan Leckey <leckey.ryan@gmail.com>"
+]
+
+[dependencies]
+rand = "0.3.x"
+sdl2 = "0.27.x"
+strfmt = "0.1.x"
+bitflags = "0.7"
