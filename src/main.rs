@@ -12,6 +12,8 @@ use sdl2::render::RendererBuilder;
 mod operation;
 mod op;
 mod cpu;
+mod machine;
+mod cart;
 
 fn main() {
     let c = sdl2::init().unwrap();
@@ -20,27 +22,43 @@ fn main() {
 
     let mut is_running = true;
 
-    let window = WindowBuilder::new(&video, "Wadatsumi", 160 * 4, 144 * 4).build().unwrap();
+    let mut window = WindowBuilder::new(&video, "Wadatsumi", 160 * 4, 144 * 4).build().unwrap();
+
+    let mut m = machine::Machine::new();
+
+    // let filename = "/Users/mehcode/Workspace/gb-test-roms/cpu_instrs/individual/06-ld r,r.gb";
+    let filename = "/Users/mehcode/Documents/Games/Tetris.gb";
+    m.open(filename).unwrap();
+
+    m.reset();
+
+    // Update title on window
+    // TODO(wadatsumi): relativize the filename
+    window.set_title(format!("Wadatsumi — {}",
+                           if m.cart.title.is_empty() {
+                               &filename
+                           } else {
+                               m.cart.title.as_str()
+                           })
+            .as_str())
+        .unwrap();
+
     let mut renderer = RendererBuilder::new(window).accelerated().build().unwrap();
 
-    let optable = operation::Table::new();
-    let mut cycles: u16 = 0;
-
     while is_running {
-        cycles += 1;
+        m.run();
 
-        let op = optable.next();
-        println!("{:>6}: {:<40} PC: 0x{:04X} AF: 0x{:04X} BC: 0x{:04X} DE: 0x{:04X} HL: \
-                  0x{:04X} SP: 0x{:04X}",
-                 cycles,
-                 strfmt::strfmt_map(op.disassembly, &|mut fmt: strfmt::Formatter| fmt.i64(1))
-                     .unwrap(),
-                 10,
-                 14,
-                 50,
-                 120,
-                 30,
-                 63);
+        // println!("{:>6}: {:<40} PC: 0x{:04X} AF: 0x{:04X} BC: 0x{:04X} DE: 0x{:04X} HL: \
+        //          0x{:04X} SP: 0x{:04X}",
+        //         cycles,
+        //         strfmt::strfmt_map(op.disassembly, &|mut fmt: strfmt::Formatter| fmt.i64(1))
+        //             .unwrap(),
+        //         10,
+        //         14,
+        //         50,
+        //         120,
+        //         30,
+        //         63);
 
         // Render: Clear the window
         renderer.set_draw_color(Color::RGB(255, 255, 255));
