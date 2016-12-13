@@ -8,7 +8,7 @@ use std::ascii::AsciiExt;
 #[derive(PartialEq)]
 pub enum MBC {
     // No MBC (less than 32 KiB)
-    NONE,
+    None,
 
     MBC1,
     MBC2,
@@ -26,6 +26,13 @@ pub enum MBC {
     MMM01,
 }
 
+impl Default for MBC {
+    fn default() -> MBC {
+        MBC::None
+    }
+}
+
+#[derive(Default)]
 pub struct Cartridge {
     /// [0x0 ..] Cartridge ROM (loaded from ROM file)
     pub rom: vec::Vec<u8>,
@@ -75,21 +82,7 @@ pub struct Cartridge {
 
 impl Cartridge {
     pub fn new() -> Self {
-        Cartridge {
-            rom: vec::Vec::new(),
-            ram: vec::Vec::new(),
-            title: string::String::with_capacity(16),
-            cgb: 0,
-            sgb: 0,
-            rom_size: 0,
-            ram_size: 0,
-            type_: 0,
-            mbc: MBC::NONE,
-            has_ram: false,
-            has_battery: false,
-            has_rumble: false,
-            has_timer: false,
-        }
+        Default::default()
     }
 
     pub fn open(&mut self, filename: &str) -> io::Result<()> {
@@ -149,7 +142,7 @@ impl Cartridge {
 
         // Parse memory bank mbc
         self.mbc = match self.type_ {
-            0x00 | 0x08 | 0x09 => MBC::NONE,
+            0x00 | 0x08 | 0x09 => MBC::None,
             0x01...0x03 => MBC::MBC1,
             0x05 | 0x06 => MBC::MBC2,
             0x0B...0x0D => MBC::MMM01,

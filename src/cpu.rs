@@ -1,5 +1,6 @@
 
 bitflags!(
+    #[derive(Default)]
     pub flags Flags: u8 {
         const ZERO         = 0b_1000_0000,
         const ADD_SUBTRACT = 0b_0100_0000,
@@ -8,6 +9,7 @@ bitflags!(
     }
 );
 
+#[derive(Default)]
 pub struct CPU {
     /// Registers (8-bit)
     pub a: u8,
@@ -54,25 +56,7 @@ pub struct CPU {
 
 impl CPU {
     pub fn new() -> Self {
-        // TODO(rust): Any way to default all this default init ?
-        CPU {
-            a: 0,
-            b: 0,
-            c: 0,
-            d: 0,
-            e: 0,
-            h: 0,
-            l: 0,
-            f: Flags::empty(),
-            pc: 0,
-            sp: 0,
-            cycles: 0,
-            stop: false,
-            halt: 0,
-            ime: 0,
-            ie: 0,
-            if_: 0,
-        }
+        Default::default()
     }
 
     pub fn reset(&mut self) {
