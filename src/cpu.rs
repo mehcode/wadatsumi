@@ -1,3 +1,6 @@
+use std::rc;
+use ::mmu;
+use std::cell::RefCell;
 
 bitflags!(
     #[derive(Default)]
@@ -11,6 +14,8 @@ bitflags!(
 
 #[derive(Default)]
 pub struct CPU {
+    /// Reference (weak) to the MMU
+    // pub mmu: rc::Weak<RefCell<mmu::MMU>>,
     /// Registers (8-bit)
     pub a: u8,
     pub b: u8,
@@ -55,10 +60,6 @@ pub struct CPU {
 }
 
 impl CPU {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     pub fn reset(&mut self) {
         // Registers
         // TODO(gameboy): Dependent on model/variant
@@ -131,5 +132,41 @@ impl CPU {
         // TODO: Operation: execute
 
         self.cycles
+    }
+}
+
+impl mmu::MemoryRule for CPU {
+    fn try_read(&mut self, address: u16, ptr: &mut u8) -> bool {
+        *ptr = match address {
+            0xFF0F => (self.if_ | 0xE0),
+            0xFFFF => (self.ie | 0xE0),
+            _ => {
+                // Unhandled
+                return false;
+            }
+        };
+
+        true
+    }
+
+    fn try_write(&mut self, address: u16, value: u8) -> bool {
+        match address {
+            0xFF0F => {
+                self.if_ = value & !0xE0;
+            }
+
+            0xFFFF => {
+                self.ie = value & !0xE0;
+            }
+
+            // TODO: OAM DMA
+            // TODO: HDMA
+            _ => {
+                // Unhandled
+                return false;
+            }
+        }
+
+        true
     }
 }

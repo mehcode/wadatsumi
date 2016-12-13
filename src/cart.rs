@@ -34,13 +34,13 @@ impl Default for MBC {
 
 #[derive(Default)]
 pub struct Cartridge {
-    /// [0x0 ..] Cartridge ROM (loaded from ROM file)
+    /// [0x0 -] Cartridge ROM (loaded from ROM file)
     pub rom: vec::Vec<u8>,
 
     /// [-] Cartridge RAM
     pub ram: vec::Vec<u8>,
 
-    /// [0x134 ... 0x0143] Title
+    /// [0x134 - 0x0143] Title
     pub title: string::String,
 
     /// [0x0143] CGB Support Flag
@@ -81,10 +81,6 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     pub fn open(&mut self, filename: &str) -> io::Result<()> {
         // Read in cartridge memory
         let mut stream = try!(File::open(filename));
@@ -212,6 +208,8 @@ impl Cartridge {
 
         // Parse title
         self.title.truncate(0);
+        self.title.reserve(16);
+
         for i in 0..16 {
             let c = self.rom[0x134 + i];
             if !c.is_ascii() || c > 0x7F || c < 0x20 {
