@@ -1,8 +1,14 @@
+#![feature(concat_idents)]
+
 extern crate sdl2;
 extern crate strfmt;
 
 #[macro_use]
 extern crate bitflags;
+
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
 use sdl2::event::Event;
 use sdl2::pixels::Color;
@@ -10,13 +16,19 @@ use sdl2::video::WindowBuilder;
 use sdl2::render::RendererBuilder;
 
 mod operation;
+
+#[macro_use]
+mod om;
+
 mod op;
 mod cpu;
 mod machine;
+mod bus;
 mod cart;
-mod mmu;
 
 fn main() {
+    env_logger::init().unwrap();
+
     let c = sdl2::init().unwrap();
     let mut events = c.event_pump().unwrap();
     let video = c.video().unwrap();
@@ -25,13 +37,13 @@ fn main() {
 
     let mut window = WindowBuilder::new(&video, "Wadatsumi", 160 * 4, 144 * 4).build().unwrap();
 
-    // let mut m = machine::Machine::new();
+    let mut m = machine::Machine::new();
 
     // let filename = "/Users/mehcode/Workspace/gb-test-roms/cpu_instrs/individual/06-ld r,r.gb";
     let filename = "/Users/mehcode/Documents/Games/Tetris.gb";
-    // m.open(filename).unwrap();
-    //
-    // m.reset();
+    m.open(filename).unwrap();
+
+    m.reset();
 
     // Update title on window
     // TODO(wadatsumi): relativize the filename
@@ -47,7 +59,7 @@ fn main() {
     let mut renderer = RendererBuilder::new(window).accelerated().build().unwrap();
 
     while is_running {
-        // m.run();
+        m.run();
 
         // println!("{:>6}: {:<40} PC: 0x{:04X} AF: 0x{:04X} BC: 0x{:04X} DE: 0x{:04X} HL: \
         //          0x{:04X} SP: 0x{:04X}",

@@ -1,50 +1,42 @@
 use std::io;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::cell::RefCell;
+
 use ::cpu;
-use ::cart;
-use ::mmu;
+use ::bus;
 
 #[derive(Default)]
 pub struct Machine {
-    /// Component: Cartridge (Reader)
-    pub cart: Rc<RefCell<cart::Cartridge>>,
+    /// Interconnect: Bus
+    bus: bus::Bus,
 
     /// Component: CPU
-    pub cpu: Rc<RefCell<cpu::CPU>>,
-
-    /// Component: MMU
-    pub mmu: Rc<RefCell<mmu::MMU>>,
+    cpu: cpu::CPU,
 }
 
 impl Machine {
-    pub fn new() -> Self {
-        let mut m: Self = Default::default();
-        // m.cpu.get_mut().mmu = Rc::downgrade(&m.mmu);
-
-        m
+    pub fn new() -> Machine {
+        Default::default()
     }
 
     pub fn open(&mut self, filename: &str) -> io::Result<()> {
-        // self.cart.get_mut().open(filename)
-        Ok(())
+        self.bus.cart.open(filename)
     }
 
     pub fn reset(&mut self) {
-        (*self.cpu.borrow_mut()).reset();
-        //(self.mmu.get_mut().reset();
+        // TODO(gameboy): Depends on model (gb/cgb)
+        self.bus.wram.clear();
+        // TODO(gameboy): Random fill values
+        self.bus.wram.resize(8 * 1024, 0);
 
-        // Add memory rules
-        // self.mmu.get_mut().rules.push(self.cpu.clone());
+        self.bus.hram.clear();
+        // TODO(gameboy): Random fill values
+        self.bus.hram.resize(127, 0);
+
+        // Reset: CPU
+        self.cpu.reset();
     }
 
     pub fn run(&mut self) {
         // Run: next instruction
-        // self.cpu.run_next();
-    }
-
-    pub fn step(&mut self) {
-        unimplemented!();
+        self.cpu.run_next(&mut self.bus);
     }
 }

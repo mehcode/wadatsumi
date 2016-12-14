@@ -6,7 +6,8 @@ authors = [
 ]
 
 [dependencies]
-rand = "0.3.x"
 sdl2 = "0.27.x"
 strfmt = "0.1.x"
 bitflags = "0.7"
+log = "0.3.x"
+env_logger = "0.3.x"

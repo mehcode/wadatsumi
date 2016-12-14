@@ -81,6 +81,10 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     pub fn open(&mut self, filename: &str) -> io::Result<()> {
         // Read in cartridge memory
         let mut stream = try!(File::open(filename));
@@ -220,5 +224,19 @@ impl Cartridge {
         }
 
         Ok(())
+    }
+
+    pub fn read(&mut self, address: u16) -> u8 {
+        // TODO: MBC / RAM
+        if address <= 0x7FFF {
+            self.rom[address as usize]
+        } else {
+            // Unhandled
+            0xFF
+        }
+    }
+
+    pub fn write(&mut self, address: u16, value: u8) {
+        // TODO: MBC
     }
 }
