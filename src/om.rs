@@ -16,7 +16,7 @@ macro_rules! om_read8 (($c:ident, $b:ident; $address:expr) => {
 macro_rules! om_read_next8 (($c:ident, $b:ident) => {
     {
         let r = om_read8!($c, $b; $c.pc);
-        $c.pc += 1;
+        $c.pc = $c.pc.wrapping_add(1);
 
         r
     }
@@ -36,7 +36,7 @@ macro_rules! om_write8 (($c:ident, $b:ident; $address:expr, $value:expr) => {
 /// 8-bit Decrement [z1h-]
 macro_rules! om_dec8 (($c:ident; $e:expr) => {
     {
-        let r = $e - 1;
+        let r = $e.wrapping_sub(1);
 
         $c.set_flag(cpu::ZERO, r == 0);
         $c.set_flag(cpu::ADD_SUBTRACT, true);
@@ -55,7 +55,7 @@ macro_rules! om_dec8_r (($c:ident; $reg:ident) => {
 /// 8-bit Increment [z1h-]
 macro_rules! om_inc8 (($c:ident; $e:expr) => {
     {
-        let r = $e + 1;
+        let r = $e.wrapping_add(1);
 
         $c.set_flag(cpu::ZERO, r == 0);
         $c.set_flag(cpu::ADD_SUBTRACT, false);
@@ -75,7 +75,7 @@ macro_rules! om_inc8_r (($c:ident; $reg:ident) => {
 macro_rules! om_add8_a (($c:ident; $e:expr) => {
     let a = $c.a as u16;
     let b = $e as u16;
-    let r = a + b;
+    let r = a.wrapping_add(b);
 
     $c.set_flag(cpu::HALF_CARRY, ((a & 0x0F) + (b & 0x0F)) > 0x0F);
     $c.set_flag(cpu::ZERO, (r & 0xFF) == 0);
@@ -90,7 +90,7 @@ macro_rules! om_adc8_a (($c:ident; $e:expr) => {
     let a = $c.a as u16;
     let b = $e as u16;
     let c = if $c.f.contains(cpu::CARRY) { 1 } else { 0 };
-    let r = a + b + c;
+    let r = a.wrapping_add(b).wrapping_add(c);
 
     $c.set_flag(cpu::HALF_CARRY, ((a & 0x0F) + (b & 0x0F) + c) > 0x0F);
     $c.set_flag(cpu::ZERO, (r & 0xFF) == 0);
@@ -105,7 +105,7 @@ macro_rules! om_cp8_a (($c:ident; $e:expr) => {
     {
         let a = $c.a as i16;
         let b = $e as i16;
-        let r = a - b;
+        let r = a.wrapping_sub(b);
 
         $c.set_flag(cpu::CARRY, r < 0);
         $c.set_flag(cpu::ZERO, (r & 0xFF) == 0);
@@ -126,7 +126,7 @@ macro_rules! om_sbc8_a (($c:ident; $e:expr) => {
     let a = $c.a as i16;
     let b = $e as i16;
     let c = if $c.f.contains(cpu::CARRY) { 1 } else { 0 };
-    let r = a - b - c;
+    let r = a.wrapping_sub(b).wrapping_sub(c);
 
     $c.set_flag(cpu::CARRY, r < 0);
     $c.set_flag(cpu::ZERO, (r & 0xFF) == 0);
@@ -263,8 +263,8 @@ macro_rules! om_rrca8 (($c:ident) => {
 /// 16-bit Read {+2}
 macro_rules! om_read16 (($c:ident, $b:ident; $address:expr) => {
     {
-        let l = om_read8!($c, $b; $address + 0) as u16;
-        let h = om_read8!($c, $b; $address + 1) as u16;
+        let l = om_read8!($c, $b; $address.wrapping_add(0)) as u16;
+        let h = om_read8!($c, $b; $address.wrapping_add(1)) as u16;
 
         l | (h << 8)
     }
@@ -274,7 +274,7 @@ macro_rules! om_read16 (($c:ident, $b:ident; $address:expr) => {
 macro_rules! om_read_next16 (($c:ident, $b:ident) => {
     {
         let r = om_read16!($c, $b; $c.pc);
-        $c.pc += 2;
+        $c.pc = $c.pc.wrapping_add(2);
 
         r
     }
@@ -283,8 +283,8 @@ macro_rules! om_read_next16 (($c:ident, $b:ident) => {
 /// 16-bit Write {+2}
 macro_rules! om_write16 (($c:ident, $b:ident; $address:expr, $value:expr) => {
     {
-      om_write8!($c, $b; $address + 1, ($value >> 8) as u8);
-      om_write8!($c, $b; $address + 0, ($value & 0xFF) as u8);
+      om_write8!($c, $b; $address.wrapping_add(1), ($value >> 8) as u8);
+      om_write8!($c, $b; $address.wrapping_add(0), ($value & 0xFF) as u8);
     }
 });
 
@@ -296,7 +296,7 @@ macro_rules! om_push16 (($c:ident, $b:ident; $e:expr) => {
     // Push has a 1 M-cycle delay
     $c.step($b);
 
-    $c.sp -= 2;
+    $c.sp = $c.sp.wrapping_sub(2);
     om_write16!($c, $b; $c.sp, $e);
 });
 
@@ -304,7 +304,7 @@ macro_rules! om_push16 (($c:ident, $b:ident; $e:expr) => {
 macro_rules! om_pop16 (($c:ident, $b:ident) => {
     {
         let r = om_read16!($c, $b; $c.sp);
-        $c.sp += 2;
+        $c.sp = $c.sp.wrapping_add(2);
 
         r
     }
@@ -317,7 +317,7 @@ macro_rules! om_pop16 (($c:ident, $b:ident) => {
 macro_rules! om_inc16 (($c:ident, $b:ident; $get:ident, $set:ident) => {
     let r = $c.$get();
 
-    $c.$set(r + 1);
+    $c.$set(r.wrapping_add(1));
     $c.step($b);
 });
 
@@ -325,7 +325,7 @@ macro_rules! om_inc16 (($c:ident, $b:ident; $get:ident, $set:ident) => {
 macro_rules! om_dec16 (($c:ident, $b:ident; $get:ident, $set:ident) => {
     let r = $c.$get();
 
-    $c.$set(r - 1);
+    $c.$set(r.wrapping_sub(1));
     $c.step($b);
 });
 
@@ -377,6 +377,7 @@ macro_rules! om_jp_if (($c:ident, $b:ident; $flag:expr) => {
     if $c.f.contains($flag) {
         om_jp!($c, $b);
     } else {
+        $c.pc += 2;
         $c.step($b);
         $c.step($b);
     }
@@ -387,6 +388,7 @@ macro_rules! om_jp_unless (($c:ident, $b:ident; $flag:expr) => {
     if !$c.f.contains($flag) {
         om_jp!($c, $b);
     } else {
+        $c.pc += 2;
         $c.step($b);
         $c.step($b);
     }
@@ -405,6 +407,7 @@ macro_rules! om_jr_if (($c:ident, $b:ident; $flag:expr) => {
     if $c.f.contains($flag) {
         om_jr!($c, $b);
     } else {
+        $c.pc += 1;
         $c.step($b);
     }
 });
@@ -414,6 +417,7 @@ macro_rules! om_jr_unless (($c:ident, $b:ident; $flag:expr) => {
     if !$c.f.contains($flag) {
         om_jr!($c, $b);
     } else {
+        $c.pc += 1;
         $c.step($b);
     }
 });
@@ -434,6 +438,7 @@ macro_rules! om_call_if (($c:ident, $b:ident; $flag:expr) => {
     if $c.f.contains($flag) {
         om_call!($c, $b);
     } else {
+        $c.pc += 2;
         $c.step($b);
     }
 });
@@ -443,6 +448,7 @@ macro_rules! om_call_unless (($c:ident, $b:ident; $flag:expr) => {
     if !$c.f.contains($flag) {
         om_call!($c, $b);
     } else {
+        $c.pc += 2;
         $c.step($b);
     }
 });

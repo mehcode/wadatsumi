@@ -186,7 +186,7 @@ pub fn _22(c: &mut Context, b: &mut Bus) {
     let hl = c.get_hl();
     om_write8!(c, b; hl, c.a);
 
-    c.set_hl(hl + 1);
+    c.set_hl(hl.wrapping_add(1));
 }
 
 // 23 — INC HL {2}
@@ -274,7 +274,7 @@ pub fn _2A(c: &mut Context, b: &mut Bus) {
     let r = om_read8!(c, b; hl);
 
     c.a = r;
-    c.set_hl(hl + 1);
+    c.set_hl(hl.wrapping_add(1));
 }
 
 // 2B — DEC HL {2}
@@ -321,7 +321,7 @@ pub fn _32(c: &mut Context, b: &mut Bus) {
     let hl = c.get_hl();
     om_write8!(c, b; hl, c.a);
 
-    c.set_hl(hl - 1);
+    c.set_hl(hl.wrapping_sub(1));
 }
 
 // 33 — INC SP {2}
@@ -379,7 +379,7 @@ pub fn _3A(c: &mut Context, b: &mut Bus) {
     let r = om_read8!(c, b; hl);
 
     c.a = r;
-    c.set_hl(hl - 1);
+    c.set_hl(hl.wrapping_sub(1));
 }
 
 // 3B — DEC SP {2}

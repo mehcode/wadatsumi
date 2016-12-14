@@ -100,25 +100,25 @@ impl Context {
     /// Get 16-bit Register: BC
     #[inline]
     pub fn get_bc(&self) -> u16 {
-        self.c as u16 | ((self.b as u16) << 8)
+        self.b as u16 | ((self.c as u16) << 8)
     }
 
     /// Get 16-bit Register: DE
     #[inline]
     pub fn get_de(&self) -> u16 {
-        self.d as u16 | ((self.e as u16) << 8)
+        self.e as u16 | ((self.d as u16) << 8)
     }
 
     /// Get 16-bit Register: HL
     #[inline]
     pub fn get_hl(&self) -> u16 {
-        self.h as u16 | ((self.l as u16) << 8)
+        self.l as u16 | ((self.h as u16) << 8)
     }
 
     /// Get 16-bit Register: AF
     #[inline]
     pub fn get_af(&self) -> u16 {
-        self.a as u16 | ((self.f.bits as u16) << 8)
+        self.f.bits as u16 | ((self.a as u16) << 8)
     }
 
     /// Set 16-bit Register: BC
@@ -163,14 +163,10 @@ impl CPU {
     pub fn reset(&mut self) {
         // Registers
         // TODO(gameboy): Dependent on model/variant
-        self.ctx.a = 0x01;
-        self.ctx.b = 0x00;
-        self.ctx.c = 0x13;
-        self.ctx.d = 0x00;
-        self.ctx.e = 0xD8;
-        self.ctx.h = 0x01;
-        self.ctx.l = 0x4D;
-        self.ctx.f = Flags::from_bits_truncate(0xB0);
+        self.ctx.set_af(0x01B0);
+        self.ctx.set_bc(0x0013);
+        self.ctx.set_de(0x00D8);
+        self.ctx.set_hl(0x014D);
         self.ctx.sp = 0xFFFE;
 
         // Program counter
@@ -240,12 +236,11 @@ impl CPU {
         let op = &self.table[opcode as usize];
         if let Some(handle) = op.handle {
             // Trace: Operation
-            trace!("{:>10}: {:<40} PC: 0x{:04X} AF: 0x{:02X}{:02X} BC: 0x{:02X}{:02X} DE: 0x{:02X}{:02X} HL: 0x{:02X}{:02X} SP: 0x{:04X}",
+            trace!("{:>10}: {:<40} PC: 0x{:04X} AF: 0x{:04X} BC: 0x{:02X}{:02X} DE: 0x{:02X}{:02X} HL: 0x{:02X}{:02X} SP: 0x{:04X}",
                      self.ctx.total_cycles,
                      op.format(&self.ctx, bus).unwrap(),
                      pc,
-                     self.ctx.a,
-                     self.ctx.f,
+                     self.ctx.get_af(),
                      self.ctx.b,
                      self.ctx.c,
                      self.ctx.d,
@@ -258,9 +253,9 @@ impl CPU {
             (handle)(&mut self.ctx, bus);
         } else {
             panic!(if opcode < 0x100 {
-                format!("unknown opcode: {:#02X}", opcode & 0xFF)
+                format!("unknown opcode {:#02X} at {:#04X}", opcode & 0xFF, pc)
             } else {
-                format!("unknown opcode: 0xCB {:#02X}", opcode & 0xFF)
+                format!("unknown opcode 0xCB {:#02X} at {:#04X}", opcode & 0xFF, pc)
             });
         }
 

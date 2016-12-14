@@ -40,7 +40,7 @@ fn main() {
     let mut m = machine::Machine::new();
 
     // let filename = "/Users/mehcode/Workspace/gb-test-roms/cpu_instrs/individual/06-ld r,r.gb";
-    let filename = "/Users/mehcode/Documents/Games/Tetris.gb";
+    let filename = "/Users/mehcode/Documents/Games/Dr. Mario.gb";
     m.open(filename).unwrap();
 
     m.reset();
