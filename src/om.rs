@@ -103,8 +103,8 @@ macro_rules! om_adc8_a (($c:ident; $e:expr) => {
 /// 8-bit Compare (from A) [z1hc]
 macro_rules! om_cp8_a (($c:ident; $e:expr) => {
     {
-        let a = $c.a as u16;
-        let b = $e as u16;
+        let a = $c.a as i16;
+        let b = $e as i16;
         let r = a - b;
 
         $c.set_flag(cpu::CARRY, r < 0);
@@ -123,8 +123,8 @@ macro_rules! om_sub8_a (($c:ident; $e:expr) => {
 
 /// 8-bit Subtract (from A) w/Carry [z1hc]
 macro_rules! om_sbc8_a (($c:ident; $e:expr) => {
-    let a = $c.a as u16;
-    let b = $e as u16;
+    let a = $c.a as i16;
+    let b = $e as i16;
     let c = if $c.f.contains(cpu::CARRY) { 1 } else { 0 };
     let r = a - b - c;
 
@@ -310,7 +310,6 @@ macro_rules! om_pop16 (($c:ident, $b:ident) => {
     }
 });
 
-
 // 16-bit Arithmetic/Logical
 // -------------------------
 
@@ -344,12 +343,30 @@ macro_rules! om_add16_hl (($c:ident, $b:ident; $e:expr) => {
     $c.step($b);
 });
 
+/// 16-bit Add (to SP) without Assignment [-0hc] {+1}
+macro_rules! om_add16_sp (($c:ident, $b:ident; $e:expr) => {
+    {
+        let a = $c.sp;
+        let b = ($e as i8) as i16;
+        let r = ((a as i16) + b) as u16;
+
+        $c.set_flag(cpu::CARRY, (r & 0xFF) < (a & 0xFF));
+        $c.set_flag(cpu::HALF_CARRY, (r & 0xF) < (a & 0xF));
+        $c.set_flag(cpu::ZERO, false);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+
+        $c.step($b);
+
+        r
+    }
+});
+
 // Jump
 // ----
 
 /// Jump [----] {+3}
-macro_rules! om_jp (($c:ident, $b:ident; $address:expr) => {
-    let address = om_read_next16!(c, b);
+macro_rules! om_jp (($c:ident, $b:ident) => {
+    let address = om_read_next16!($c, $b);
     $c.pc = address;
 
     $c.step($b);
@@ -399,6 +416,44 @@ macro_rules! om_jr_unless (($c:ident, $b:ident; $flag:expr) => {
     } else {
         $c.step($b);
     }
+});
+
+// Call
+// ----
+
+/// Call [----] {+5}
+macro_rules! om_call (($c:ident, $b:ident) => {
+    let address = om_read_next16!($c, $b);
+    om_push16!($c, $b; $c.pc);
+
+    $c.pc = address;
+});
+
+/// Call; If [----] {+2;+1}
+macro_rules! om_call_if (($c:ident, $b:ident; $flag:expr) => {
+    if $c.f.contains($flag) {
+        om_call!($c, $b);
+    } else {
+        $c.step($b);
+    }
+});
+
+/// Call; Unless [----] {+2;+1}
+macro_rules! om_call_unless (($c:ident, $b:ident; $flag:expr) => {
+    if !$c.f.contains($flag) {
+        om_call!($c, $b);
+    } else {
+        $c.step($b);
+    }
+});
+
+// Reset
+// -----
+
+/// Reset [----] {+3}
+macro_rules! om_rst (($c:ident, $b:ident; $address:expr) => {
+    om_push16!($c, $b; $c.pc);
+    $c.pc = $address;
 });
 
 // Return

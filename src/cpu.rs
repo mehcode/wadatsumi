@@ -91,6 +91,12 @@ impl Context {
         }
     }
 
+    /// Test flag
+    #[inline]
+    pub fn test_flag(&self, flag: Flags) -> bool {
+        self.f.contains(flag)
+    }
+
     /// Get 16-bit Register: BC
     #[inline]
     pub fn get_bc(&self) -> u16 {

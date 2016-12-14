@@ -33,14 +33,18 @@ impl Operation {
         }
     }
 
-    pub fn format(&self, _: &Context, _: &mut Bus) -> Result<String, strfmt::FmtError> {
+    pub fn format(&self, c: &Context, b: &mut Bus) -> Result<String, strfmt::FmtError> {
+        let n0 = b.read(c.pc + 0) as i64;
+        let n1 = b.read(c.pc + 1) as i64;
         strfmt::strfmt_map(self.disassembly,
                            &|mut fmt: strfmt::Formatter| {
             // TODO(rust): This library seems to want me to use unwrap here which smells
             if fmt.key == "0" {
-                fmt.write_str("?").unwrap()
+                fmt.i64(n0).unwrap()
+            } else if fmt.key == "1" {
+                fmt.i64(n1).unwrap()
             } else {
-                fmt.write_str("??").unwrap()
+                panic!(format!("unknown format key: {}", fmt.key))
             }
 
             Ok(())
