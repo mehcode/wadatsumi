@@ -1,6 +1,5 @@
 use std::vec;
 use std::ops::Index;
-use std::fmt::Write;
 use std::string::String;
 use strfmt;
 
@@ -34,7 +33,7 @@ impl Operation {
     }
 
     pub fn format(&self, c: &Context, b: &mut Bus) -> Result<String, strfmt::FmtError> {
-        let n0 = b.read(c.pc + 0) as i64;
+        let n0 = b.read(c.pc) as i64;
         let n1 = b.read(c.pc + 1) as i64;
         strfmt::strfmt_map(self.disassembly,
                            &|mut fmt: strfmt::Formatter| {
