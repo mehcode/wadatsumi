@@ -21,18 +21,18 @@ pub struct Operation {
 
 impl Operation {
     fn new(handle: fn(&mut Context, &mut Bus) -> (), disassembly: &'static str, size: u8) -> Self {
-        return Operation {
+        Operation {
             handle: handle,
             disassembly: disassembly,
             size: size,
-        };
+        }
     }
 
     pub fn is_empty(&self) -> bool {
         self.size == 0
     }
 
-    pub fn format(&self, ctx: &Context, bus: &mut Bus) -> Result<String, strfmt::FmtError> {
+    pub fn format(&self, _: &Context, _: &mut Bus) -> Result<String, strfmt::FmtError> {
         strfmt::strfmt_map(self.disassembly,
                            &|mut fmt: strfmt::Formatter| {
             // TODO(rust): This library seems to want me to use unwrap here which smells
@@ -56,14 +56,24 @@ pub struct Table {
 
 impl Default for Table {
     fn default() -> Self {
-        return Table {
+        Table {
             operations: vec![Operation::new(op::_00, "NOP", 1),
-                             Operation::new(op::_01, "LD BC, {0:#X}", 2),
+                             Operation::new(op::_01, "LD BC, 0x{1:X}{0:X}", 3),
                              Operation::new(op::_02, "LD (BC), A", 1),
                              Operation::new(op::_03, "INC BC", 1),
                              Operation::new(op::_04, "INC B", 1),
-                             Operation::new(op::_05, "DEC B", 1)],
-        };
+                             Operation::new(op::_05, "DEC B", 1),
+                             Operation::new(op::_06, "LD B, 0x{0:X}", 2),
+                             Operation::new(op::_07, "RLCA", 1),
+                             Operation::new(op::_08, "LD (0x{1:X}{0:X}), SP", 3),
+                             Operation::new(op::_09, "ADD HL, BC", 1),
+                             Operation::new(op::_0A, "LD A, (BC)", 1),
+                             Operation::new(op::_0B, "DEC BC", 1),
+                             Operation::new(op::_0C, "INC C", 1),
+                             Operation::new(op::_0D, "DEC C", 1),
+                             Operation::new(op::_0E, "LD C, 0x{0:X}", 2),
+                             Operation::new(op::_0F, "RRCA", 1)],
+        }
     }
 }
 

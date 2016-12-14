@@ -5,6 +5,7 @@ use std::vec;
 use std::string;
 use std::ascii::AsciiExt;
 
+#[allow(enum_variant_names)]
 #[derive(PartialEq)]
 pub enum MBC {
     // No MBC (less than 32 KiB)
@@ -81,10 +82,6 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     pub fn open(&mut self, filename: &str) -> io::Result<()> {
         // Read in cartridge memory
         let mut stream = try!(File::open(filename));
@@ -236,7 +233,7 @@ impl Cartridge {
         }
     }
 
-    pub fn write(&mut self, address: u16, value: u8) {
+    pub fn write(&mut self, _: u16, _: u8) {
         // TODO: MBC
     }
 }

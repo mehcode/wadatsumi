@@ -35,7 +35,7 @@ fn main() {
 
     let mut is_running = true;
 
-    let mut window = WindowBuilder::new(&video, "Wadatsumi", 160 * 4, 144 * 4).build().unwrap();
+    let window = WindowBuilder::new(&video, "Wadatsumi", 160 * 4, 144 * 4).build().unwrap();
 
     let mut m = machine::Machine::new();
 
@@ -59,25 +59,14 @@ fn main() {
     let mut renderer = RendererBuilder::new(window).accelerated().build().unwrap();
 
     while is_running {
+        // Run: Machine
         m.run();
-
-        // println!("{:>6}: {:<40} PC: 0x{:04X} AF: 0x{:04X} BC: 0x{:04X} DE: 0x{:04X} HL: \
-        //          0x{:04X} SP: 0x{:04X}",
-        //         cycles,
-        //         strfmt::strfmt_map(op.disassembly, &|mut fmt: strfmt::Formatter| fmt.i64(1))
-        //             .unwrap(),
-        //         10,
-        //         14,
-        //         50,
-        //         120,
-        //         30,
-        //         63);
 
         // Render: Clear the window
         renderer.set_draw_color(Color::RGB(255, 255, 255));
         renderer.clear();
 
-        // Render: present
+        // Render: Present
         renderer.present();
 
         // Poll events
@@ -86,6 +75,22 @@ fn main() {
                 Event::Quit { .. } => {
                     // Quit the program
                     is_running = false;
+                }
+
+                Event::KeyDown { scancode, repeat, .. } => {
+                    if !repeat {
+                        if let Some(scancode) = scancode {
+                            info!("event: key down: {}", scancode);
+                        }
+                    }
+                }
+
+                Event::KeyUp { scancode, repeat, .. } => {
+                    if !repeat {
+                        if let Some(scancode) = scancode {
+                            info!("event: key up: {}", scancode);
+                        }
+                    }
                 }
 
                 _ => {

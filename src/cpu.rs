@@ -227,7 +227,7 @@ impl CPU {
             self.ctx.step(bus);
         }
 
-        let ref op = self.table[opcode as usize];
+        let op = &self.table[opcode as usize];
         if op.is_empty() {
             panic!(if opcode < 0x100 {
                 format!("unknown opcode: {:#02X}", opcode & 0xFF)

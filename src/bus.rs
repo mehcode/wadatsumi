@@ -1,6 +1,5 @@
 use std::vec;
 
-use ::cpu;
 use ::cart;
 
 /// The Bus is the interconnect that facilitates communication from the CPU and the various other
@@ -31,7 +30,17 @@ impl Bus {
     /// Read
     pub fn read(&mut self, address: u16) -> u8 {
         match address {
+            // ROM: Cartridge
             0x0000...0x7FFF => self.cart.read(address),
+
+            // Work RAM
+            0xC000...0xFDFF => {
+                self.wram[(address as usize & 0x1FFF) + (self.wram_bank as usize * 0x2000)]
+            }
+
+            // High RAM
+            0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
+
             _ => {
                 // Unhandled
                 warn!("unhandled read at {:#04X}", address);
@@ -43,7 +52,19 @@ impl Bus {
     /// Write
     pub fn write(&mut self, address: u16, value: u8) {
         match address {
+            // ROM: Cartridge
             0x0000...0x7FFF => self.cart.write(address, value),
+
+            // Work RAM
+            0xC000...0xFDFF => {
+                self.wram[(address as usize & 0x1FFF) + (self.wram_bank as usize * 0x2000)] = value;
+            }
+
+            // High RAM
+            0xFF80...0xFFFE => {
+                self.hram[(address - 0xFF80) as usize] = value;
+            }
+
             _ => {
                 // Unhandled
                 warn!("unhandled write at {:#04X} with {:#02X}", address, value);
