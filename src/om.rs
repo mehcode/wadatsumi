@@ -2,6 +2,7 @@
 // Instructions are broken down into reusable macros that allow zero-cost code reuse.
 
 // 8-bit Memory Read/Write
+// -----------------------
 
 /// 8-bit Read {+1}
 macro_rules! om_read8 (($c:ident, $b:ident; $address:expr) => {
@@ -30,30 +31,155 @@ macro_rules! om_write8 (($c:ident, $b:ident; $address:expr, $value:expr) => {
 });
 
 // 8-bit Arithmetic/Logical
+// ------------------------
 
 /// 8-bit Decrement [z1h-]
 macro_rules! om_dec8 (($c:ident; $e:expr) => {
-    let r = $e - 1;
+    {
+        let r = $e - 1;
 
-    $c.set_flag(cpu::ZERO, r == 0);
-    $c.set_flag(cpu::ADD_SUBTRACT, true);
-    $c.set_flag(cpu::HALF_CARRY, r & 0x0F == 0x0F);
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, true);
+        $c.set_flag(cpu::HALF_CARRY, r & 0x0F == 0x0F);
 
-    $e = r;
+        r
+    }
+});
+
+/// 8-bit Decrement Register [z1h-]
+macro_rules! om_dec8_r (($c:ident; $reg:ident) => {
+    let r = om_dec8!($c; $c.$reg);
+    $c.$reg = r;
 });
 
 /// 8-bit Increment [z1h-]
 macro_rules! om_inc8 (($c:ident; $e:expr) => {
-    let r = $e + 1;
+    {
+        let r = $e + 1;
+
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, r & 0x0F == 0x00);
+
+        r
+    }
+});
+
+/// 8-bit Increment Register [z1h-]
+macro_rules! om_inc8_r (($c:ident; $reg:ident) => {
+    let r = om_inc8!($c; $c.$reg);
+    $c.$reg = r;
+});
+
+/// 8-bit Add (to A) [z0hc]
+macro_rules! om_add8_a (($c:ident; $e:expr) => {
+    let a = $c.a as u16;
+    let b = $e as u16;
+    let r = a + b;
+
+    $c.set_flag(cpu::HALF_CARRY, ((a & 0x0F) + (b & 0x0F)) > 0x0F);
+    $c.set_flag(cpu::ZERO, (r & 0xFF) == 0);
+    $c.set_flag(cpu::CARRY, r > 0xFF);
+    $c.set_flag(cpu::ADD_SUBTRACT, false);
+
+    $c.a = (r & 0xFF) as u8;
+});
+
+/// 8-bit Add (to A) w/Carry [z0hc]
+macro_rules! om_adc8_a (($c:ident; $e:expr) => {
+    let a = $c.a as u16;
+    let b = $e as u16;
+    let c = if $c.f.contains(cpu::CARRY) { 1 } else { 0 };
+    let r = a + b + c;
+
+    $c.set_flag(cpu::HALF_CARRY, ((a & 0x0F) + (b & 0x0F) + c) > 0x0F);
+    $c.set_flag(cpu::ZERO, (r & 0xFF) == 0);
+    $c.set_flag(cpu::CARRY, r > 0xFF);
+    $c.set_flag(cpu::ADD_SUBTRACT, false);
+
+    $c.a = (r & 0xFF) as u8;
+});
+
+/// 8-bit Compare (from A) [z1hc]
+macro_rules! om_cp8_a (($c:ident; $e:expr) => {
+    {
+        let a = $c.a as u16;
+        let b = $e as u16;
+        let r = a - b;
+
+        $c.set_flag(cpu::CARRY, r < 0);
+        $c.set_flag(cpu::ZERO, (r & 0xFF) == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, true);
+        $c.set_flag(cpu::HALF_CARRY, ((((a as i16) & 0x0F) - ((b as i16) & 0x0F)) < 0));
+
+        (r & 0xFF) as u8
+    }
+});
+
+/// 8-bit Subtract (from A) [z1hc]
+macro_rules! om_sub8_a (($c:ident; $e:expr) => {
+    $c.a = om_cp8_a!($c; $e);
+});
+
+/// 8-bit Subtract (from A) w/Carry [z1hc]
+macro_rules! om_sbc8_a (($c:ident; $e:expr) => {
+    let a = $c.a as u16;
+    let b = $e as u16;
+    let c = if $c.f.contains(cpu::CARRY) { 1 } else { 0 };
+    let r = a - b - c;
+
+    $c.set_flag(cpu::CARRY, r < 0);
+    $c.set_flag(cpu::ZERO, (r & 0xFF) == 0);
+    $c.set_flag(cpu::ADD_SUBTRACT, true);
+    $c.set_flag(cpu::HALF_CARRY, ((((a as i16) & 0x0F) - ((b as i16) & 0x0F) - (c as i16)) < 0));
+
+    $c.a = (r & 0xFF) as u8;
+});
+
+/// 8-bit Logical AND (with A) [z010]
+macro_rules! om_and8_a (($c:ident; $e:expr) => {
+    let a = $c.a;
+    let b = $e;
+    let r = a & b;
 
     $c.set_flag(cpu::ZERO, r == 0);
     $c.set_flag(cpu::ADD_SUBTRACT, false);
-    $c.set_flag(cpu::HALF_CARRY, r & 0x0F == 0x00);
+    $c.set_flag(cpu::HALF_CARRY, true);
+    $c.set_flag(cpu::CARRY, false);
 
-    $e = r;
+    $c.a = r;
+});
+
+/// 8-bit Logical OR (with A) [z010]
+macro_rules! om_or8_a (($c:ident; $e:expr) => {
+    let a = $c.a;
+    let b = $e;
+    let r = a | b;
+
+    $c.set_flag(cpu::ZERO, r == 0);
+    $c.set_flag(cpu::ADD_SUBTRACT, false);
+    $c.set_flag(cpu::HALF_CARRY, false);
+    $c.set_flag(cpu::CARRY, false);
+
+    $c.a = r;
+});
+
+/// 8-bit Logical XOR (with A) [z010]
+macro_rules! om_xor8_a (($c:ident; $e:expr) => {
+    let a = $c.a;
+    let b = $e;
+    let r = a ^ b;
+
+    $c.set_flag(cpu::ZERO, r == 0);
+    $c.set_flag(cpu::ADD_SUBTRACT, false);
+    $c.set_flag(cpu::HALF_CARRY, false);
+    $c.set_flag(cpu::CARRY, false);
+
+    $c.a = r;
 });
 
 // 8-bit Rotate/Shift
+// ------------------
 
 /// 8-bit Rotate Left (through carry) [z00c]
 macro_rules! om_rl8 (($c:ident; $e:expr) => {
@@ -132,6 +258,7 @@ macro_rules! om_rrca8 (($c:ident) => {
 });
 
 // 16-bit Memory Read/Write
+// ------------------------
 
 /// 16-bit Read {+2}
 macro_rules! om_read16 (($c:ident, $b:ident; $address:expr) => {
@@ -161,7 +288,31 @@ macro_rules! om_write16 (($c:ident, $b:ident; $address:expr, $value:expr) => {
     }
 });
 
+// 16-bit Push/Pop
+// ---------------
+
+/// 16-bit Push [----] {+3}
+macro_rules! om_push16 (($c:ident, $b:ident; $e:expr) => {
+    // Push has a 1 M-cycle delay
+    $c.step($b);
+
+    $c.sp -= 2;
+    om_write16!($c, $b; $c.sp, $e);
+});
+
+/// 16-bit Pop [(..)] {+2}
+macro_rules! om_pop16 (($c:ident, $b:ident) => {
+    {
+        let r = om_read16!($c, $b; $c.sp);
+        $c.sp += 2;
+
+        r
+    }
+});
+
+
 // 16-bit Arithmetic/Logical
+// -------------------------
 
 /// 16-bit Increment [----] {+1}
 macro_rules! om_inc16 (($c:ident, $b:ident; $get:ident, $set:ident) => {
@@ -180,9 +331,9 @@ macro_rules! om_dec16 (($c:ident, $b:ident; $get:ident, $set:ident) => {
 });
 
 /// 16-bit Add (to HL) [-0hc] {+1}
-macro_rules! om_add16_hl (($c:ident, $b:ident; $get:ident) => {
+macro_rules! om_add16_hl (($c:ident, $b:ident; $e:expr) => {
     let a = $c.get_hl();
-    let b = $c.$get();
+    let b = $e;
     let r = a as u32 + b as u32;
 
     $c.set_flag(cpu::HALF_CARRY, ((a ^ b ^ ((r & 0xFFFF) as u16)) & 0x1000) != 0);
@@ -191,4 +342,86 @@ macro_rules! om_add16_hl (($c:ident, $b:ident; $get:ident) => {
 
     $c.set_hl((r & 0xFFFF) as u16);
     $c.step($b);
+});
+
+// Jump
+// ----
+
+/// Jump [----] {+3}
+macro_rules! om_jp (($c:ident, $b:ident; $address:expr) => {
+    let address = om_read_next16!(c, b);
+    $c.pc = address;
+
+    $c.step($b);
+});
+
+/// Jump; If [----] {+3;+2}
+macro_rules! om_jp_if (($c:ident, $b:ident; $flag:expr) => {
+    if $c.f.contains($flag) {
+        om_jp!($c, $b);
+    } else {
+        $c.step($b);
+        $c.step($b);
+    }
+});
+
+/// Jump; Unless [----] {+3;+2}
+macro_rules! om_jp_unless (($c:ident, $b:ident; $flag:expr) => {
+    if !$c.f.contains($flag) {
+        om_jp!($c, $b);
+    } else {
+        $c.step($b);
+        $c.step($b);
+    }
+});
+
+/// Relative Jump [----] {+2}
+macro_rules! om_jr (($c:ident, $b:ident) => {
+    let offset = om_read_next8!($c, $b);
+    $c.pc = (($c.pc as i32) + (((offset as u8) as i8) as i32)) as u16;
+
+    $c.step($b);
+});
+
+/// Relative Jump; If [----] {+2;+1}
+macro_rules! om_jr_if (($c:ident, $b:ident; $flag:expr) => {
+    if $c.f.contains($flag) {
+        om_jr!($c, $b);
+    } else {
+        $c.step($b);
+    }
+});
+
+/// Relative Jump; Unless [----] {+2;+1}
+macro_rules! om_jr_unless (($c:ident, $b:ident; $flag:expr) => {
+    if !$c.f.contains($flag) {
+        om_jr!($c, $b);
+    } else {
+        $c.step($b);
+    }
+});
+
+// Return
+// ------
+
+/// Return [----] {+3}
+macro_rules! om_ret (($c:ident, $b:ident) => {
+    $c.pc = om_pop16!($c, $b);
+    $c.step($b);
+});
+
+/// Return; If [----] {+4;+1}
+macro_rules! om_ret_if (($c:ident, $b:ident; $flag:expr) => {
+    $c.step($b);
+    if $c.f.contains($flag) {
+        om_ret!($c, $b);
+    }
+});
+
+/// Return; Unless [----] {+4;+1}
+macro_rules! om_ret_unless (($c:ident, $b:ident; $flag:expr) => {
+    $c.step($b);
+    if !$c.f.contains($flag) {
+        om_ret!($c, $b);
+    }
 });

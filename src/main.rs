@@ -15,12 +15,12 @@ use sdl2::pixels::Color;
 use sdl2::video::WindowBuilder;
 use sdl2::render::RendererBuilder;
 
-mod operation;
-
 #[macro_use]
 mod om;
 
 mod op;
+mod operation;
+
 mod cpu;
 mod machine;
 mod bus;

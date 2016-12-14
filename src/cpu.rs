@@ -55,6 +55,12 @@ pub struct Context {
     ///  -1 - Funny bug state that will replay the next opcode
     pub halt: i8,
 
+    /// [0xFFFF] Interrupt Enable (IE) R/W
+    pub ie: u8,
+
+    /// [0xFF0F] Interrupt Flag (IF) R/W
+    pub if_: u8,
+
     /// Current instruction M-cycle counter
     cycles: u32,
 
@@ -145,12 +151,6 @@ pub struct CPU {
 
     /// Operation table
     table: operation::Table,
-
-    /// [0xFFFF] Interrupt Enable (IE) R/W
-    ie: u8,
-
-    /// [0xFF0F] Interrupt Flag (IF) R/W
-    if_: u8,
 }
 
 impl CPU {
@@ -180,8 +180,8 @@ impl CPU {
         self.ctx.halt = 0;
 
         // Interrupt Enable/Flag
-        self.ie = 0;
-        self.if_ = 0;
+        self.ctx.ie = 0;
+        self.ctx.if_ = 0;
     }
 
     /// Run next instruction
@@ -191,7 +191,7 @@ impl CPU {
 
         // If CPU is currently in STOP mode;
         // Or, If CPU is currently in HALT mode with no pending interrupts
-        if self.ctx.stop || (self.ctx.halt == 1 && (self.ie & self.if_ == 0)) {
+        if self.ctx.stop || (self.ctx.halt == 1 && (self.ctx.ie & self.ctx.if_ == 0)) {
             // Step a single M-cycle and return
             self.ctx.step(bus);
             self.ctx.cycles = 1;
@@ -217,7 +217,11 @@ impl CPU {
         self.ctx.pc += 1;
         self.ctx.step(bus);
 
-        // TODO: On HALT bug; replay PC value here
+        // On HALT bug; replay PC value here
+        if self.ctx.halt == -1 {
+            self.ctx.pc -= 1;
+            self.ctx.halt = 0;
+        }
 
         // On 0xCB; offset our opcode and read the next byte to determine the final opcode
         if opcode == 0xCB {
@@ -228,31 +232,31 @@ impl CPU {
         }
 
         let op = &self.table[opcode as usize];
-        if op.is_empty() {
+        if let Some(handle) = op.handle {
+            // Trace: Operation
+            trace!("{:>10}: {:<40} PC: 0x{:04X} AF: 0x{:02X}{:02X} BC: 0x{:02X}{:02X} DE: 0x{:02X}{:02X} HL: 0x{:02X}{:02X} SP: 0x{:04X}",
+                     self.ctx.total_cycles,
+                     op.format(&self.ctx, bus).unwrap(),
+                     pc,
+                     self.ctx.a,
+                     self.ctx.f,
+                     self.ctx.b,
+                     self.ctx.c,
+                     self.ctx.d,
+                     self.ctx.e,
+                     self.ctx.h,
+                     self.ctx.l,
+                     self.ctx.sp);
+
+            // Operation: execute
+            (handle)(&mut self.ctx, bus);
+        } else {
             panic!(if opcode < 0x100 {
                 format!("unknown opcode: {:#02X}", opcode & 0xFF)
             } else {
                 format!("unknown opcode: 0xCB {:#02X}", opcode & 0xFF)
             });
         }
-
-        // Trace: Operation
-        trace!("{:>10}: {:<40} PC: 0x{:04X} AF: 0x{:02X}{:02X} BC: 0x{:02X}{:02X} DE: 0x{:02X}{:02X} HL: 0x{:02X}{:02X} SP: 0x{:04X}",
-                 self.ctx.total_cycles,
-                 op.format(&self.ctx, bus).unwrap(),
-                 pc,
-                 self.ctx.a,
-                 self.ctx.f,
-                 self.ctx.b,
-                 self.ctx.c,
-                 self.ctx.d,
-                 self.ctx.e,
-                 self.ctx.h,
-                 self.ctx.l,
-                 self.ctx.sp);
-
-        // Operation: execute
-        (op.handle)(&mut self.ctx, bus);
 
         self.ctx.cycles
     }
