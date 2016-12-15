@@ -53,7 +53,6 @@ fn main() {
         .get_matches();
 
     let rom_filename = matches.value_of("rom").unwrap();
-    println!("rom: {}", rom_filename);
 
     let mode: Option<mode::Mode> = match matches.value_of("mode") {
         Some(mode_str) => mode::Mode::from_str(mode_str),
@@ -73,17 +72,6 @@ fn main() {
     m.open(&rom_filename).unwrap();
 
     m.reset();
-
-    // Update title on window
-    // TODO(wadatsumi): relativize the filename
-    // window.set_title(format!("Wadatsumi — {}",
-    //                       if m.cart.title.is_empty() {
-    //                           &filename
-    //                       } else {
-    //                           m.cart.title.as_str()
-    //                       })
-    //        .as_str())
-    //    .unwrap();
 
     // Create 2D renderer
     let mut renderer = RendererBuilder::new(window).accelerated().present_vsync().build().unwrap();
