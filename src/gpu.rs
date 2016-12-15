@@ -323,10 +323,8 @@ impl GPU {
             0xFF43 => self.scx,
 
             // LCDC Y-Coordinate
-            // HACK: LY -> 0x90 (for testing)
-            0xFF44 => 0x90,
-            // 0xFF44 => self.ly,
-            //
+            0xFF44 => self.ly,
+
             // LY Compare
             0xFF45 => self.lyc,
 
