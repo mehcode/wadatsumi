@@ -14,9 +14,11 @@ wadatsumi, will attempt to guess the preferred mode.
 | Gameboy — `gb`             | `dmg0`     |                                    |
 | Gameboy — `gb`             | `dmg`      |                                    |
 | Gameboy — `gb`             | `mgb`  (*) |                                    |
-| Gameboy — `gb`             | `cgb`      | Color Gameboy locked in GB mode    |
-| Gameboy — `gb`             | `agb`      | Gameboy Advance locked in GB mode  |
+| Gameboy — `gb`             | `cgb`      | CGB locked in GB mode              |
+| Gameboy — `gb`             | `agb`      | AGB locked in GB mode              |
+| Gameboy — `gb`             | `sgb1`     | SGB1 locked in GB mode             |
+| Gameboy — `gb`             | `sgb2`     | SGB2 locked in GB mode             |
 | Super Gameboy — `sgb`      | `1`        |                                    |
 | Super Gameboy — `sgb`      | `2`    (*) |                                    |
 | Color Gameboy — `cgb`      | `cgb`  (*) |                                    |
-| Color Gameboy — `cgb`      | `agb`      | Gameboy Advance locked in CGB mode |
+| Color Gameboy — `cgb`      | `agb`      | AGB locked in CGB mode             |
