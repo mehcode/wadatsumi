@@ -1,0 +1,4 @@
+Architecture:
+ ☐ Figure out an alternative method for get/set of 16-bit registers
+ ☐ Determine if there is a more optimal system for operation microcode (the macros
+    were a close translation from Arrow)
