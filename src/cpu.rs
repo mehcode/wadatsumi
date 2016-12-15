@@ -100,7 +100,7 @@ impl Context {
     /// Get 16-bit Register: BC
     #[inline]
     pub fn get_bc(&self) -> u16 {
-        self.b as u16 | ((self.c as u16) << 8)
+        self.c as u16 | ((self.b as u16) << 8)
     }
 
     /// Get 16-bit Register: DE
@@ -227,7 +227,7 @@ impl CPU {
 
         // On 0xCB; offset our opcode and read the next byte to determine the final opcode
         if opcode == 0xCB {
-            opcode += 0x100;
+            opcode = 0x100;
             opcode |= bus.read(self.ctx.pc) as usize;
             self.ctx.pc += 1;
             self.ctx.step(bus);
@@ -236,17 +236,14 @@ impl CPU {
         let op = &self.table[opcode as usize];
         if let Some(handle) = op.handle {
             // Trace: Operation
-            trace!("{:>10}: {:<40} PC: 0x{:04X} AF: 0x{:04X} BC: 0x{:02X}{:02X} DE: 0x{:02X}{:02X} HL: 0x{:02X}{:02X} SP: 0x{:04X}",
+            trace!("{:>10}: {:<25} PC: 0x{:04X} AF: 0x{:04X} BC: 0x{:04X} DE: 0x{:04X} HL: 0x{:04X} SP: 0x{:04X}",
                      self.ctx.total_cycles,
                      op.format(&self.ctx, bus).unwrap(),
                      pc,
                      self.ctx.get_af(),
-                     self.ctx.b,
-                     self.ctx.c,
-                     self.ctx.d,
-                     self.ctx.e,
-                     self.ctx.h,
-                     self.ctx.l,
+                     self.ctx.get_bc(),
+                     self.ctx.get_de(),
+                     self.ctx.get_hl(),
                      self.ctx.sp);
 
             // Operation: execute

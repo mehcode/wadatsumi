@@ -539,22 +539,24 @@ macro_rules! om_call (($c:ident, $b:ident) => {
     $c.pc = address;
 });
 
-/// Call; If [----] {+2;+1}
+/// Call; If [----] {+5;+2}
 macro_rules! om_call_if (($c:ident, $b:ident; $flag:expr) => {
     if $c.f.contains($flag) {
         om_call!($c, $b);
     } else {
         $c.pc += 2;
         $c.step($b);
+        $c.step($b);
     }
 });
 
-/// Call; Unless [----] {+2;+1}
+/// Call; Unless [----] {+5;+2}
 macro_rules! om_call_unless (($c:ident, $b:ident; $flag:expr) => {
     if !$c.f.contains($flag) {
         om_call!($c, $b);
     } else {
         $c.pc += 2;
+        $c.step($b);
         $c.step($b);
     }
 });

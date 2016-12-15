@@ -2,6 +2,7 @@ use std::vec;
 use std::ops::Index;
 use std::string::String;
 use strfmt;
+use std::fmt::Write;
 
 use ::op;
 use ::bus::Bus;
@@ -39,9 +40,9 @@ impl Operation {
                            &|mut fmt: strfmt::Formatter| {
             // TODO(rust): This library seems to want me to use unwrap here which smells
             if fmt.key == "0" {
-                fmt.i64(n0).unwrap()
+                fmt.write_str(&format!("{:02X}", n0)).unwrap()
             } else if fmt.key == "1" {
-                fmt.i64(n1).unwrap()
+                fmt.write_str(&format!("{:02X}", n1)).unwrap()
             } else {
                 panic!(format!("unknown format key: {}", fmt.key))
             }
@@ -275,8 +276,8 @@ impl Default for Table {
                                   Operation::new(op::_C8, "RET Z", 1),
                                   Operation::new(op::_C9, "RET", 1),
                                   Operation::new(op::_CA, "JP Z, 0x{1:X}{0:X}", 3),
-                                  Operation::new(op::_CC, "CALL Z, 0x{1:X}{0:X}", 3),
                                   Operation::empty(),
+                                  Operation::new(op::_CC, "CALL Z, 0x{1:X}{0:X}", 3),
                                   Operation::new(op::_CD, "CALL 0x{1:X}{0:X}", 3),
                                   Operation::new(op::_CE, "ADC A, 0x{0:X}", 2),
                                   Operation::new(op::_CF, "RST 0x08", 1),

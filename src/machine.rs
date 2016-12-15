@@ -5,8 +5,9 @@ use ::bus;
 
 #[derive(Default)]
 pub struct Machine {
+    // TODO: This should not be public but it is for my hacked SDL usage
     /// Interconnect: Bus
-    bus: bus::Bus,
+    pub bus: bus::Bus,
 
     /// Component: CPU
     cpu: cpu::CPU,
@@ -22,17 +23,11 @@ impl Machine {
     }
 
     pub fn reset(&mut self) {
-        // TODO(gameboy): Depends on model (gb/cgb)
-        self.bus.wram.clear();
-        // TODO(gameboy): Random fill values
-        self.bus.wram.resize(8 * 1024, 0);
-
-        self.bus.hram.clear();
-        // TODO(gameboy): Random fill values
-        self.bus.hram.resize(127, 0);
-
         // Reset: CPU
         self.cpu.reset();
+
+        // Reset: Bus (and all attached components)
+        self.bus.reset();
     }
 
     pub fn run(&mut self) {
