@@ -38,6 +38,10 @@ impl Bus {
                 self.wram[(address as usize & 0x1FFF) + (self.wram_bank as usize * 0x2000)]
             }
 
+            // DEBUG: LY (until we get a GPU)
+            // Force LY to be at a value the test ROMs look for
+            0xFF44 => 144,
+
             // High RAM
             0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
 

@@ -1,3 +1,5 @@
+#![allow(unknown_lints)]
+
 use std::fs::File;
 use std::io;
 use std::io::Read;

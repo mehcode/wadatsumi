@@ -178,83 +178,189 @@ macro_rules! om_xor8_a (($c:ident; $e:expr) => {
     $c.a = r;
 });
 
-// 8-bit Rotate/Shift
-// ------------------
+// 8-bit Rotate
+// ------------
 
 /// 8-bit Rotate Left (through carry) [z00c]
 macro_rules! om_rl8 (($c:ident; $e:expr) => {
-    let n = $e;
-    let r = (n << 1) | ($c.f.contains(cpu::CARRY) as u8);
+    {
+        let n = $e;
+        let r = (n << 1) | ($c.f.contains(cpu::CARRY) as u8);
 
-    $c.set_flag(cpu::ZERO, r == 0);
-    $c.set_flag(cpu::ADD_SUBTRACT, false);
-    $c.set_flag(cpu::HALF_CARRY, false);
-    $c.set_flag(cpu::CARRY, ((n & 0x80) != 0));
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, false);
+        $c.set_flag(cpu::CARRY, ((n & 0x80) != 0));
 
-    $e = r;
+        r
+    }
 });
 
 /// 8-bit Rotate Accumulator Left (through carry) [000c]
 macro_rules! om_rla8 (($c:ident) => {
-    om_rl8!($c; $c.a);
+    $c.a = om_rl8!($c; $c.a);
     $c.set_flag(cpu::ZERO, false);
 });
 
 /// 8-bit Rotate Left [z00c]
 macro_rules! om_rlc8 (($c:ident; $e:expr) => {
-    let n = $e;
-    let r = (n << 1) | (n >> 7);
+    {
+        let n = $e;
+        let r = (n << 1) | (n >> 7);
 
-    $c.set_flag(cpu::ZERO, r == 0);
-    $c.set_flag(cpu::ADD_SUBTRACT, false);
-    $c.set_flag(cpu::HALF_CARRY, false);
-    $c.set_flag(cpu::CARRY, ((n & 0x80) != 0));
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, false);
+        $c.set_flag(cpu::CARRY, ((n & 0x80) != 0));
 
-    $e = r;
+        r
+    }
 });
 
 /// 8-bit Rotate Accumulator Left [000c]
 macro_rules! om_rlca8 (($c:ident) => {
-    om_rlc8!($c; $c.a);
+    $c.a = om_rlc8!($c; $c.a);
     $c.set_flag(cpu::ZERO, false);
 });
 
 /// 8-bit Rotate Right (through carry) [z00c]
 macro_rules! om_rr8 (($c:ident; $e:expr) => {
-    let n = $e;
-    let r = (n >> 1) | (($c.f.contains(cpu::CARRY) as u8) << 7);
+    {
+        let n = $e;
+        let r = (n >> 1) | (($c.f.contains(cpu::CARRY) as u8) << 7);
 
-    $c.set_flag(cpu::ZERO, r == 0);
-    $c.set_flag(cpu::ADD_SUBTRACT, false);
-    $c.set_flag(cpu::HALF_CARRY, false);
-    $c.set_flag(cpu::CARRY, ((n & 0x01) != 0));
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, false);
+        $c.set_flag(cpu::CARRY, ((n & 0x01) != 0));
 
-    $e = r;
+        r
+    }
 });
 
 /// 8-bit Rotate Accumulator Right (through carry) [000c]
 macro_rules! om_rra8 (($c:ident) => {
-    om_rr8!($c; $c.a);
+    $c.a = om_rr8!($c; $c.a);
     $c.set_flag(cpu::ZERO, false);
 });
 
 /// 8-bit Rotate Right [z00c]
 macro_rules! om_rrc8 (($c:ident; $e:expr) => {
-    let n = $e;
-    let r = (n >> 1) | (n << 7);
+    {
+        let n = $e;
+        let r = (n >> 1) | (n << 7);
 
-    $c.set_flag(cpu::ZERO, r == 0);
-    $c.set_flag(cpu::ADD_SUBTRACT, false);
-    $c.set_flag(cpu::HALF_CARRY, false);
-    $c.set_flag(cpu::CARRY, ((n & 0x01) != 0));
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, false);
+        $c.set_flag(cpu::CARRY, ((n & 0x01) != 0));
 
-    $e = r;
+        r
+    }
 });
 
 /// 8-bit Rotate Accumulator Right [000c]
 macro_rules! om_rrca8 (($c:ident) => {
-    om_rrc8!($c; $c.a);
+    $c.a = om_rrc8!($c; $c.a);
     $c.set_flag(cpu::ZERO, false);
+});
+
+// 8-bit Shift
+// -----------
+
+/// 8-bit Shift Left [z00c]
+macro_rules! om_sl8 (($c:ident; $e:expr) => {
+    {
+        let n = $e;
+        let r = n << 1;
+
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, false);
+        $c.set_flag(cpu::CARRY, (n & 0x80) != 0);
+
+        r
+    }
+});
+
+/// 8-bit Shift Right Logical [z00c]
+macro_rules! om_srl8 (($c:ident; $e:expr) => {
+    {
+        let n = $e;
+        let r = n >> 1;
+
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, false);
+        $c.set_flag(cpu::CARRY, (n & 0x01) != 0);
+
+        r
+    }
+});
+
+/// 8-bit Shift Right Arithmetic [z00c]
+macro_rules! om_sra8 (($c:ident; $e:expr) => {
+    {
+        let n = $e;
+        let r = if (n & 0x80) != 0 {
+            (n >> 1) | 0x80
+        } else {
+            (n >> 1)
+        };
+
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, false);
+        $c.set_flag(cpu::CARRY, (n & 0x01) != 0);
+
+        r
+    }
+});
+
+// 8-bit Byte Swap
+// ---------------
+
+/// 8-bit Byte Swap [z000]
+macro_rules! om_bswap8 (($c:ident; $e:expr) => {
+    {
+        let n = $e;
+        let r = (n >> 4) | ((n << 4) & 0xF0);
+
+        $c.set_flag(cpu::ZERO, r == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, false);
+        $c.set_flag(cpu::CARRY, false);
+
+        r
+    }
+});
+
+// Bit
+// ---
+
+/// Bit Test [z01-]
+macro_rules! om_bit8 (($c:ident; $e:expr, $n:expr) => {
+    {
+        let e = $e;
+
+        $c.set_flag(cpu::ZERO, (e & (1 << $n)) == 0);
+        $c.set_flag(cpu::ADD_SUBTRACT, false);
+        $c.set_flag(cpu::HALF_CARRY, true);
+    }
+});
+
+/// Bit Set [----]
+macro_rules! om_set8 (($c:ident; $e:expr, $n:expr) => {
+    {
+        $e | (1 << $n)
+    }
+});
+
+/// Bit Reset [----]
+macro_rules! om_res8 (($c:ident; $e:expr, $n:expr) => {
+    {
+        $e & !(1 << $n)
+    }
 });
 
 // 16-bit Memory Read/Write

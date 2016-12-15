@@ -39,9 +39,8 @@ fn main() {
 
     let mut m = machine::Machine::new();
 
-    // let filename = "/Users/mehcode/Workspace/gb-test-roms/cpu_instrs/individual/06-ld r,r.gb";
-    let filename = "/Users/mehcode/Documents/Games/Dr. Mario.gb";
-    m.open(filename).unwrap();
+    let filename = std::env::args().nth(1).unwrap();
+    m.open(&filename).unwrap();
 
     m.reset();
 
@@ -59,9 +58,6 @@ fn main() {
     let mut renderer = RendererBuilder::new(window).accelerated().build().unwrap();
 
     while is_running {
-        // Run: Machine
-        m.run();
-
         // Render: Clear the window
         renderer.set_draw_color(Color::RGB(255, 255, 255));
         renderer.clear();
@@ -97,6 +93,11 @@ fn main() {
                     // Unhandled event
                 }
             }
+        }
+
+        // Run: Machine (for 5000 cycles)
+        for _ in 1..5000 {
+            m.run();
         }
     }
 }
