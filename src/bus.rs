@@ -46,17 +46,42 @@ impl Bus {
         self.ie = 0;
         self.if_ = 0;
 
-        // Re-initalize: WRAM
+        // Reset: WRAM
         self.wram.clear();
         // TODO: Depends on model (gb/cgb)
         self.wram.resize(32 * 1024, 0);
 
-        // Re-initalize: HRAM
+        // Reset: HRAM
         self.hram.clear();
         self.hram.resize(127, 0);
 
         // Reset: GPU
         self.gpu.reset();
+
+        // Reset: (various)
+        // TODO: Remove these as each component should be in charge of reset; this is just copied
+        //       from pandocs for easy right now
+        self.write(0xFF05, 0x00);
+        self.write(0xFF06, 0x00);
+        self.write(0xFF07, 0x00);
+        self.write(0xFF10, 0x80);
+        self.write(0xFF11, 0xBF);
+        self.write(0xFF12, 0xF3);
+        self.write(0xFF14, 0xBF);
+        self.write(0xFF16, 0x3F);
+        self.write(0xFF17, 0x00);
+        self.write(0xFF19, 0xBF);
+        self.write(0xFF1A, 0x7F);
+        self.write(0xFF1B, 0xFF);
+        self.write(0xFF1C, 0x9F);
+        self.write(0xFF1E, 0xBF);
+        self.write(0xFF20, 0xFF);
+        self.write(0xFF21, 0x00);
+        self.write(0xFF22, 0x00);
+        self.write(0xFF23, 0xBF);
+        self.write(0xFF24, 0x77);
+        self.write(0xFF25, 0xF3);
+        self.write(0xFF26, 0xF1);
     }
 
     /// Read

@@ -19,7 +19,7 @@ impl fmt::UpperHex for Flags {
     }
 }
 
-// TODO(rust): Better name than `Context` here?
+// TODO: Better name than `Context` here?
 #[derive(Default)]
 pub struct Context {
     /// Registers (8-bit)

@@ -254,34 +254,42 @@ impl GPU {
 
     /// Reset
     pub fn reset(&mut self) {
-        // Re-initalize: Framebuffer
+        // Reset: Framebuffer
         self.framebuffer.clear();
         self.framebuffer.resize(WIDTH * HEIGHT * 4, 0xFF);
 
-        // Re-initalize: VRAM
+        // Reset: VRAM
         // TODO: 0x2000 * 1 in GB mode
         self.vram.clear();
         self.vram.resize(0x2000 * 2, 0);
 
-        // Re-initalize: OAM
+        // Reset: OAM
         self.oam.clear();
         self.oam.resize(160, 0);
 
-        // Re-initalize: BCPD
+        // Reset: BCPD
         // TODO: Do not size in GB mode
         self.bcpd.clear();
         self.bcpd.resize(64, 0);
 
-        // Re-initalize: OCPD
+        // Reset: OCPD
         // TODO: Do not size in GB mode
         self.ocpd.clear();
         self.ocpd.resize(64, 0);
 
-        // Registers
+        // Reset: Registers
         // TODO: Dependent on model/variant
         self.lcd_enable = true;
         self.background_display = true;
+        self.tile_data_select = true;
+        self.scy = 0;
+        self.scx = 0;
+        self.lyc = 0;
         self.bgp = 0xFC;
+        self.obp0 = 0xFF;
+        self.obp1 = 0xFF;
+        self.wx = 0;
+        self.wy = 0;
     }
 
     /// Read
