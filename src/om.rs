@@ -5,7 +5,7 @@
 // -----------------------
 
 /// 8-bit Read {+1}
-macro_rules! om_read8 (($c:ident, $b:ident; $address:expr) => {
+macro_rules! om_read8 (($c:expr, $b:expr; $address:expr) => {
     {
         $c.step($b);
         $b.read($address)
@@ -13,7 +13,7 @@ macro_rules! om_read8 (($c:ident, $b:ident; $address:expr) => {
 });
 
 /// 8-bit Read Next/Immediate {+1}
-macro_rules! om_read_next8 (($c:ident, $b:ident) => {
+macro_rules! om_read_next8 (($c:expr, $b:expr) => {
     {
         let r = om_read8!($c, $b; $c.pc);
         $c.pc = $c.pc.wrapping_add(1);
@@ -23,7 +23,7 @@ macro_rules! om_read_next8 (($c:ident, $b:ident) => {
 });
 
 /// 8-bit Write {+1}
-macro_rules! om_write8 (($c:ident, $b:ident; $address:expr, $value:expr) => {
+macro_rules! om_write8 (($c:expr, $b:expr; $address:expr, $value:expr) => {
     {
         $c.step($b);
         $b.write($address, $value)
@@ -34,7 +34,7 @@ macro_rules! om_write8 (($c:ident, $b:ident; $address:expr, $value:expr) => {
 // ------------------------
 
 /// 8-bit Decrement [z1h-]
-macro_rules! om_dec8 (($c:ident; $e:expr) => {
+macro_rules! om_dec8 (($c:expr; $e:expr) => {
     {
         let r = $e.wrapping_sub(1);
 
@@ -47,13 +47,13 @@ macro_rules! om_dec8 (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Decrement Register [z1h-]
-macro_rules! om_dec8_r (($c:ident; $reg:ident) => {
+macro_rules! om_dec8_r (($c:expr; $reg:ident) => {
     let r = om_dec8!($c; $c.$reg);
     $c.$reg = r;
 });
 
 /// 8-bit Increment [z1h-]
-macro_rules! om_inc8 (($c:ident; $e:expr) => {
+macro_rules! om_inc8 (($c:expr; $e:expr) => {
     {
         let r = $e.wrapping_add(1);
 
@@ -66,13 +66,13 @@ macro_rules! om_inc8 (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Increment Register [z1h-]
-macro_rules! om_inc8_r (($c:ident; $reg:ident) => {
+macro_rules! om_inc8_r (($c:expr; $reg:ident) => {
     let r = om_inc8!($c; $c.$reg);
     $c.$reg = r;
 });
 
 /// 8-bit Add (to A) [z0hc]
-macro_rules! om_add8_a (($c:ident; $e:expr) => {
+macro_rules! om_add8_a (($c:expr; $e:expr) => {
     let a = $c.a as u16;
     let b = $e as u16;
     let r = a.wrapping_add(b);
@@ -86,7 +86,7 @@ macro_rules! om_add8_a (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Add (to A) w/Carry [z0hc]
-macro_rules! om_adc8_a (($c:ident; $e:expr) => {
+macro_rules! om_adc8_a (($c:expr; $e:expr) => {
     let a = $c.a as u16;
     let b = $e as u16;
     let c = if $c.f.contains(cpu::CARRY) { 1 } else { 0 };
@@ -101,7 +101,7 @@ macro_rules! om_adc8_a (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Compare (from A) [z1hc]
-macro_rules! om_cp8_a (($c:ident; $e:expr) => {
+macro_rules! om_cp8_a (($c:expr; $e:expr) => {
     {
         let a = $c.a as i16;
         let b = $e as i16;
@@ -117,12 +117,12 @@ macro_rules! om_cp8_a (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Subtract (from A) [z1hc]
-macro_rules! om_sub8_a (($c:ident; $e:expr) => {
+macro_rules! om_sub8_a (($c:expr; $e:expr) => {
     $c.a = om_cp8_a!($c; $e);
 });
 
 /// 8-bit Subtract (from A) w/Carry [z1hc]
-macro_rules! om_sbc8_a (($c:ident; $e:expr) => {
+macro_rules! om_sbc8_a (($c:expr; $e:expr) => {
     let a = $c.a as i16;
     let b = $e as i16;
     let c = if $c.f.contains(cpu::CARRY) { 1 } else { 0 };
@@ -137,7 +137,7 @@ macro_rules! om_sbc8_a (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Logical AND (with A) [z010]
-macro_rules! om_and8_a (($c:ident; $e:expr) => {
+macro_rules! om_and8_a (($c:expr; $e:expr) => {
     let a = $c.a;
     let b = $e;
     let r = a & b;
@@ -151,7 +151,7 @@ macro_rules! om_and8_a (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Logical OR (with A) [z010]
-macro_rules! om_or8_a (($c:ident; $e:expr) => {
+macro_rules! om_or8_a (($c:expr; $e:expr) => {
     let a = $c.a;
     let b = $e;
     let r = a | b;
@@ -165,7 +165,7 @@ macro_rules! om_or8_a (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Logical XOR (with A) [z010]
-macro_rules! om_xor8_a (($c:ident; $e:expr) => {
+macro_rules! om_xor8_a (($c:expr; $e:expr) => {
     let a = $c.a;
     let b = $e;
     let r = a ^ b;
@@ -182,7 +182,7 @@ macro_rules! om_xor8_a (($c:ident; $e:expr) => {
 // ------------
 
 /// 8-bit Rotate Left (through carry) [z00c]
-macro_rules! om_rl8 (($c:ident; $e:expr) => {
+macro_rules! om_rl8 (($c:expr; $e:expr) => {
     {
         let n = $e;
         let r = (n << 1) | ($c.f.contains(cpu::CARRY) as u8);
@@ -203,7 +203,7 @@ macro_rules! om_rla8 (($c:ident) => {
 });
 
 /// 8-bit Rotate Left [z00c]
-macro_rules! om_rlc8 (($c:ident; $e:expr) => {
+macro_rules! om_rlc8 (($c:expr; $e:expr) => {
     {
         let n = $e;
         let r = (n << 1) | (n >> 7);
@@ -224,7 +224,7 @@ macro_rules! om_rlca8 (($c:ident) => {
 });
 
 /// 8-bit Rotate Right (through carry) [z00c]
-macro_rules! om_rr8 (($c:ident; $e:expr) => {
+macro_rules! om_rr8 (($c:expr; $e:expr) => {
     {
         let n = $e;
         let r = (n >> 1) | (($c.f.contains(cpu::CARRY) as u8) << 7);
@@ -245,7 +245,7 @@ macro_rules! om_rra8 (($c:ident) => {
 });
 
 /// 8-bit Rotate Right [z00c]
-macro_rules! om_rrc8 (($c:ident; $e:expr) => {
+macro_rules! om_rrc8 (($c:expr; $e:expr) => {
     {
         let n = $e;
         let r = (n >> 1) | (n << 7);
@@ -269,7 +269,7 @@ macro_rules! om_rrca8 (($c:ident) => {
 // -----------
 
 /// 8-bit Shift Left [z00c]
-macro_rules! om_sl8 (($c:ident; $e:expr) => {
+macro_rules! om_sl8 (($c:expr; $e:expr) => {
     {
         let n = $e;
         let r = n << 1;
@@ -284,7 +284,7 @@ macro_rules! om_sl8 (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Shift Right Logical [z00c]
-macro_rules! om_srl8 (($c:ident; $e:expr) => {
+macro_rules! om_srl8 (($c:expr; $e:expr) => {
     {
         let n = $e;
         let r = n >> 1;
@@ -299,7 +299,7 @@ macro_rules! om_srl8 (($c:ident; $e:expr) => {
 });
 
 /// 8-bit Shift Right Arithmetic [z00c]
-macro_rules! om_sra8 (($c:ident; $e:expr) => {
+macro_rules! om_sra8 (($c:expr; $e:expr) => {
     {
         let n = $e;
         let r = if (n & 0x80) != 0 {
@@ -321,7 +321,7 @@ macro_rules! om_sra8 (($c:ident; $e:expr) => {
 // ---------------
 
 /// 8-bit Byte Swap [z000]
-macro_rules! om_bswap8 (($c:ident; $e:expr) => {
+macro_rules! om_bswap8 (($c:expr; $e:expr) => {
     {
         let n = $e;
         let r = (n >> 4) | ((n << 4) & 0xF0);
@@ -339,7 +339,7 @@ macro_rules! om_bswap8 (($c:ident; $e:expr) => {
 // ---
 
 /// Bit Test [z01-]
-macro_rules! om_bit8 (($c:ident; $e:expr, $n:expr) => {
+macro_rules! om_bit8 (($c:expr; $e:expr, $n:expr) => {
     {
         let e = $e;
 
@@ -350,14 +350,14 @@ macro_rules! om_bit8 (($c:ident; $e:expr, $n:expr) => {
 });
 
 /// Bit Set [----]
-macro_rules! om_set8 (($c:ident; $e:expr, $n:expr) => {
+macro_rules! om_set8 (($c:expr; $e:expr, $n:expr) => {
     {
         $e | (1 << $n)
     }
 });
 
 /// Bit Reset [----]
-macro_rules! om_res8 (($c:ident; $e:expr, $n:expr) => {
+macro_rules! om_res8 (($c:expr; $e:expr, $n:expr) => {
     {
         $e & !(1 << $n)
     }
@@ -367,7 +367,7 @@ macro_rules! om_res8 (($c:ident; $e:expr, $n:expr) => {
 // ------------------------
 
 /// 16-bit Read {+2}
-macro_rules! om_read16 (($c:ident, $b:ident; $address:expr) => {
+macro_rules! om_read16 (($c:expr, $b:expr; $address:expr) => {
     {
         let l = om_read8!($c, $b; $address.wrapping_add(0)) as u16;
         let h = om_read8!($c, $b; $address.wrapping_add(1)) as u16;
@@ -377,7 +377,7 @@ macro_rules! om_read16 (($c:ident, $b:ident; $address:expr) => {
 });
 
 /// 16-bit Read Next/Immediate {+1}
-macro_rules! om_read_next16 (($c:ident, $b:ident) => {
+macro_rules! om_read_next16 (($c:expr, $b:expr) => {
     {
         let r = om_read16!($c, $b; $c.pc);
         $c.pc = $c.pc.wrapping_add(2);
@@ -387,7 +387,7 @@ macro_rules! om_read_next16 (($c:ident, $b:ident) => {
 });
 
 /// 16-bit Write {+2}
-macro_rules! om_write16 (($c:ident, $b:ident; $address:expr, $value:expr) => {
+macro_rules! om_write16 (($c:expr, $b:expr; $address:expr, $value:expr) => {
     {
       om_write8!($c, $b; $address.wrapping_add(1), ($value >> 8) as u8);
       om_write8!($c, $b; $address.wrapping_add(0), ($value & 0xFF) as u8);
@@ -398,7 +398,7 @@ macro_rules! om_write16 (($c:ident, $b:ident; $address:expr, $value:expr) => {
 // ---------------
 
 /// 16-bit Push [----] {+3}
-macro_rules! om_push16 (($c:ident, $b:ident; $e:expr) => {
+macro_rules! om_push16 (($c:expr, $b:expr; $e:expr) => {
     // Push has a 1 M-cycle delay
     $c.step($b);
 
@@ -407,7 +407,7 @@ macro_rules! om_push16 (($c:ident, $b:ident; $e:expr) => {
 });
 
 /// 16-bit Pop [(..)] {+2}
-macro_rules! om_pop16 (($c:ident, $b:ident) => {
+macro_rules! om_pop16 (($c:expr, $b:expr) => {
     {
         let r = om_read16!($c, $b; $c.sp);
         $c.sp = $c.sp.wrapping_add(2);
@@ -420,7 +420,7 @@ macro_rules! om_pop16 (($c:ident, $b:ident) => {
 // -------------------------
 
 /// 16-bit Increment [----] {+1}
-macro_rules! om_inc16 (($c:ident, $b:ident; $get:ident, $set:ident) => {
+macro_rules! om_inc16 (($c:expr, $b:expr; $get:ident, $set:ident) => {
     let r = $c.$get();
 
     $c.$set(r.wrapping_add(1));
@@ -428,7 +428,7 @@ macro_rules! om_inc16 (($c:ident, $b:ident; $get:ident, $set:ident) => {
 });
 
 /// 16-bit Decrement [----] {+1}
-macro_rules! om_dec16 (($c:ident, $b:ident; $get:ident, $set:ident) => {
+macro_rules! om_dec16 (($c:expr, $b:expr; $get:ident, $set:ident) => {
     let r = $c.$get();
 
     $c.$set(r.wrapping_sub(1));
@@ -436,7 +436,7 @@ macro_rules! om_dec16 (($c:ident, $b:ident; $get:ident, $set:ident) => {
 });
 
 /// 16-bit Add (to HL) [-0hc] {+1}
-macro_rules! om_add16_hl (($c:ident, $b:ident; $e:expr) => {
+macro_rules! om_add16_hl (($c:expr, $b:expr; $e:expr) => {
     let a = $c.get_hl();
     let b = $e;
     let r = a as u32 + b as u32;
@@ -450,7 +450,7 @@ macro_rules! om_add16_hl (($c:ident, $b:ident; $e:expr) => {
 });
 
 /// 16-bit Add (to SP) without Assignment [-0hc] {+1}
-macro_rules! om_add16_sp (($c:ident, $b:ident; $e:expr) => {
+macro_rules! om_add16_sp (($c:expr, $b:expr; $e:expr) => {
     {
         let a = $c.sp;
         let b = ($e as i8) as i16;
@@ -471,7 +471,7 @@ macro_rules! om_add16_sp (($c:ident, $b:ident; $e:expr) => {
 // ----
 
 /// Jump [----] {+3}
-macro_rules! om_jp (($c:ident, $b:ident) => {
+macro_rules! om_jp (($c:expr, $b:expr) => {
     let address = om_read_next16!($c, $b);
     $c.pc = address;
 
@@ -479,7 +479,7 @@ macro_rules! om_jp (($c:ident, $b:ident) => {
 });
 
 /// Jump; If [----] {+3;+2}
-macro_rules! om_jp_if (($c:ident, $b:ident; $flag:expr) => {
+macro_rules! om_jp_if (($c:expr, $b:expr; $flag:expr) => {
     if $c.f.contains($flag) {
         om_jp!($c, $b);
     } else {
@@ -490,7 +490,7 @@ macro_rules! om_jp_if (($c:ident, $b:ident; $flag:expr) => {
 });
 
 /// Jump; Unless [----] {+3;+2}
-macro_rules! om_jp_unless (($c:ident, $b:ident; $flag:expr) => {
+macro_rules! om_jp_unless (($c:expr, $b:expr; $flag:expr) => {
     if !$c.f.contains($flag) {
         om_jp!($c, $b);
     } else {
@@ -501,7 +501,7 @@ macro_rules! om_jp_unless (($c:ident, $b:ident; $flag:expr) => {
 });
 
 /// Relative Jump [----] {+2}
-macro_rules! om_jr (($c:ident, $b:ident) => {
+macro_rules! om_jr (($c:expr, $b:expr) => {
     let offset = om_read_next8!($c, $b);
     $c.pc = (($c.pc as i32) + (((offset as u8) as i8) as i32)) as u16;
 
@@ -509,7 +509,7 @@ macro_rules! om_jr (($c:ident, $b:ident) => {
 });
 
 /// Relative Jump; If [----] {+2;+1}
-macro_rules! om_jr_if (($c:ident, $b:ident; $flag:expr) => {
+macro_rules! om_jr_if (($c:expr, $b:expr; $flag:expr) => {
     if $c.f.contains($flag) {
         om_jr!($c, $b);
     } else {
@@ -519,7 +519,7 @@ macro_rules! om_jr_if (($c:ident, $b:ident; $flag:expr) => {
 });
 
 /// Relative Jump; Unless [----] {+2;+1}
-macro_rules! om_jr_unless (($c:ident, $b:ident; $flag:expr) => {
+macro_rules! om_jr_unless (($c:expr, $b:expr; $flag:expr) => {
     if !$c.f.contains($flag) {
         om_jr!($c, $b);
     } else {
@@ -532,7 +532,7 @@ macro_rules! om_jr_unless (($c:ident, $b:ident; $flag:expr) => {
 // ----
 
 /// Call [----] {+5}
-macro_rules! om_call (($c:ident, $b:ident) => {
+macro_rules! om_call (($c:expr, $b:expr) => {
     let address = om_read_next16!($c, $b);
     om_push16!($c, $b; $c.pc);
 
@@ -540,7 +540,7 @@ macro_rules! om_call (($c:ident, $b:ident) => {
 });
 
 /// Call; If [----] {+5;+2}
-macro_rules! om_call_if (($c:ident, $b:ident; $flag:expr) => {
+macro_rules! om_call_if (($c:expr, $b:expr; $flag:expr) => {
     if $c.f.contains($flag) {
         om_call!($c, $b);
     } else {
@@ -551,7 +551,7 @@ macro_rules! om_call_if (($c:ident, $b:ident; $flag:expr) => {
 });
 
 /// Call; Unless [----] {+5;+2}
-macro_rules! om_call_unless (($c:ident, $b:ident; $flag:expr) => {
+macro_rules! om_call_unless (($c:expr, $b:expr; $flag:expr) => {
     if !$c.f.contains($flag) {
         om_call!($c, $b);
     } else {
@@ -565,7 +565,7 @@ macro_rules! om_call_unless (($c:ident, $b:ident; $flag:expr) => {
 // -----
 
 /// Reset [----] {+3}
-macro_rules! om_rst (($c:ident, $b:ident; $address:expr) => {
+macro_rules! om_rst (($c:expr, $b:expr; $address:expr) => {
     om_push16!($c, $b; $c.pc);
     $c.pc = $address;
 });
@@ -574,13 +574,13 @@ macro_rules! om_rst (($c:ident, $b:ident; $address:expr) => {
 // ------
 
 /// Return [----] {+3}
-macro_rules! om_ret (($c:ident, $b:ident) => {
+macro_rules! om_ret (($c:expr, $b:expr) => {
     $c.pc = om_pop16!($c, $b);
     $c.step($b);
 });
 
 /// Return; If [----] {+4;+1}
-macro_rules! om_ret_if (($c:ident, $b:ident; $flag:expr) => {
+macro_rules! om_ret_if (($c:expr, $b:expr; $flag:expr) => {
     $c.step($b);
     if $c.f.contains($flag) {
         om_ret!($c, $b);
@@ -588,7 +588,7 @@ macro_rules! om_ret_if (($c:ident, $b:ident; $flag:expr) => {
 });
 
 /// Return; Unless [----] {+4;+1}
-macro_rules! om_ret_unless (($c:ident, $b:ident; $flag:expr) => {
+macro_rules! om_ret_unless (($c:expr, $b:expr; $flag:expr) => {
     $c.step($b);
     if !$c.f.contains($flag) {
         om_ret!($c, $b);

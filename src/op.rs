@@ -688,11 +688,11 @@ pub fn _75(c: &mut Context, b: &mut Bus) {
 }
 
 // 76 — HALT
-pub fn _76(c: &mut Context, _: &mut Bus) {
+pub fn _76(c: &mut Context, b: &mut Bus) {
     // If IME is NOT enabled but IE/IF indicate there is a pending interrupt;
     // set HALT to a funny state that will cause us to 'replay' the next
     // opcode
-    c.halt = if (c.ime == 0) && (c.ie & c.if_ & 0x1F) != 0 {
+    c.halt = if (c.ime == 0) && (b.ie & b.if_ & 0x1F) != 0 {
         -1
     } else {
         1

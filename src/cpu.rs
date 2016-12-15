@@ -55,12 +55,6 @@ pub struct Context {
     ///  -1 - Funny bug state that will replay the next opcode
     pub halt: i8,
 
-    /// [0xFFFF] Interrupt Enable (IE) R/W
-    pub ie: u8,
-
-    /// [0xFF0F] Interrupt Flag (IF) R/W
-    pub if_: u8,
-
     /// Current instruction M-cycle counter
     cycles: u32,
 
@@ -180,10 +174,6 @@ impl CPU {
         // Stop/Halt states
         self.ctx.stop = false;
         self.ctx.halt = 0;
-
-        // Interrupt Enable/Flag
-        self.ctx.ie = 0;
-        self.ctx.if_ = 0;
     }
 
     /// Run next instruction
@@ -193,7 +183,7 @@ impl CPU {
 
         // If CPU is currently in STOP mode;
         // Or, If CPU is currently in HALT mode with no pending interrupts
-        if self.ctx.stop || (self.ctx.halt == 1 && (self.ctx.ie & self.ctx.if_ == 0)) {
+        if self.ctx.stop || (self.ctx.halt == 1 && (bus.ie & bus.if_ == 0)) {
             // Step a single M-cycle and return
             self.ctx.step(bus);
             self.ctx.cycles = 1;
@@ -206,7 +196,53 @@ impl CPU {
             self.ctx.halt = 0;
         }
 
-        // TODO: Service interrupt (if needed)
+        // Service interrupt (if needed)
+        if self.ctx.ime == 1 {
+            let irq = bus.ie & bus.if_;
+            if irq > 0 {
+                // Service interrupt (takes 5 M-cycles)
+
+                // Wait 1 M-cycle (to prepare the cannons)
+                self.ctx.step(bus);
+
+                // Push PC (as if we're making a CALL) – 3 M-cycles
+                om_push16!(self.ctx, bus; self.ctx.pc);
+
+                // Jump to the appropriate vector (and reset IF bit) - 1 cycle
+                if (irq & 0x01) != 0 {
+                    // V-Blank
+                    self.ctx.pc = 0x40;
+                    bus.if_ &= !0x01;
+                } else if (irq & 0x02) != 0 {
+                    // LCD STAT
+                    self.ctx.pc = 0x48;
+                    bus.if_ &= !0x02;
+                } else if (irq & 0x04) != 0 {
+                    // Timer
+                    self.ctx.pc = 0x50;
+                    bus.if_ &= !0x04;
+                } else if (irq & 0x08) != 0 {
+                    // Serial
+                    self.ctx.pc = 0x58;
+                    bus.if_ &= !0x08;
+                } else if (irq & 0x10) != 0 {
+                    // Joypad
+                    self.ctx.pc = 0x60;
+                    bus.if_ &= !0x10;
+                }
+
+                // Disable IME
+                self.ctx.ime = 0;
+
+                // Come back from HALT
+                if self.ctx.halt == 1 {
+                    self.ctx.halt = 0;
+                }
+
+                // Wait 1 more M-Cycle (to fasten the suspenders)
+                self.ctx.step(bus);
+            }
+        }
 
         // Enable IME if pending
         if self.ctx.ime == -1 {

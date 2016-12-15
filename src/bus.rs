@@ -23,6 +23,12 @@ pub struct Bus {
 
     /// [0xFF80 - 0xFFFE] High RAM (HRAM) — 127 Bytes
     pub hram: Vec<u8>,
+
+    /// [0xFFFF] Interrupt Enable (IE) R/W
+    pub ie: u8,
+
+    /// [0xFF0F] Interrupt Flag (IF) R/W
+    pub if_: u8,
 }
 
 impl Bus {
@@ -31,11 +37,15 @@ impl Bus {
         // TODO(architecture): The machine/bus is stepped each M-cycle. Some components operate
         //      by M-cycles and others by T-cycles
 
-        self.gpu.step();
+        self.gpu.step(&mut self.if_);
     }
 
     /// Reset
     pub fn reset(&mut self) {
+        // Interrupt Enable/Flag
+        self.ie = 0;
+        self.if_ = 0;
+
         // Re-initalize: WRAM
         self.wram.clear();
         // TODO: Depends on model (gb/cgb)
@@ -68,6 +78,12 @@ impl Bus {
             // High RAM
             0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
 
+            // Interrupt Flag (IF)
+            0xFF0F => (self.if_ | 0xE0),
+
+            // Interrupt Enable (IE)
+            0xFFFF => (self.ie | 0xE0),
+
             _ => {
                 // Unhandled
                 // warn!("unhandled read at {:#04X}", address);
@@ -95,6 +111,16 @@ impl Bus {
             // High RAM
             0xFF80...0xFFFE => {
                 self.hram[(address - 0xFF80) as usize] = value;
+            }
+
+            // Interrupt Flag (IF)
+            0xFF0F => {
+                self.if_ = value & !0xE0;
+            }
+
+            // Interrupt Enable (IE)
+            0xFFFF => {
+                self.ie = value & !0xE0;
             }
 
             _ => {

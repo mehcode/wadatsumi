@@ -153,7 +153,7 @@ pub struct GPU {
 
 impl GPU {
     /// Step
-    pub fn step(&mut self) {
+    pub fn step(&mut self, if_: &mut u8) {
         // The machine is stepped each M-cycle and the GPU needs to be stepped each T-cycle
         for _ in 1..4 {
             // TODO: What do we do when the LCD is disabled?
@@ -183,7 +183,9 @@ impl GPU {
                 } else {
                     // Proceed to mode 1 — V-Blank
                     self.mode = 1;
-                    // TODO: Trigger VBL interrupt
+
+                    // Trigger VBL interrupt
+                    (*if_) |= 0x1;
 
                     // TODO: Trigger the front-end to refresh the scren
                 }
@@ -242,7 +244,8 @@ impl GPU {
                       (mode_cmp == 1 && (self.m1_irq_enable || self.m2_irq_enable));
 
             if !self.stat_irq && irq {
-                // TODO: Raise interrupt
+                // Raise interrupt
+                (*if_) |= 0x2;
             }
 
             self.stat_irq = irq;
@@ -426,11 +429,6 @@ impl GPU {
                 self.scx = value;
             }
 
-            // LCDC Y-Coordinate
-            0xFF44 => {
-                self.ly = value;
-            }
-
             // LY Compare
             0xFF45 => {
                 self.lyc = value;
@@ -438,7 +436,6 @@ impl GPU {
 
             // BG Palette Data
             0xFF47 => {
-                warn!("write BGP <- {}", value);
                 self.bgp = value;
             }
 
@@ -567,9 +564,9 @@ impl GPU {
             let (r, g, b) = self.get_color(pal_idx, self.bgp);
 
             // Push pixel (color) to framebuffer
-            self.framebuffer[((offset + i) * 4) + 0] = r;
+            self.framebuffer[((offset + i) * 4) + 0] = b;
             self.framebuffer[((offset + i) * 4) + 1] = g;
-            self.framebuffer[((offset + i) * 4) + 2] = b;
+            self.framebuffer[((offset + i) * 4) + 2] = r;
             self.framebuffer[((offset + i) * 4) + 3] = 0xFF;
 
             x += 1;
