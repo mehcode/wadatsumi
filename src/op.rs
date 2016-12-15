@@ -242,9 +242,9 @@ pub fn _27(c: &mut Context, _: &mut Bus) {
     }
 
     if c.f.contains(cpu::ADD_SUBTRACT) {
-        r -= correction;
+        r = r.wrapping_sub(correction);
     } else {
-        r += correction;
+        r = r.wrapping_add(correction);
     }
 
     if ((correction << 2) & 0x100) != 0 {
