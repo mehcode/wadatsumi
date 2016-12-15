@@ -1,6 +1,7 @@
 use std::vec::Vec;
 
 use ::cart;
+use ::mode;
 use ::gpu;
 
 /// The Bus is the interconnect that facilitates communication from the CPU and the various other
@@ -41,7 +42,7 @@ impl Bus {
     }
 
     /// Reset
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self, mode: mode::Mode) {
         // Interrupt Enable/Flag
         self.ie = 0;
         self.if_ = 0;

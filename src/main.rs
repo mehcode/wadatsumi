@@ -1,4 +1,6 @@
-#![feature(concat_idents)]
+
+#[macro_use]
+extern crate clap;
 
 extern crate sdl2;
 extern crate strfmt;
@@ -15,6 +17,8 @@ use sdl2::pixels::Color;
 use sdl2::video::WindowBuilder;
 use sdl2::render::RendererBuilder;
 
+use clap::{Arg, App, SubCommand};
+
 #[macro_use]
 mod om;
 
@@ -27,9 +31,34 @@ mod machine;
 mod bus;
 mod cart;
 mod bits;
+mod mode;
 
 fn main() {
+    // Log: Initialize (level set from environment variables)
+    // TODO: Switch to use: https://github.com/slog-rs/slog
     env_logger::init().unwrap();
+
+    // Configure and gather matches from command line interface
+    let matches = App::new("Wadatsumi")
+        .version(crate_version!())
+        .arg(Arg::with_name("mode")
+            .short("m")
+            .long("mode")
+            .takes_value(true)
+            .help("The device (and variation) to emulate")
+            // TODO: This should be generated from somewhere
+            .possible_values(&["gb", "gb:dmg0", "gb:dmg", "gb:mgb", "gb:cgb", "gb:agb", "gb:sgb", "gb:sgb1", "gb:sgb2", "cgb",
+                               "cgb:cgb", "cgb:agb", "sgb", "sgb:1", "sgb:2"]))
+        .arg(Arg::with_name("rom").required(true).help("The ROM to use"))
+        .get_matches();
+
+    let rom_filename = matches.value_of("rom").unwrap();
+    println!("rom: {}", rom_filename);
+
+    let mode: Option<mode::Mode> = match matches.value_of("mode") {
+        Some(mode_str) => mode::Mode::from_str(mode_str),
+        _ => None,
+    };
 
     let c = sdl2::init().unwrap();
     let mut events = c.event_pump().unwrap();
@@ -39,10 +68,9 @@ fn main() {
 
     let window = WindowBuilder::new(&video, "Wadatsumi", 160 * 2, 144 * 2).build().unwrap();
 
-    let mut m = machine::Machine::new();
+    let mut m = machine::Machine::new(mode);
 
-    let filename = std::env::args().nth(1).unwrap();
-    m.open(&filename).unwrap();
+    m.open(&rom_filename).unwrap();
 
     m.reset();
 

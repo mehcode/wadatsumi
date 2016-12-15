@@ -1,6 +1,7 @@
 use std::fmt;
 
 use ::bus;
+use ::mode;
 use ::operation;
 
 bitflags!(
@@ -154,13 +155,36 @@ pub struct CPU {
 }
 
 impl CPU {
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self, m: mode::Mode) {
         // Registers
-        // TODO(gameboy): Dependent on model/variant
-        self.ctx.set_af(0x01B0);
-        self.ctx.set_bc(0x0013);
-        self.ctx.set_de(0x00D8);
-        self.ctx.set_hl(0x014D);
+        self.ctx.d = 0x00;
+        if m == mode::GB_DMG0 {
+            self.ctx.a = 0x01;
+            self.ctx.f.bits = 0x00;
+            self.ctx.b = 0xFF;
+            self.ctx.e = 0xC1;
+            self.ctx.h = 0x84;
+            self.ctx.c = 0x13;
+            self.ctx.l = 0x03;
+        } else if m == mode::GB_DMG || m == mode::GB_MGB || m == mode::GB_AGB || m == mode::GB_CGB {
+            self.ctx.a = if m == mode::GB_MGB { 0xFF } else { 0x01 };
+            self.ctx.f.bits = 0xB0;
+            self.ctx.b = 0x00;
+            self.ctx.e = 0xD8;
+            self.ctx.h = 0x01;
+            self.ctx.l = 0x4D;
+            self.ctx.c = 0x13;
+        } else if m == mode::GB_SGB1 || m == mode::GB_SGB2 {
+            self.ctx.a = if m == mode::GB_SGB2 { 0xFF } else { 0x01 };
+            self.ctx.f.bits = 0x00;
+            self.ctx.b = 0x00;
+            self.ctx.c = 0x14;
+            self.ctx.e = 0x00;
+            self.ctx.h = 0xC0;
+            self.ctx.l = 0x60;
+        }
+
+        // Stack pointer
         self.ctx.sp = 0xFFFE;
 
         // Program counter
