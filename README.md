@@ -1,5 +1,11 @@
 # Wadatsumi
 
+## Build
+
+```
+cargo build --release
+```
+
 ## Usage
 
 ### Mode
