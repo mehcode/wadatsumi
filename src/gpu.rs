@@ -21,7 +21,7 @@ pub struct GPU {
     vram_bank: u8,
 
     /// [0xFE00 — 0xFE9F] Sprite Attribute Table (OAM) — 160 Bytes
-    oam: Vec<u8>,
+    pub oam: Vec<u8>,
 
     /// STAT IRQ; current value
     /// Actual interrupt is triggered when this goes from 0 to 1
@@ -290,7 +290,7 @@ impl GPU {
     }
 
     /// Read
-    pub fn read(&self, address: u16) -> u8 {
+    pub fn read(&self, address: u16, in_oam_dma: bool) -> u8 {
         match address {
             // Video RAM
             0x8000...0x9FFF => {
@@ -300,9 +300,15 @@ impl GPU {
 
             // OAM
             0xFE00...0xFE9F => {
+                info!("oam/read [{:X}] ~ in_oam_dma: {}", address, in_oam_dma);
+
                 // TODO: OAM cannot be read during mode-2 or mode-3
-                // TODO: OAM cannot be read during OAM DMA
-                self.oam[(address - 0xFE00) as usize]
+                // OAM cannot be read during OAM DMA
+                if !in_oam_dma {
+                    self.oam[(address - 0xFE00) as usize]
+                } else {
+                    0xFF
+                }
             }
 
             // LCD Control
@@ -381,7 +387,7 @@ impl GPU {
     }
 
     /// Write
-    pub fn write(&mut self, address: u16, value: u8) {
+    pub fn write(&mut self, address: u16, value: u8, in_oam_dma: bool) {
         match address {
             // Video RAM
             0x8000...0x9FFF => {
@@ -393,8 +399,10 @@ impl GPU {
             // OAM
             0xFE00...0xFE9F => {
                 // TODO: OAM cannot be written during mode-2 or mode-3
-                // TODO: OAM cannot be written during OAM DMA
-                self.oam[(address - 0xFE00) as usize] = value;
+                // OAM cannot be written during OAM DMA
+                if !in_oam_dma {
+                    self.oam[(address - 0xFE00) as usize] = value;
+                }
             }
 
             // LCD Control

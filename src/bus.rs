@@ -34,11 +34,50 @@ pub struct Bus {
 
     /// [0xFF0F] Interrupt Flag (IF) R/W
     pub if_: u8,
+
+    /// [OAM DMA] Source Address for the running OAM DMA
+    oam_dma_source: u16,
+
+    /// [OAM DMA] Source Address for the next OAM DMA (scheduled by `_delay_timer`)
+    oam_dma_next_source: u16,
+
+    /// [OAM DMA] Delay (in M-cycles) until the next OAM DMA begins
+    oam_dma_delay_timer: u8,
+
+    /// [OAM DMA] Index into the running OAM DMA
+    oam_dma_index: u16,
+
+    /// [OAM DMA] Timer (in M-Cycles) of how long we have left in OAM DMA
+    oam_dma_timer: u16,
 }
 
 impl Bus {
     /// Step
     pub fn step(&mut self) {
+        // [OAM DMA] Run next iteration (if active)
+        if self.oam_dma_timer > 0 {
+            // Each tick does a single byte memory copy
+            let src = self.oam_dma_source + self.oam_dma_index;
+            let r = self.read(src);
+            self.gpu.oam[self.oam_dma_index as usize] = r;
+
+            self.oam_dma_index += 1;
+            self.oam_dma_timer -= 1;
+        }
+
+        // When OAM DMA starts a delay timer is set to 2; the tick with the memory
+        // write that starts DMA and the tick just after are wait cycles before
+        // the actual DMA starts. If there was an existing DMA running; that DMA
+        // does not stop until the next one starts
+        if self.oam_dma_delay_timer > 0 {
+            self.oam_dma_delay_timer -= 1;
+            if self.oam_dma_delay_timer == 0 {
+                self.oam_dma_timer = 160;
+                self.oam_dma_index = 0;
+                self.oam_dma_source = self.oam_dma_next_source;
+            }
+        }
+
         // The Bus is stepped by the CPU each M-cycle and it must then step the system
         // components 4 T-cycles
         for _ in 0..4 {
@@ -78,6 +117,13 @@ impl Bus {
         self.gpu.reset();
         self.timer.reset(mode);
 
+        // Reset: OAM DMA
+        self.oam_dma_source = 0;
+        self.oam_dma_next_source = 0;
+        self.oam_dma_delay_timer = 0;
+        self.oam_dma_index = 0;
+        self.oam_dma_timer = 0;
+
         // Reset: (various)
         // TODO: Remove these as each component should be in charge of reset; this is just copied
         //       from pandocs for easy right now
@@ -109,7 +155,7 @@ impl Bus {
 
             // Video RAM, OAM, GPU registers
             0x8000...0x9FFF | 0xFE00...0xFE9F | 0xFF40...0xFF4F | 0xFF68...0xFF6B => {
-                self.gpu.read(address)
+                self.gpu.read(address, self.oam_dma_timer != 0)
             }
 
             // Work RAM
@@ -143,9 +189,16 @@ impl Bus {
             // Cartridge
             0x0000...0x7FFF => self.cart.write(address, value),
 
+            // OAM DMA
+            0xFF46 => {
+                // DMA - DMA Transfer and Start Address (W)
+                self.oam_dma_next_source = (value as u16) << 8;
+                self.oam_dma_delay_timer = 2;
+            }
+
             // Video RAM, OAM, GPU registers
             0x8000...0x9FFF | 0xFE00...0xFE9F | 0xFF40...0xFF4F | 0xFF68...0xFF6B => {
-                self.gpu.write(address, value);
+                self.gpu.write(address, value, self.oam_dma_timer != 0);
             }
 
             // Work RAM

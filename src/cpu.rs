@@ -275,9 +275,9 @@ impl CPU {
 
         // Operation: decode
         let pc = self.ctx.pc;
+        self.ctx.step(bus);
         let mut opcode = bus.read(self.ctx.pc) as usize;
         self.ctx.pc += 1;
-        self.ctx.step(bus);
 
         // On HALT bug; replay PC value here
         if self.ctx.halt == -1 {
@@ -288,9 +288,9 @@ impl CPU {
         // On 0xCB; offset our opcode and read the next byte to determine the final opcode
         if opcode == 0xCB {
             opcode = 0x100;
+            self.ctx.step(bus);
             opcode |= bus.read(self.ctx.pc) as usize;
             self.ctx.pc += 1;
-            self.ctx.step(bus);
         }
 
         let op = &self.table[opcode as usize];
