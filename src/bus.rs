@@ -4,6 +4,7 @@ use ::cart;
 use ::mode;
 use ::gpu;
 use ::timer;
+use ::joypad;
 
 /// The Bus is the interconnect that facilitates communication from the CPU and the various other
 /// components in the machine.
@@ -17,6 +18,9 @@ pub struct Bus {
 
     /// Component: Timer
     pub timer: timer::Timer,
+
+    /// Component: Joypad
+    pub joypad: joypad::Joypad,
 
     /// [0xC000 - 0xDFFF] Work RAM (WRAM)
     ///   8 KiB in GB
@@ -59,6 +63,10 @@ impl Bus {
             // Each tick does a single byte memory copy
             let src = self.oam_dma_source + self.oam_dma_index;
             let r = self.read(src);
+            // info!("oam/transfer [{:X}] {:X} -> [{:X}]",
+            //       src,
+            //       r,
+            //       0xFE00 + self.oam_dma_index);
             self.gpu.oam[self.oam_dma_index as usize] = r;
 
             self.oam_dma_index += 1;
@@ -115,6 +123,7 @@ impl Bus {
 
         // Reset: Components
         self.gpu.reset();
+        self.joypad.reset();
         self.timer.reset(mode);
 
         // Reset: OAM DMA
@@ -163,6 +172,14 @@ impl Bus {
                 self.wram[(address as usize & 0x1FFF) + (self.wram_bank as usize * 0x2000)]
             }
 
+            // Joypad
+            0xFF00 => self.joypad.read(address),
+
+            // Serial Data Transfer (Link Cable)
+            // TODO: Not implemented yet; just the boot values returned here
+            0xFF01 => 0,
+            0xFF02 => 0x7E,
+
             // Timer
             0xFF04...0xFF07 => self.timer.read(address),
 
@@ -205,6 +222,9 @@ impl Bus {
             0xC000...0xFDFF => {
                 self.wram[(address as usize & 0x1FFF) + (self.wram_bank as usize * 0x2000)] = value;
             }
+
+            // Joypad
+            0xFF00 => self.joypad.write(address, value),
 
             // Timer
             0xFF04...0xFF07 => {

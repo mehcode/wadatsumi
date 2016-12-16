@@ -33,6 +33,7 @@ mod cart;
 mod bits;
 mod mode;
 mod timer;
+mod joypad;
 
 fn main() {
     // Log: Initialize (level set from environment variables)
@@ -105,7 +106,7 @@ fn main() {
                 Event::KeyDown { scancode, repeat, .. } => {
                     if !repeat {
                         if let Some(scancode) = scancode {
-                            info!("event: key down: {}", scancode);
+                            m.on_key_down(scancode);
                         }
                     }
                 }
@@ -113,7 +114,7 @@ fn main() {
                 Event::KeyUp { scancode, repeat, .. } => {
                     if !repeat {
                         if let Some(scancode) = scancode {
-                            info!("event: key up: {}", scancode);
+                            m.on_key_up(scancode);
                         }
                     }
                 }

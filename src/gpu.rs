@@ -300,8 +300,6 @@ impl GPU {
 
             // OAM
             0xFE00...0xFE9F => {
-                info!("oam/read [{:X}] ~ in_oam_dma: {}", address, in_oam_dma);
-
                 // TODO: OAM cannot be read during mode-2 or mode-3
                 // OAM cannot be read during OAM DMA
                 if !in_oam_dma {
@@ -538,12 +536,20 @@ impl GPU {
 
         // TODO: If CGB, background_display just disables priority on background
         if self.lcd_enable && self.background_display {
-            self.render_tiles();
+            self.render_background();
+        }
+
+        if self.lcd_enable && self.window_enable {
+            self.m3_cycles += self.render_window();
+        }
+
+        if self.lcd_enable && self.sprite_enable {
+            self.m3_cycles += self.render_sprites();
         }
     }
 
-    /// Render Tile Map (for Scanline)
-    fn render_tiles(&mut self) {
+    /// Render Background (for Scanline)
+    fn render_background(&mut self) {
         // TODO: CGB Background Attributes
         // TODO: Generalize so we can use this for both background and window
 
@@ -584,6 +590,177 @@ impl GPU {
 
             x += 1;
         }
+    }
+
+    /// Render Window (for Scanline)
+    fn render_window(&mut self) -> u32 {
+        // TODO: CGB Background Attributes
+        // TODO: Generalize so we can use this for both background and window
+        let mut cycles = 0;
+
+        if self.ly >= self.wy {
+            // Rendering the window takes 6 cycles unless WX=0 then it takes 7
+            // HACK: Making this take 24 cycles makes Pinball Deluxe run. It's probably incorrect
+            //       but I'll leave this in here until @gekkio makes a test that makes it fail
+            cycles += 24;
+            if self.wx <= 7 {
+                cycles += 1;
+            }
+            // Line (to be rendered)
+            let line = self.ly.wrapping_sub(self.wy);
+
+            // Starting offset to tile map (for this scanline)
+            let row = (if self.window_tile_map_select {
+                0x1C00
+            } else {
+                0x1800
+            }) + (((line as usize) >> 3) << 5);
+
+            let mut x = 0;
+            let y = line % 8;
+            let offset = (self.ly as usize) * WIDTH as usize;
+
+            for i in (if self.wx > 7 {
+                (self.wx - 7) as usize
+            } else {
+                0
+            })..(WIDTH as usize) {
+                // Offset to the tile index for this 8-pixel spot on the background
+                let col = (x / 8) % 32;
+
+                // Get tile index (unsigned)
+                let tile_idx = self.get_tile(row, col as usize);
+
+                // Get palette index for tile (given x and y)
+                let tile_x = x % 8;
+                let tile_y = y;
+                let pal_idx = self.get_tile_data(tile_idx, tile_x, tile_y);
+
+                // Apply palette to get shade
+                let (r, g, b) = self.get_color(pal_idx, self.bgp);
+
+                // Push pixel (color) to framebuffer
+                self.framebuffer[((offset + i) * 4)] = b;
+                self.framebuffer[((offset + i) * 4) + 1] = g;
+                self.framebuffer[((offset + i) * 4) + 2] = r;
+                self.framebuffer[((offset + i) * 4) + 3] = 0xFF;
+
+                x += 1;
+            }
+        }
+
+        cycles
+    }
+
+    /// Render Sprites (for Scanline)
+    fn render_sprites(&mut self) -> u32 {
+        // Sprite attributes reside in the Sprite Attribute Table (
+        // OAM - Object Attribute Memory) at $FE00-FE9F.
+
+        // Each of the 40 entries consists of four bytes with the
+        // following meanings:
+        //  Byte0 - Y Position
+        //  Byte1 - X Position
+        //  Byte2 - Tile/Pattern Number
+        //  Byte3 - Attributes/Flags:
+        //    Bit7   OBJ-to-BG Priority (0=OBJ Above BG, 1=OBJ Behind BG color 1-3)
+        //           (Used for both BG and Window. BG color 0 is always behind OBJ)
+        //    Bit6   Y flip          (0=Normal, 1=Vertically mirrored)
+        //    Bit5   X flip          (0=Normal, 1=Horizontally mirrored)
+        //    Bit4   Palette number  **Non CGB Mode Only** (0=OBP0, 1=OBP1)
+        //    Bit3   Tile VRAM-Bank  **CGB Mode Only**     (0=Bank 0, 1=Bank 1)
+        //    Bit2-0 Palette number  **CGB Mode Only**     (OBP0-7)
+
+        let cycles = 0;
+
+        let sprite_sz = if self.sprite_16 { 16 } else { 8 };
+        let mut n = 0;
+        let offset = (self.ly as usize) * WIDTH as usize;
+
+        for i in 0..40 {
+            // Gather sprite properties
+            let sprite_y = (self.oam[(i * 4)] as i16) - 16;
+            let sprite_x = (self.oam[(i * 4) + 1] as i16) - 8;
+            let mut sprite_tile = self.oam[(i * 4) + 2] as usize;
+            let sprite_attr = self.oam[(i * 4) + 3];
+
+            // Remember, we are rendering on a line-by-line basis
+            // Does this sprite intersect our current scanline?
+
+            if (sprite_y <= (self.ly as i16)) && (sprite_y + sprite_sz) > (self.ly as i16) {
+                // A maximum of 10 drawn sprites per line are allowed
+                // if n >= 10 {
+                //     break;
+                // }
+
+                // Calculate y-index into the tile (applying y-mirroring)
+                let mut tile_y = ((self.ly as i16) - sprite_y) as u8;
+                if bits::test(sprite_attr, 6) {
+                    tile_y = (sprite_sz as u8) - 1 - tile_y;
+                }
+
+                // Sprites can be 8x16 but tiles are only 8x8; adjust sprite_tile and
+                // tile_y to reference the upper or lower tile
+                if sprite_sz == 16 {
+                    if tile_y < 8 {
+                        // Top
+                        sprite_tile &= 0xFE;
+                    } else {
+                        // Bottom
+                        tile_y -= 8;
+                        sprite_tile |= 0x01;
+                    }
+                }
+
+                // Iterate through the columns of the sprite's tile
+                let mut rendered = false;
+                for x in 0..8 {
+                    // Is this column of the sprite visible on the screen ?
+                    if (sprite_x + x >= 0) && (sprite_x + x < (WIDTH as i16)) {
+                        // Calculate the x-index into the tile (applying x-mirroring)
+                        let tile_x = (if bits::test(sprite_attr, 5) {
+                            (7 - x)
+                        } else {
+                            x
+                        }) as u8;
+
+                        // Get palette index for tile (given x and y)
+                        let pal_idx = self.get_tile_data(sprite_tile, tile_x, tile_y);
+
+                        // Apply palette to get shade
+                        let (r, g, b) = self.get_color(pal_idx,
+                                                       if bits::test(sprite_attr, 4) {
+                                                           self.obp1
+                                                       } else {
+                                                           self.obp0
+                                                       });
+
+                        // Push pixel (color) to framebuffer
+                        self.framebuffer[((offset + (sprite_x + x) as usize) * 4)] = b;
+                        self.framebuffer[((offset + (sprite_x + x) as usize) * 4) + 1] = g;
+                        self.framebuffer[((offset + (sprite_x + x) as usize) * 4) + 2] = r;
+                        self.framebuffer[((offset + (sprite_x + x) as usize) * 4) + 3] = 0xFF;
+                    } else {
+                        // TODO: Check this; should a non-visible sprite far off on the X-axis
+                        //       be counted as rendered?
+                        //       According to various docs it should.. but.. we all know how
+                        //       accurate those can be.
+                        rendered = true;
+                    }
+                }
+
+                if rendered {
+                    if sprite_x < 168 {
+                        // Visible and rendered sprite affects timing
+                    }
+
+                    // Rendered sprite affects max # of sprites per scanline
+                    n += 1;
+                }
+            }
+        }
+
+        cycles
     }
 
     /// Get tile index from background tile map

@@ -1,4 +1,5 @@
 use std::io;
+use sdl2;
 
 use ::cpu;
 use ::bus;
@@ -63,5 +64,13 @@ impl Machine {
     pub fn run(&mut self) {
         // Run: next instruction
         self.cpu.run_next(&mut self.bus);
+    }
+
+    pub fn on_key_down(&mut self, scancode: sdl2::keyboard::Scancode) {
+        self.bus.joypad.on_key_down(scancode);
+    }
+
+    pub fn on_key_up(&mut self, scancode: sdl2::keyboard::Scancode) {
+        self.bus.joypad.on_key_up(scancode);
     }
 }
