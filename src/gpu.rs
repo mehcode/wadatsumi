@@ -154,102 +154,99 @@ pub struct GPU {
 impl GPU {
     /// Step
     pub fn step(&mut self, if_: &mut u8) {
-        // The machine is stepped each M-cycle and the GPU needs to be stepped each T-cycle
-        for _ in 1..5 {
-            // TODO: What do we do when the LCD is disabled?
-            if !self.lcd_enable {
-                break;
+        // TODO: What do we do when the LCD is disabled?
+        if !self.lcd_enable {
+            return;
+        }
+
+        // Mode 2 and 0 IRQ are raised some cycles before the GPU actually enters the
+        // respective modes; we use this variable to mark the mode being compared
+        // when we check for a IRQ. If it is still 0xFF it gets set to `self.mode`.
+        let mut mode_cmp = 0xFF;
+
+        // LY is compared to LYC and the "coincidence" IRQ is raised. However, when the
+        // LY register is updated, there is a 4 T-Cycle delay until it can be compared.
+        if self.lyc_timer > 0 {
+            self.lyc_timer -= 1;
+        }
+
+        // Increment cycle counter (reset to 0 at the beginning of each scanline)
+        self.cycles += 1;
+
+        if self.mode == 0 && self.cycles == 5 {
+            // Lines 0-144 start each scanline in mode 0 for 4 cycles
+            if self.ly < 144 {
+                // Proceed to mode 2 — Searching OAM-RAM
+                self.mode = 2;
+            } else {
+                // Proceed to mode 1 — V-Blank
+                self.mode = 1;
+
+                // Trigger VBL interrupt
+                (*if_) |= 0x1;
+
+                // TODO: Trigger the front-end to refresh the scren
             }
+        } else if self.mode == 0 && self.cycles >= 1 && self.cycles < 5 && self.ly >= 1 &&
+                  self.ly <= 143 {
+            // Lines 1-143 signal the M2 IRQ 4 T-cycles early
+            mode_cmp = 2;
+        } else if self.mode == 2 && self.cycles == 85 {
+            // Proceed to mode 3 — Transferring Data to LCD Driver
+            self.mode = 3;
 
-            // Mode 2 and 0 IRQ are raised some cycles before the GPU actually enters the
-            // respective modes; we use this variable to mark the mode being compared
-            // when we check for a IRQ. If it is still 0xFF it gets set to `self.mode`.
-            let mut mode_cmp = 0xFF;
-
-            // LY is compared to LYC and the "coincidence" IRQ is raised. However, when the
-            // LY register is updated, there is a 4 T-Cycle delay until it can be compared.
-            if self.lyc_timer > 0 {
-                self.lyc_timer -= 1;
-            }
-
-            // Increment cycle counter (reset to 0 at the beginning of each scanline)
-            self.cycles += 1;
-
-            if self.mode == 0 && self.cycles == 5 {
-                // Lines 0-144 start each scanline in mode 0 for 4 cycles
-                if self.ly < 144 {
-                    // Proceed to mode 2 — Searching OAM-RAM
-                    self.mode = 2;
-                } else {
-                    // Proceed to mode 1 — V-Blank
-                    self.mode = 1;
-
-                    // Trigger VBL interrupt
-                    (*if_) |= 0x1;
-
-                    // TODO: Trigger the front-end to refresh the scren
-                }
-            } else if self.mode == 0 && self.cycles >= 1 && self.cycles < 5 && self.ly >= 1 &&
-                      self.ly <= 143 {
-                // Lines 1-143 signal the M2 IRQ 4 T-cycles early
-                mode_cmp = 2;
-            } else if self.mode == 2 && self.cycles == 85 {
-                // Proceed to mode 3 — Transferring Data to LCD Driver
-                self.mode = 3;
-
-                // Render scanline (at the -start- of mode-3)
-                self.render();
-            } else if self.mode == 3 && self.cycles >= ((85 + self.m3_cycles) - 7) &&
-                      self.cycles < (85 + self.m3_cycles) {
-                // The mode M0 IRQ is signalled 7 T-cycles early
-                // TODO: Try and verify that
-                mode_cmp = 0;
-            } else if self.mode == 3 && self.cycles == (85 + self.m3_cycles) {
-                // Proceed to mode 0 — H-Blank
-                self.mode = 0;
-            } else if self.mode == 0 && self.cycles == 457 {
-                // A scanline takes 456 T-Cycles to complete
-                // This acts as the 0th scanline for lines 1-143
-                self.ly += 1;
-                self.lyc_timer = 4;
-                self.mode = 0;
+            // Render scanline (at the -start- of mode-3)
+            self.render();
+        } else if self.mode == 3 && self.cycles >= ((85 + self.m3_cycles) - 7) &&
+                  self.cycles < (85 + self.m3_cycles) {
+            // The mode M0 IRQ is signalled 7 T-cycles early
+            // TODO: Try and verify that
+            mode_cmp = 0;
+        } else if self.mode == 3 && self.cycles == (85 + self.m3_cycles) {
+            // Proceed to mode 0 — H-Blank
+            self.mode = 0;
+        } else if self.mode == 0 && self.cycles == 457 {
+            // A scanline takes 456 T-Cycles to complete
+            // This acts as the 0th scanline for lines 1-143
+            self.ly += 1;
+            self.lyc_timer = 4;
+            self.mode = 0;
+            self.cycles = 1;
+        } else if self.mode == 1 {
+            if self.cycles == 457 {
                 self.cycles = 1;
-            } else if self.mode == 1 {
-                if self.cycles == 457 {
-                    self.cycles = 1;
 
-                    if self.ly == 0 {
-                        // Restart process (back to top of LCD)
-                        self.mode = 0;
-                    } else {
-                        self.ly += 1;
-                        self.lyc_timer = 4;
-                    }
-                } else if self.ly == 153 && self.cycles == 5 {
-                    // Scanline 153 spends only 4 T-Cycles with LY == 153
-                    self.ly = 0;
+                if self.ly == 0 {
+                    // Restart process (back to top of LCD)
+                    self.mode = 0;
+                } else {
+                    self.ly += 1;
                     self.lyc_timer = 4;
                 }
+            } else if self.ly == 153 && self.cycles == 5 {
+                // Scanline 153 spends only 4 T-Cycles with LY == 153
+                self.ly = 0;
+                self.lyc_timer = 4;
             }
-
-            // The STAT interrupt is fired when the signal TRANSITIONS from 0 TO 1
-            // If it _stays_ 1 during a screen mode change then no interrupt is fired.
-            if mode_cmp == 0xFF {
-                mode_cmp = self.mode;
-            }
-
-            let irq = ((self.lyc_timer == 0) && (self.ly == self.lyc) && self.lyc_irq_enable) ||
-                      (mode_cmp == 0 && self.m0_irq_enable) ||
-                      (mode_cmp == 2 && self.m2_irq_enable) ||
-                      (mode_cmp == 1 && (self.m1_irq_enable || self.m2_irq_enable));
-
-            if !self.stat_irq && irq {
-                // Raise interrupt
-                (*if_) |= 0x2;
-            }
-
-            self.stat_irq = irq;
         }
+
+        // The STAT interrupt is fired when the signal TRANSITIONS from 0 TO 1
+        // If it _stays_ 1 during a screen mode change then no interrupt is fired.
+        if mode_cmp == 0xFF {
+            mode_cmp = self.mode;
+        }
+
+        let irq = ((self.lyc_timer == 0) && (self.ly == self.lyc) && self.lyc_irq_enable) ||
+                  (mode_cmp == 0 && self.m0_irq_enable) ||
+                  (mode_cmp == 2 && self.m2_irq_enable) ||
+                  (mode_cmp == 1 && (self.m1_irq_enable || self.m2_irq_enable));
+
+        if !self.stat_irq && irq {
+            // Raise interrupt
+            (*if_) |= 0x2;
+        }
+
+        self.stat_irq = irq;
     }
 
     /// Reset

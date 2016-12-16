@@ -6,11 +6,11 @@ pub struct Timer {
     /// This register is incremented at rate of 16384Hz (~16779Hz on SGB).
     /// In CGB Double Speed Mode it is incremented twice as fast, ie. at 32768Hz.
     /// Writing any value to this register resets it to 00h.
-    div: u16,
+    pub div: u16,
 
     /// Previous value of DIV register
     /// Used to detect 1->0 transitions for the rest of the system
-    div_last: u16,
+    pub div_last: u16,
 
     /// Timer Counter (R/W) — $FF05
     /// This timer is incremented by a clock frequency specified by the TAC
@@ -18,6 +18,13 @@ pub struct Timer {
     /// then it will be reset to the value specified in TMA (FF06), and an
     /// interrupt will be requested.
     tima: u8,
+
+    /// When TIMA is reloaded by TMA and then TMA is set within the same T-cycle; TIMA is set
+    /// to the new value of TMA.
+    tima_timer: u8,
+
+    /// When TIMA overflows; there is a 4 T-cycle timer before something happens
+    tima_reload_timer: u8,
 
     /// Timer Modulo (R/W) — $FF06
     /// When the TIMA overflows, this data will be loaded.
@@ -47,38 +54,56 @@ impl Timer {
         self.tima = 0;
         self.tma = 0;
         self.tac = 0;
+        self.tima_reload_timer = 0;
     }
 
     /// Step
-    pub fn step(&mut self, if_: &mut u8) {
-        // If we have the TAC enable bit set, then we need to check for a 1 - 0
-        // conversion on a specific bit. This figures out which bit.
-        //  1 -> b03
-        //  2 -> b05
-        //  3 -> b07
-        //  0 -> b09
-        let freq = (self.tac & 0b11) as u16;
-        let b = if freq == 0 {
-            0x200u16
-        } else {
-            0x1u16 << ((freq << 1) + 1)
-        };
+    pub fn step(&mut self) {
+        // TIMA weird state (able to be set by loading TMA) lasts for 1 T-cycle
+        if self.tima_timer > 0 {
+            self.tima_timer -= 1;
+        }
 
-        // The machine is stepped each M-cycle and the GPU needs to be stepped each T-cycle
-        for _ in 1..5 {
-            // Remember the value of our watched bit on DIV
-            let value = self.div & b;
+        // Check for a queued TIMA reload
+        if self.tima_reload_timer > 0 {
+            self.tima_reload_timer -= 1;
+            if self.tima_reload_timer == 0 {
+                // Reload TIMA (with TMA)
+                self.tima = self.tma;
 
-            // Increment DIV
-            self.div = self.div.wrapping_add(1);
+                // If TMA is set in this T-cycle, TIMA gets loaded with it
+                self.tima_timer = 1;
+            }
+        }
 
-            if (self.tac & 0b100) != 0 && value > 0 && (self.div & b) == 0 {
+        // Increment DIV (remember previous div)
+        self.div_last = self.div;
+        self.div = self.div.wrapping_add(1);
+    }
+
+    pub fn on_change_div(&mut self, prev: u16, cur: u16, if_: &mut u8) {
+        if (self.tac & 0b100) != 0 {
+            // If we have the TAC enable bit set, then we need to check for a 1 - 0
+            // conversion on a specific bit. This figures out which bit.
+            //  1 -> b03
+            //  2 -> b05
+            //  3 -> b07
+            //  0 -> b09
+            let freq = (self.tac & 0b11) as u16;
+            let b = if freq == 0 {
+                0x200u16
+            } else {
+                0x1u16 << ((freq << 1) + 1)
+            };
+
+            if (prev & b) != 0 && (cur & b) == 0 {
                 // Check for 8-bit overflow
                 if ((self.tima as u16) + 1) & 0xFF == 0 {
-                    // Set the overflow sentinel
-                    self.tima = self.tma;
+                    // Enqueue the TIMA reload
+                    self.tima = 0;
+                    self.tima_reload_timer = 4;
 
-                    // Flag the interrupt
+                    // Note that the timer interrupt is still fired here
                     (*if_) |= 0b100;
                 } else {
                     // Increment TIMA
@@ -104,22 +129,44 @@ impl Timer {
     }
 
     /// Write
-    pub fn write(&mut self, address: u16, value: u8) {
+    pub fn write(&mut self, address: u16, value: u8, if_: &mut u8) {
         match address {
             0xFF04 => {
                 // Any value written to DIV is ignored and DIV is set to 0
+                self.div_last = self.div;
                 self.div = 0;
             }
 
             0xFF05 => {
-                self.tima = value;
+                // If you write to TIMA during the cycle that TMA is being loaded to it,
+                // the write will be ignored and TMA value will be written to TIMA instead.
+                if self.tima_timer == 0 {
+                    self.tima = value;
+
+                    // Any other write to TIMA will reset a pending reload
+                    self.tima_reload_timer = 0;
+                }
             }
 
             0xFF06 => {
                 self.tma = value;
+
+                if self.tima_timer > 0 {
+                    self.tima = self.tma;
+                }
             }
 
             0xFF07 => {
+                // When disabling the timer, if the corresponding bit in the system counter
+                // is set to 1, the falling edge detector will see a change from 1 to 0,
+                // so TIMA will increase. This means that whenever half the clocks of the
+                // count are reached, TIMA will increase when disabling the timer.
+                if (self.tac & 0b100 != 0) && (value & 0b100 == 0) {
+                    // TIMA is being disabled
+                    let div = self.div;
+                    self.on_change_div(div, 0, if_);
+                }
+
                 self.tac = value & 0b111;
             }
 

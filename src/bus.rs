@@ -39,10 +39,24 @@ pub struct Bus {
 impl Bus {
     /// Step
     pub fn step(&mut self) {
-        // TODO(architecture): This feels _wrong_ but the GPU and Timer need IF to signal IRQ
-        //      Perhaps make a separate IRQ subsystem that is given out here?
-        self.gpu.step(&mut self.if_);
-        self.timer.step(&mut self.if_);
+        // The Bus is stepped by the CPU each M-cycle and it must then step the system
+        // components 4 T-cycles
+        for _ in 0..4 {
+            // TODO(architecture): This feels _wrong_ but the GPU and Timer need IF to signal IRQ
+            //      Perhaps make a separate IRQ subsystem that is given out here?
+
+            self.timer.step();
+
+            let div_last = self.timer.div_last;
+            let div = self.timer.div;
+
+            self.timer.on_change_div(div_last, div, &mut self.if_);
+
+            self.gpu.step(&mut self.if_);
+
+            // TODO: self.apu.step();
+            // TODO: self.apu.on_change_div(self.timer.div_last, self.timer.div);
+        }
     }
 
     /// Reset
@@ -140,7 +154,20 @@ impl Bus {
             }
 
             // Timer
-            0xFF04...0xFF07 => self.timer.write(address, value),
+            0xFF04...0xFF07 => {
+                let div = self.timer.div;
+                self.timer.write(address, value, &mut self.if_);
+
+                // TODO(architecture): I can't think of a better way to observe DIV changes from
+                //  outside of the timer system
+                if div != self.timer.div {
+                    let div_last = self.timer.div_last;
+                    let div = self.timer.div;
+
+                    self.timer.on_change_div(div_last, div, &mut self.if_);
+                    // TODO: self.apu.on_change_div(div_last, div);
+                }
+            }
 
             // High RAM
             0xFF80...0xFFFE => {
