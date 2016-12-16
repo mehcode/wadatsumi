@@ -61,9 +61,8 @@ impl Mode {
                 (GB, "mgb") => GB_MGB,
                 (GB, "cgb") => GB_CGB,
                 (GB, "agb") => GB_AGB,
-                (GB, "sgb") => GB_SGB2,
                 (GB, "sgb1") => GB_SGB1,
-                (GB, "sgb2") => GB_SGB2,
+                (GB, "sgb") | (GB, "sgb2") => GB_SGB2,
 
                 (CGB, "cgb") => CGB_CGB,
                 (CGB, "agb") => CGB_AGB,

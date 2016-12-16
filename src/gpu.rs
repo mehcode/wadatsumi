@@ -155,7 +155,7 @@ impl GPU {
     /// Step
     pub fn step(&mut self, if_: &mut u8) {
         // The machine is stepped each M-cycle and the GPU needs to be stepped each T-cycle
-        for _ in 1..4 {
+        for _ in 1..5 {
             // TODO: What do we do when the LCD is disabled?
             if !self.lcd_enable {
                 break;
@@ -572,7 +572,7 @@ impl GPU {
             let (r, g, b) = self.get_color(pal_idx, self.bgp);
 
             // Push pixel (color) to framebuffer
-            self.framebuffer[((offset + i) * 4) + 0] = b;
+            self.framebuffer[((offset + i) * 4)] = b;
             self.framebuffer[((offset + i) * 4) + 1] = g;
             self.framebuffer[((offset + i) * 4) + 2] = r;
             self.framebuffer[((offset + i) * 4) + 3] = 0xFF;
@@ -594,14 +594,14 @@ impl GPU {
     fn get_tile_data(&self, tile: usize, x: u8, y: u8) -> u8 {
         let offset = tile * 16 + ((y as usize) * 2);
 
-        (((self.vram[offset + 1] >> (7 - x) << 1) & 2) | (self.vram[offset + 0] >> (7 - x) & 1))
+        (((self.vram[offset + 1] >> (7 - x) << 1) & 2) | (self.vram[offset] >> (7 - x) & 1))
     }
 
     /// Get color from palette and palette index
     // TODO: Make configurable
     fn get_color(&self, palette_index: u8, palette: u8) -> (u8, u8, u8) {
         let pixel = (palette >> (palette_index << 1)) & 0x3;
-        return if pixel == 1 {
+        if pixel == 1 {
             // Grayscale
             (0xC0, 0xC0, 0xC0)
             // Green
@@ -629,6 +629,6 @@ impl GPU {
             // 0xFF9BBC0F
             // Yellow
             // 0xFFFFFD4B
-        };
+        }
     }
 }

@@ -32,6 +32,7 @@ mod bus;
 mod cart;
 mod bits;
 mod mode;
+mod timer;
 
 fn main() {
     // Log: Initialize (level set from environment variables)
@@ -69,7 +70,7 @@ fn main() {
 
     let mut m = machine::Machine::new(mode);
 
-    m.open(&rom_filename).unwrap();
+    m.open(rom_filename).unwrap();
 
     m.reset();
 

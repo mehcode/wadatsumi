@@ -3,6 +3,7 @@ use std::vec::Vec;
 use ::cart;
 use ::mode;
 use ::gpu;
+use ::timer;
 
 /// The Bus is the interconnect that facilitates communication from the CPU and the various other
 /// components in the machine.
@@ -13,6 +14,9 @@ pub struct Bus {
 
     /// Component: GPU
     pub gpu: gpu::GPU,
+
+    /// Component: Timer
+    pub timer: timer::Timer,
 
     /// [0xC000 - 0xDFFF] Work RAM (WRAM)
     ///   8 KiB in GB
@@ -35,10 +39,10 @@ pub struct Bus {
 impl Bus {
     /// Step
     pub fn step(&mut self) {
-        // TODO(architecture): The machine/bus is stepped each M-cycle. Some components operate
-        //      by M-cycles and others by T-cycles
-
+        // TODO(architecture): This feels _wrong_ but the GPU and Timer need IF to signal IRQ
+        //      Perhaps make a separate IRQ subsystem that is given out here?
         self.gpu.step(&mut self.if_);
+        self.timer.step(&mut self.if_);
     }
 
     /// Reset
@@ -56,15 +60,13 @@ impl Bus {
         self.hram.clear();
         self.hram.resize(127, 0);
 
-        // Reset: GPU
+        // Reset: Components
         self.gpu.reset();
+        self.timer.reset(mode);
 
         // Reset: (various)
         // TODO: Remove these as each component should be in charge of reset; this is just copied
         //       from pandocs for easy right now
-        self.write(0xFF05, 0x00);
-        self.write(0xFF06, 0x00);
-        self.write(0xFF07, 0x00);
         self.write(0xFF10, 0x80);
         self.write(0xFF11, 0xBF);
         self.write(0xFF12, 0xF3);
@@ -101,6 +103,9 @@ impl Bus {
                 self.wram[(address as usize & 0x1FFF) + (self.wram_bank as usize * 0x2000)]
             }
 
+            // Timer
+            0xFF04...0xFF07 => self.timer.read(address),
+
             // High RAM
             0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
 
@@ -133,6 +138,9 @@ impl Bus {
             0xC000...0xFDFF => {
                 self.wram[(address as usize & 0x1FFF) + (self.wram_bank as usize * 0x2000)] = value;
             }
+
+            // Timer
+            0xFF04...0xFF07 => self.timer.write(address, value),
 
             // High RAM
             0xFF80...0xFFFE => {
