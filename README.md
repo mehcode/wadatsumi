@@ -8,7 +8,17 @@ cargo build --release
 
 ## Usage
 
+```
+wadatsumi [OPTIONS] <rom>
+```
+
+## Options
+
 ### Mode
+
+```
+-m <device>[:<variation>]
+```
 
 Mode is specified as `-m <device>:<variation>` with `:<variation>` able to
 be omitted (which will default to a common variation). The default variation
@@ -28,3 +38,16 @@ wadatsumi, will attempt to guess the preferred mode.
 | Super Gameboy — `sgb`      | `2`    (*) |                                    |
 | Color Gameboy — `cgb`      | `cgb`  (*) |                                    |
 | Color Gameboy — `cgb`      | `agb`      | AGB locked in CGB mode             |
+
+### DMG/MGB Palette
+
+Applicable for modes: `gb:dmg0`, `gb:dmg`, `gb:mgb`
+
+```
+-Z gb:palette=<0>,<1>,<2>,<3>
+```
+
+Each color in the palette is a hex code in the format: `RRGGBB`.
+
+A 4-shade palette that resembles the original gameboy may be explicitly
+specified with `-Z gb:palette=9BBC0F,8BB30F,306230,0F410F`.
