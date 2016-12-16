@@ -2,14 +2,20 @@
 
 ## Build
 
+```sh
+$ cargo build --release
 ```
-cargo build --release
+
+## Install
+
+```sh
+$ cargo install
 ```
 
 ## Usage
 
-```
-wadatsumi [OPTIONS] <rom>
+```sh
+$ wadatsumi [OPTIONS] <rom>
 ```
 
 ## Options
