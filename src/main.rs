@@ -47,7 +47,7 @@ fn main() {
             .long("mode")
             .takes_value(true)
             .help("The device (and variation) to emulate")
-            // TODO: This should be generated from somewhere
+            // TODO: This should be generated
             .possible_values(&["gb", "gb:dmg0", "gb:dmg", "gb:mgb", "gb:cgb", "gb:agb", "gb:sgb", "gb:sgb1", "gb:sgb2", "cgb",
                                "cgb:cgb", "cgb:agb", "sgb", "sgb:1", "sgb:2"]))
         .arg(Arg::with_name("rom").required(true).help("The ROM to use"))
