@@ -17,7 +17,7 @@ use sdl2::pixels::Color;
 use sdl2::video::WindowBuilder;
 use sdl2::render::RendererBuilder;
 
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App};
 
 #[macro_use]
 mod om;
