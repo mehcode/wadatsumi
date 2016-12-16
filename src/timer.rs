@@ -59,12 +59,10 @@ impl Timer {
 
     /// Step
     pub fn step(&mut self) {
-        // TIMA weird state (able to be set by loading TMA) lasts for 1 T-cycle
         if self.tima_timer > 0 {
             self.tima_timer -= 1;
         }
 
-        // Check for a queued TIMA reload
         if self.tima_reload_timer > 0 {
             self.tima_reload_timer -= 1;
             if self.tima_reload_timer == 0 {
