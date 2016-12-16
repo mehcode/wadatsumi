@@ -1,6 +1,9 @@
 // Operation Macros
 // Instructions are broken down into reusable macros that allow zero-cost code reuse.
 
+// TODO(architecture): Determine if there is a more optimal system for operation microcode (the macros
+//      were a quick translation)
+
 // 8-bit Memory Read/Write
 // -----------------------
 

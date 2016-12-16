@@ -86,6 +86,8 @@ impl Context {
         }
     }
 
+    // TODO(architecture): Figure out an alternative method for get/set of 16-bit registers
+
     /// Test flag
     #[inline]
     pub fn get_flag(&self, flag: Flags) -> bool {
