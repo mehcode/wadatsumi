@@ -69,13 +69,8 @@ fn main() {
 
     let window = WindowBuilder::new(&video, "Wadatsumi", 160 * 2, 144 * 2).build().unwrap();
 
-    let mut m = machine::Machine::new(mode);
-
-    m.open(rom_filename).unwrap();
-
-    m.reset();
-
     // Create 2D renderer
+    // TODO: Do not use present_vsync and instead limit frame rate manually
     let mut renderer = RendererBuilder::new(window).accelerated().present_vsync().build().unwrap();
 
     // Create texture for framebuffer
@@ -83,18 +78,26 @@ fn main() {
         renderer.create_texture_streaming(sdl2::pixels::PixelFormatEnum::ARGB8888, 160, 144)
             .unwrap();
 
-    while is_running {
+    let mut m = machine::Machine::new(mode);
+
+    m.open(rom_filename).unwrap();
+
+    m.set_on_refresh(Box::new(move |frame| {
         // Render: Clear the window
         renderer.set_draw_color(Color::RGB(255, 255, 255));
         renderer.clear();
 
         // Render: Update texture and flip
-        texture.update(None, &m.bus.gpu.framebuffer, 160 * 4).unwrap();
+        texture.update(None, &frame.data, frame.pitch).unwrap();
         renderer.copy(&texture, None, None).unwrap();
 
         // Render: Present
         renderer.present();
+    }));
 
+    m.reset();
+
+    while is_running {
         // Poll events
         if let Some(evt) = events.poll_event() {
             match evt {

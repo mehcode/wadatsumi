@@ -2,6 +2,7 @@ use std::io;
 use sdl2;
 
 use ::cpu;
+use ::gpu;
 use ::bus;
 use ::mode;
 
@@ -72,5 +73,9 @@ impl Machine {
 
     pub fn on_key_up(&mut self, scancode: sdl2::keyboard::Scancode) {
         self.bus.joypad.on_key_up(scancode);
+    }
+
+    pub fn set_on_refresh(&mut self, callback: Box<FnMut(gpu::Frame) -> ()>) {
+        self.bus.gpu.set_on_refresh(callback);
     }
 }

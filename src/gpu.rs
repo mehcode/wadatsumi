@@ -8,8 +8,25 @@ const WIDTH: usize = 160;
 /// Display height
 const HEIGHT: usize = 144;
 
+pub struct Frame<'a> {
+    // Pixel data
+    pub data: &'a [u8],
+
+    // Pixel pitch
+    pub pitch: usize,
+
+    // Width (in pixels)
+    pub width: usize,
+
+    // Height (in pixels)
+    pub height: usize,
+}
+
 #[derive(Default)]
 pub struct GPU {
+    /// Callback: Refresh (v-blank)
+    on_refresh: Option<Box<FnMut(Frame) -> ()>>,
+
     // TODO: This should not be public but it is for my hacked SDL usage
     /// Pixel data (for current "frame") buffer that is rewritten line-by-line during H-Blank
     pub framebuffer: Vec<u8>,
@@ -152,6 +169,10 @@ pub struct GPU {
 }
 
 impl GPU {
+    pub fn set_on_refresh(&mut self, callback: Box<FnMut(Frame) -> ()>) {
+        self.on_refresh = Some(callback);
+    }
+
     /// Step
     pub fn step(&mut self, if_: &mut u8) {
         // TODO: What do we do when the LCD is disabled?
@@ -185,7 +206,15 @@ impl GPU {
                 // Trigger VBL interrupt
                 (*if_) |= 0x1;
 
-                // TODO: Trigger the front-end to refresh the scren
+                // Trigger the front-end to refresh the scren
+                if let &mut Some(ref mut on_refresh) = &mut self.on_refresh {
+                    (on_refresh)(Frame {
+                        data: &self.framebuffer,
+                        width: WIDTH,
+                        height: HEIGHT,
+                        pitch: WIDTH * 4,
+                    });
+                }
             }
         } else if self.mode == 0 && self.cycles >= 1 && self.cycles < 5 && self.ly >= 1 &&
                   self.ly <= 143 {
