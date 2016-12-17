@@ -7,8 +7,10 @@ use std::vec;
 use std::string;
 use std::ascii::AsciiExt;
 
+use ::bits;
+
 #[allow(enum_variant_names)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum MBC {
     // No MBC (less than 32 KiB)
     None,
@@ -81,9 +83,32 @@ pub struct Cartridge {
 
     /// [0x0147] Has Timer (derived from type)
     pub has_timer: bool,
+
+    /// Selected ROM Bank
+    rom_bank: usize,
+
+    /// Selected RAM Bank
+    ram_bank: usize,
+
+    /// RAM Enabled (currently)
+    ram_enable: bool,
+
+    /// Timer Enabled (currently)
+    timer_enable: bool,
+
+    /// MBC1 Banking Mode ROM/RAM (true=RAM, false=ROM)
+    mbc1_mode: bool,
 }
 
 impl Cartridge {
+    pub fn reset(&mut self) {
+        self.rom_bank = 1;
+        self.ram_bank = 0;
+        self.ram_enable = false;
+        self.timer_enable = false;
+        self.mbc1_mode = false;
+    }
+
     pub fn open(&mut self, filename: &str) -> io::Result<()> {
         // Read in cartridge memory
         let mut stream = try!(File::open(filename));
@@ -159,6 +184,14 @@ impl Cartridge {
             }
         };
 
+        // Explode if we got a MBC type we don't support
+        match self.mbc {
+            MBC::None | MBC::MBC1 | MBC::MBC2 | MBC::MBC3 | MBC::MBC5 => {}
+            _ => {
+                panic!(format!("unsupported memory bank controller: {:?}", self.mbc));
+            }
+        }
+
         // Parse battery-backed RAM enable/disable
         self.has_battery = match self.type_ {
             0x03 | 0x06 | 0x09 | 0x0D | 0x0F | 0x10 | 0x13 | 0x17 | 0x1B | 0x1E | 0xFF => true,
@@ -209,6 +242,9 @@ impl Cartridge {
             }) * 1024
         };
 
+        // If we have a nonzero ram size; allocate some ram
+        self.ram.resize(self.ram_size as usize, 0);
+
         // Parse title
         self.title.truncate(0);
         self.title.reserve(16);
@@ -226,16 +262,174 @@ impl Cartridge {
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
-        // TODO: MBC / RAM
-        if address <= 0x7FFF {
-            self.rom[address as usize]
-        } else {
-            // Unhandled
-            0xFF
+        match address {
+            0...0x3FFF => {
+                // ROM Bank $0
+                self.rom[address as usize]
+            }
+
+            0x4000...0x7FFF => {
+                // ROM Bank $<N>
+                self.rom[(self.rom_bank * 0x4000) + (address - 0x4000) as usize]
+            }
+
+            0xA000...0xBFFF => {
+                // RAM Bank $<N>
+                let i = (address - 0xA000) as usize + (self.ram_bank * 0x2000);
+                if self.ram_enable && i < (self.ram_size as usize) {
+                    self.ram[i]
+                } else {
+                    // RAM is disabled (or too small)
+                    0xFF
+                }
+            }
+
+            _ => {
+                // Unhandled
+                0xFF
+            }
         }
     }
 
-    pub fn write(&mut self, _: u16, _: u8) {
-        // TODO: MBC
+    pub fn write(&mut self, address: u16, value: u8) {
+        match address {
+            /// RAM Enable: MBC1, MBC2, MBC3 (*), MBC5
+            0x0000...0x1FFF => {
+                self.ram_enable = (value & 0x0A) != 0;
+
+                // MBC3 additionally affects the `timer_enable` flag here
+                if self.mbc == MBC::MBC3 {
+                    self.timer_enable = self.ram_enable;
+                }
+            }
+
+            // MBC5: Lower 8 bits of ROM bank number
+            0x2000...0x2FFF if (self.mbc == MBC::MBC5) => {
+                self.rom_bank &= (!0xFF) as usize;
+                self.rom_bank |= (value & 0xFF) as usize;
+                self.limit_rom_bank();
+            }
+
+            // MBC5: Upper 1 bits of ROM bank number
+            0x3000...0x3FFF if (self.mbc == MBC::MBC5) => {
+                self.rom_bank &= (!0x100) as usize;
+                self.rom_bank |= ((value & 0x01) as usize) << 8;
+                self.limit_rom_bank();
+            }
+
+            // MBC1: Lower 5 bits of ROM bank number
+            // MBC2: Lower (all) 4 bits; bit8 of address must be 1 of ROM bank number
+            // MBC3: Lower (all) 7 bits of ROM bank number
+            0x2000...0x3FFF if self.mbc != MBC::MBC5 => {
+                let n = match self.mbc {
+                    MBC::MBC1 => 5,
+                    MBC::MBC2 => 4,
+                    MBC::MBC3 => 7,
+                    _ => {
+                        return;
+                    }
+                };
+
+                let mask = bits::mask(n);
+
+                // In MBC2; the 8th bit of the address must be 1
+                if self.mbc == MBC::MBC2 && (address & 0x100) == 0 {
+                    return;
+                }
+
+                self.rom_bank &= (!mask) as usize;
+                self.rom_bank |= (value & mask) as usize;
+                self.limit_rom_bank();
+            }
+
+            // MBC1: RAM Bank Number - or - Upper 2 Bits of ROM Bank Number
+            // MBC3: RAM Bank Number - or - RTC Register Select
+            // MBC5: RAM Bank Number - and - Rumble ON/OFF
+            0x4000...0x5FFF => {
+                if (self.mbc == MBC::MBC1 && self.mbc1_mode) ||
+                   (self.mbc == MBC::MBC3 && value < 0x08) ||
+                   (self.mbc == MBC::MBC5) {
+                    // RAM Bank Number
+                    //  MBC1: Max of 0x3
+                    //  MBC3: Max of 0x3
+                    //  MBC5: Max of 0xF
+                    self.ram_bank = value as usize;
+                    self.ram_bank &= if self.mbc == MBC::MBC1 || self.mbc == MBC::MBC3 {
+                        0x3
+                    } else {
+                        0xF
+                    };
+                }
+
+                if self.mbc == MBC::MBC1 && !self.mbc1_mode {
+                    // MBC1 ROM Banking Mode
+                    self.rom_bank &= (!0x60) as usize;
+                    self.rom_bank |= ((value & 0x3) as usize) << 5;
+                    self.limit_rom_bank();
+                }
+
+                if self.mbc == MBC::MBC3 && value >= 0x08 {
+                    warn!("unsupported: rtc register selected {:X}", value);
+                }
+
+                if self.mbc == MBC::MBC5 {
+                    // If bit 4 is 1; start rumble
+                    // If bit 4 is 0; stop rumble
+                }
+            }
+
+            // MBC3: Latch Clock Data
+            0x6000...0x7FFF if self.mbc == MBC::MBC3 => {
+                warn!("unsupported: latch clock data <- {:X}", value);
+            }
+
+            // MBC1: ROM/RAM Mode Select
+            0x6000...0x7FFF if self.mbc == MBC::MBC5 => {
+                self.mbc1_mode = value == 1;
+            }
+
+            0xA000...0xBFFF => {
+                // RAM Bank $<N>
+                let i = (address - 0xA000) as usize + (self.ram_bank as usize) * 0x2000;
+                if self.ram_enable && i < (self.ram_size as usize) {
+                    self.ram[i] = value;
+                }
+            }
+
+            _ => {
+                // Unhandled
+            }
+        }
+    }
+
+    /// Limit ROM Bank Number
+    ///     MBC1: 0, 20h, 40h, and 60h cannot be selected; max of 0x7F
+    ///     MBC2: 0 cannot be selected; max of 0xF
+    ///     MBC3: 0 cannot be selected; max of 0x7F
+    ///     MBC5: 0 _can_ be selected; max of 0x1E0
+    fn limit_rom_bank(&mut self) {
+        // Ensure ROM bank doesn't select invalid banks and is under the limit for the MBC
+
+        // Wrap around the max size
+        self.rom_bank &= match self.mbc {
+            MBC::MBC1 | MBC::MBC3 => 0x7F,
+            MBC::MBC2 => 0xF,
+            MBC::MBC5 => 0x1E0,
+            _ => 0,
+        };
+
+        // Bump on invalid bank numbers
+        match self.mbc {
+            MBC::MBC1 => {}
+
+            MBC::MBC2 | MBC::MBC3 => {
+                if self.rom_bank == 0 || self.rom_bank == 0x20 || self.rom_bank == 0x40 ||
+                   self.rom_bank == 0x60 {
+                    self.rom_bank += 1;
+                }
+            }
+
+            _ => {}
+        }
     }
 }

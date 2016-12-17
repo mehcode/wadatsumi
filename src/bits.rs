@@ -8,3 +8,14 @@ pub fn bit(value: bool, n: u8) -> u8 {
 pub fn test(value: u8, n: u8) -> bool {
     (value & (1 << n)) != 0
 }
+
+// Returns a <n> bit integer with all bits set to 1
+// TODO: Please think of a better name
+pub fn mask(n: u8) -> u8 {
+    let mut r = 0;
+    for i in 0..n {
+        r |= bit(true, i);
+    }
+
+    return r;
+}

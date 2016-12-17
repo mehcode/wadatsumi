@@ -122,6 +122,7 @@ impl Bus {
         self.hram.resize(127, 0);
 
         // Reset: Components
+        self.cart.reset();
         self.gpu.reset();
         self.joypad.reset();
         self.timer.reset(mode);
