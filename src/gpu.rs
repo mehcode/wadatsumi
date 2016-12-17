@@ -759,7 +759,7 @@ impl GPU {
         let mut cycles = (self.scx & 7) as u32;
         let mut has_sprite_at_0 = false;
         self.sprite_stall_buckets.clear();
-        self.sprite_stall_buckets.resize(35, 0);
+        self.sprite_stall_buckets.resize(40, 0);
 
         let sprite_sz = if self.sprite_16 { 16 } else { 8 };
         let mut n = 0;
