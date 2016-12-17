@@ -279,7 +279,7 @@ impl CPU {
         let pc = self.ctx.pc;
         self.ctx.step(bus);
         let mut opcode = bus.read(self.ctx.pc) as usize;
-        self.ctx.pc += 1;
+        self.ctx.pc = self.ctx.pc.wrapping_add(1);
 
         // On HALT bug; replay PC value here
         if self.ctx.halt == -1 {
@@ -292,7 +292,7 @@ impl CPU {
             opcode = 0x100;
             self.ctx.step(bus);
             opcode |= bus.read(self.ctx.pc) as usize;
-            self.ctx.pc += 1;
+            self.ctx.pc = self.ctx.pc.wrapping_add(1);
         }
 
         let op = &self.table[opcode as usize];
