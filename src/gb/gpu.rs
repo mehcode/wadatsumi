@@ -2,26 +2,13 @@ use std::vec::Vec;
 use std::cmp;
 
 use ::bits;
+use ::frame::Frame;
 
 /// Display width
-const WIDTH: usize = 160;
+pub const WIDTH: usize = 160;
 
 /// Display height
-const HEIGHT: usize = 144;
-
-pub struct Frame<'a> {
-    // Pixel data
-    pub data: &'a [u8],
-
-    // Pixel pitch
-    pub pitch: usize,
-
-    // Width (in pixels)
-    pub width: usize,
-
-    // Height (in pixels)
-    pub height: usize,
-}
+pub const HEIGHT: usize = 144;
 
 #[derive(Default)]
 pub struct GPU {
@@ -759,8 +746,7 @@ impl GPU {
         let mut cycles = (self.scx & 7) as u32;
         let mut has_sprite_at_0 = false;
         self.sprite_stall_buckets.clear();
-        // TODO: Use a calc. to find out how big we need this
-        self.sprite_stall_buckets.resize(50, 0);
+        self.sprite_stall_buckets.resize((((168 + self.scx as usize + 7) / 8)), 0);
 
         let sprite_sz = if self.sprite_16 { 16 } else { 8 };
         let mut n = 0;

@@ -19,21 +19,13 @@ use sdl2::render::RendererBuilder;
 
 use clap::{Arg, App};
 
-#[macro_use]
-mod om;
-
-mod op;
-mod operation;
-
-mod cpu;
-mod gpu;
-mod machine;
-mod bus;
-mod cart;
-mod bits;
 mod mode;
-mod timer;
-mod joypad;
+mod bits;
+mod frame;
+mod machine;
+mod gb;  // Gameboy, Gameboy Color (*), Super Gameboy (*)
+
+use machine::Machine;
 
 fn main() {
     // Log: Initialize (level set from environment variables)
@@ -65,8 +57,8 @@ fn main() {
 
     let rom_filename = matches.value_of("rom").unwrap();
 
-    let mode: Option<mode::Mode> = match matches.value_of("mode") {
-        Some(mode_str) => mode::Mode::from_str(mode_str),
+    let mode: Option<::mode::Mode> = match matches.value_of("mode") {
+        Some(mode_str) => ::mode::Mode::from_str(mode_str),
         _ => None,
     };
 
@@ -76,26 +68,30 @@ fn main() {
 
     let mut is_running = true;
 
-    let window = WindowBuilder::new(&video, "Wadatsumi", 160 * scale, 144 * scale).build().unwrap();
+    let mut m: Box<Machine> = Box::new(gb::machine::Machine::new(mode));
+    m.open(rom_filename).unwrap();
+
+    // Create window
+    let width = m.get_width();
+    let height = m.get_height();
+    let window =
+        WindowBuilder::new(&video, "Wadatsumi", width * scale, height * scale).build().unwrap();
 
     // Create 2D renderer
     // TODO: Do not use present_vsync and instead limit frame rate manually
     let mut renderer = RendererBuilder::new(window).accelerated().present_vsync().build().unwrap();
 
+    // Initially clear the renderer
+    renderer.set_draw_color(Color::RGB(255, 255, 255));
+    renderer.clear();
+    renderer.present();
+
     // Create texture for framebuffer
     let mut texture =
-        renderer.create_texture_streaming(sdl2::pixels::PixelFormatEnum::ARGB8888, 160, 144)
+        renderer.create_texture_streaming(sdl2::pixels::PixelFormatEnum::ARGB8888, width, height)
             .unwrap();
 
-    let mut m = machine::Machine::new(mode);
-
-    m.open(rom_filename).unwrap();
-
     m.set_on_refresh(Box::new(move |frame| {
-        // Render: Clear the window
-        renderer.set_draw_color(Color::RGB(255, 255, 255));
-        renderer.clear();
-
         // Render: Update texture and flip
         texture.update(None, &frame.data, frame.pitch).unwrap();
         renderer.copy(&texture, None, None).unwrap();

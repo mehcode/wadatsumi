@@ -1,8 +1,8 @@
 use std::fmt;
 
-use ::bus;
+use gb::bus;
 use ::mode;
-use ::operation;
+use gb::operation;
 
 bitflags!(
     #[derive(Default)]

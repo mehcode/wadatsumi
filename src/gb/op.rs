@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
-use ::cpu;
-use ::cpu::Context;
-use ::bus::Bus;
+use gb::cpu;
+use gb::cpu::Context;
+use gb::bus::Bus;
 
 // 00 — NOP {1}
 pub fn _00(_: &mut Context, _: &mut Bus) {

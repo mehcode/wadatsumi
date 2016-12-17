@@ -4,9 +4,9 @@ use std::string::String;
 use strfmt;
 use std::fmt::Write;
 
-use ::op;
-use ::bus::Bus;
-use ::cpu::Context;
+use gb::op;
+use gb::bus::Bus;
+use gb::cpu::Context;
 
 #[derive(Default)]
 pub struct Operation {

@@ -1,10 +1,10 @@
 use std::vec::Vec;
 
-use ::cart;
+use gb::cart;
 use ::mode;
-use ::gpu;
-use ::timer;
-use ::joypad;
+use gb::gpu;
+use gb::timer;
+use gb::joypad;
 
 /// The Bus is the interconnect that facilitates communication from the CPU and the various other
 /// components in the machine.
