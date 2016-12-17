@@ -12,3 +12,11 @@ bitflags = "0.7"
 log = "0.3.x"
 env_logger = "0.3.x"
 clap = "2.x"
+
+[profile.release]
+lto = true
+opt-level = 3
+debug = false
+codegen-units = 1
+debug-assertions = false
+rpath = false
