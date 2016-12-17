@@ -759,7 +759,7 @@ impl GPU {
         let mut cycles = (self.scx & 7) as u32;
         let mut has_sprite_at_0 = false;
         self.sprite_stall_buckets.clear();
-        self.sprite_stall_buckets.resize(40, 0);
+        self.sprite_stall_buckets.resize(50, 0);
 
         let sprite_sz = if self.sprite_16 { 16 } else { 8 };
         let mut n = 0;
@@ -894,7 +894,6 @@ impl GPU {
                         //  Each sprite drawn causes a stall of up to 5 cycles
                         //  in each 8-pixel "bucket".
                         let bucket_i = (x >> 3) as usize;
-
                         let mut stall = 5 - (x & 7);
                         if stall < 0 {
                             stall = 0;
