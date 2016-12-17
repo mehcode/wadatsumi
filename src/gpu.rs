@@ -63,6 +63,11 @@ pub struct GPU {
     /// Sprite Stall Buckets
     sprite_stall_buckets: Vec<u8>,
 
+    /// Current line of the window that is being rendered
+    /// Essentially if the window gets disabled after LY=10, then re-enabled before LY=40, the
+    /// window will render LY=11's window line on LY=40.
+    window_line: u8,
+
     /// [0xFF44] LCDC Y-Coordinate (LY) (R)
     ly: u8,
 
@@ -215,6 +220,7 @@ impl GPU {
             } else {
                 // Proceed to mode 1 — V-Blank
                 self.mode = 1;
+                self.window_line = 0;
 
                 // Trigger VBL interrupt
                 (*if_) |= 0x1;
@@ -335,6 +341,7 @@ impl GPU {
         self.obp1 = 0xFF;
         self.wx = 0;
         self.wy = 0;
+        self.window_line = 0;
     }
 
     /// Read
@@ -660,60 +667,71 @@ impl GPU {
     fn render_window(&mut self) -> u32 {
         // TODO: CGB Background Attributes
         // TODO: Generalize so we can use this for both background and window
-        let mut cycles = 0;
 
-        if self.ly >= self.wy {
-            // Rendering the window takes 6 cycles unless WX=0 then it takes 7
-            // HACK: Making this take 24 cycles makes Pinball Deluxe run. It's probably incorrect
-            //       but I'll leave this in here until @gekkio makes a test that makes it fail
-            cycles += 24;
-            if self.wx <= 7 {
-                cycles += 1;
-            }
-            // Line (to be rendered)
-            let line = self.ly.wrapping_sub(self.wy);
+        if self.window_line > 143 {
+            return 0;
+        }
 
-            // Starting offset to tile map (for this scanline)
-            let row = (if self.window_tile_map_select {
-                0x1C00
-            } else {
-                0x1800
-            }) + (((line as usize) >> 3) << 5);
+        if self.wx > 159 {
+            return 0;
+        }
 
-            let mut x = 0;
-            let y = line % 8;
-            let offset = (self.ly as usize) * WIDTH as usize;
+        if (self.wy > 143) || (self.wy > self.ly) {
+            return 0;
+        }
 
-            for i in (if self.wx > 7 {
-                (self.wx - 7) as usize
-            } else {
-                0
-            })..(WIDTH as usize) {
-                // Offset to the tile index for this 8-pixel spot on the background
-                let col = (x / 8) % 32;
+        // Rendering the window takes 6 cycles unless WX=0 then it takes 7
+        // HACK: Making this take 24 cycles makes Pinball Deluxe run. It's probably incorrect
+        //       but I'll leave this in here until @gekkio makes a test that makes it fail
+        let mut cycles = 24;
+        if self.wx <= 7 {
+            cycles += 1;
+        }
 
-                // Get tile index (unsigned)
-                let tile_idx = self.get_tile(row, col as usize);
+        // Line (to be rendered)
+        let line = self.window_line;
+        self.window_line += 1;
 
-                // Get palette index for tile (given x and y)
-                let tile_x = x % 8;
-                let tile_y = y;
-                let pal_idx = self.get_tile_data(tile_idx, tile_x, tile_y);
+        // Starting offset to tile map (for this scanline)
+        let row = (if self.window_tile_map_select {
+            0x1C00
+        } else {
+            0x1800
+        }) + (((line as usize) >> 3) << 5);
 
-                // Set pixel cache
-                self.priority_cache[offset + i] = if pal_idx > 0 { 1 } else { 0 };
+        let mut x = 0;
+        let y = line % 8;
+        let offset = (self.ly as usize) * WIDTH as usize;
 
-                // Apply palette to get shade
-                let (r, g, b) = self.get_color(pal_idx, self.bgp);
+        for i in (if self.wx > 7 {
+            (self.wx - 7) as usize
+        } else {
+            0
+        })..(WIDTH as usize) {
+            // Offset to the tile index for this 8-pixel spot on the background
+            let col = (x / 8) % 32;
 
-                // Push pixel (color) to framebuffer
-                self.framebuffer[((offset + i) * 4)] = b;
-                self.framebuffer[((offset + i) * 4) + 1] = g;
-                self.framebuffer[((offset + i) * 4) + 2] = r;
-                self.framebuffer[((offset + i) * 4) + 3] = 0xFF;
+            // Get tile index (unsigned)
+            let tile_idx = self.get_tile(row, col as usize);
 
-                x += 1;
-            }
+            // Get palette index for tile (given x and y)
+            let tile_x = x % 8;
+            let tile_y = y;
+            let pal_idx = self.get_tile_data(tile_idx, tile_x, tile_y);
+
+            // Set pixel cache
+            self.priority_cache[offset + i] = if pal_idx > 0 { 1 } else { 0 };
+
+            // Apply palette to get shade
+            let (r, g, b) = self.get_color(pal_idx, self.bgp);
+
+            // Push pixel (color) to framebuffer
+            self.framebuffer[((offset + i) * 4)] = b;
+            self.framebuffer[((offset + i) * 4) + 1] = g;
+            self.framebuffer[((offset + i) * 4) + 2] = r;
+            self.framebuffer[((offset + i) * 4) + 3] = 0xFF;
+
+            x += 1;
         }
 
         cycles
