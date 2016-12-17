@@ -50,6 +50,15 @@ pub struct GPU {
     /// T-Cycle counter for Mode 3 (variable length)
     m3_cycles: u32,
 
+    /// Priority cache for rendering (1byte per pixel)
+    ///     Bit 0 -> 1 = Background/window was rendered at this pixel
+    ///     Bit 1 -> 1 = Sprite was rendered at this pixel
+    ///     Bit 2 -> 1 = Background/window have priority over sprite
+    priority_cache: Vec<u8>,
+
+    /// Sprite X Cache (1byte per pixel that = sprite_x)
+    sprite_x_cache: Vec<u8>,
+
     /// [0xFF44] LCDC Y-Coordinate (LY) (R)
     ly: u8,
 
@@ -302,6 +311,12 @@ impl GPU {
         // TODO: Do not size in GB mode
         self.ocpd.clear();
         self.ocpd.resize(64, 0);
+
+        // Reset: Caches
+        self.priority_cache.clear();
+        self.priority_cache.resize(WIDTH * HEIGHT, 0);
+        self.sprite_x_cache.clear();
+        self.sprite_x_cache.resize(WIDTH * HEIGHT, 0);
 
         // Reset: Registers
         // TODO: Dependent on model/variant
@@ -563,6 +578,13 @@ impl GPU {
             self.m3_cycles += 8;
         }
 
+        // Reset priority caches
+        // TODO: Only do this if the background and window will not be drawn for at least 1 pixel
+        self.priority_cache.clear();
+        self.priority_cache.resize(WIDTH * HEIGHT, 0);
+        self.sprite_x_cache.clear();
+        self.sprite_x_cache.resize(WIDTH * HEIGHT, 0);
+
         // TODO: If CGB, background_display just disables priority on background
         if self.lcd_enable && self.background_display {
             self.render_background();
@@ -607,6 +629,9 @@ impl GPU {
             let tile_x = x % 8;
             let tile_y = y;
             let pal_idx = self.get_tile_data(tile_idx, tile_x, tile_y);
+
+            // Set pixel cache
+            self.priority_cache[offset + i] = if pal_idx > 0 { 1 } else { 0 };
 
             // Apply palette to get shade
             let (r, g, b) = self.get_color(pal_idx, self.bgp);
@@ -665,6 +690,9 @@ impl GPU {
                 let tile_y = y;
                 let pal_idx = self.get_tile_data(tile_idx, tile_x, tile_y);
 
+                // Set pixel cache
+                self.priority_cache[offset + i] = if pal_idx > 0 { 1 } else { 0 };
+
                 // Apply palette to get shade
                 let (r, g, b) = self.get_color(pal_idx, self.bgp);
 
@@ -718,9 +746,9 @@ impl GPU {
 
             if (sprite_y <= (self.ly as i16)) && (sprite_y + sprite_sz) > (self.ly as i16) {
                 // A maximum of 10 drawn sprites per line are allowed
-                // if n >= 10 {
-                //     break;
-                // }
+                if n >= 10 {
+                    break;
+                }
 
                 // Calculate y-index into the tile (applying y-mirroring)
                 let mut tile_y = ((self.ly as i16) - sprite_y) as u8;
@@ -746,6 +774,28 @@ impl GPU {
                 for x in 0..8 {
                     // Is this column of the sprite visible on the screen ?
                     if (sprite_x + x >= 0) && (sprite_x + x < (WIDTH as i16)) {
+                        let cache_i = ((self.ly as usize) * WIDTH) + (sprite_x + x) as usize;
+                        let pcache = self.priority_cache[cache_i];
+
+                        // Another sprite was drawn and the drawn sprite is < on the
+                        // X-axis (only checked in GB mode)
+                        if bits::test(pcache, 1) &&
+                           (self.sprite_x_cache[cache_i] <= (sprite_x + 8) as u8) {
+                            continue;
+                        }
+
+                        // In CGB mode; there is a override bit that can be set which
+                        // forces sprites to bow down to the background layers
+                        if bits::test(pcache, 2) {
+                            continue;
+                        }
+
+                        // Background/Window pixel drawn and sprite flag b7 indicates
+                        // that the sprite is behind the background/window
+                        if bits::test(pcache, 0) && bits::test(sprite_attr, 7) {
+                            continue;
+                        }
+
                         // Calculate the x-index into the tile (applying x-mirroring)
                         let tile_x = (if bits::test(sprite_attr, 5) {
                             (7 - x)
@@ -755,6 +805,18 @@ impl GPU {
 
                         // Get palette index for tile (given x and y)
                         let pal_idx = self.get_tile_data(sprite_tile, tile_x, tile_y);
+
+                        // Update priority cache
+                        self.priority_cache[cache_i] |= if pal_idx > 0 { 0x2 } else { 0 };
+                        self.sprite_x_cache[cache_i] = (sprite_x + 8) as u8;
+
+                        // Mark this sprite as rendered
+                        rendered = true;
+
+                        // Skip if transparent
+                        if pal_idx == 0 {
+                            continue;
+                        }
 
                         // Apply palette to get shade
                         let (r, g, b) = self.get_color(pal_idx,
