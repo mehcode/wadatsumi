@@ -681,9 +681,9 @@ impl GPU {
         }
 
         // Rendering the window takes 6 cycles unless WX=0 then it takes 7
-        // HACK: Making this take 24 cycles makes Pinball Deluxe run. It's probably incorrect
+        // HACK: Making this take 30 cycles makes Pinball Deluxe run. It's probably incorrect
         //       but I'll leave this in here until @gekkio makes a test that makes it fail
-        let mut cycles = 24;
+        let mut cycles = 30;
         if self.wx <= 7 {
             cycles += 1;
         }
