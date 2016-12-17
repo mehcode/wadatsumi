@@ -43,6 +43,12 @@ fn main() {
     // Configure and gather matches from command line interface
     let matches = App::new("Wadatsumi")
         .version(crate_version!())
+        .arg(Arg::with_name("scale")
+            .short("s")
+            .long("scale")
+            .takes_value(true)
+            .default_value("2")
+            .help("The scale factor to apply to the source display"))
         .arg(Arg::with_name("mode")
             .short("m")
             .long("mode")
@@ -53,6 +59,9 @@ fn main() {
                                "cgb:cgb", "cgb:agb", "sgb", "sgb:1", "sgb:2"]))
         .arg(Arg::with_name("rom").required(true).help("The ROM to use"))
         .get_matches();
+
+    let scale = matches.value_of("scale").unwrap();
+    let scale = scale.parse::<u32>().unwrap();
 
     let rom_filename = matches.value_of("rom").unwrap();
 
@@ -67,7 +76,7 @@ fn main() {
 
     let mut is_running = true;
 
-    let window = WindowBuilder::new(&video, "Wadatsumi", 160 * 2, 144 * 2).build().unwrap();
+    let window = WindowBuilder::new(&video, "Wadatsumi", 160 * scale, 144 * scale).build().unwrap();
 
     // Create 2D renderer
     // TODO: Do not use present_vsync and instead limit frame rate manually
