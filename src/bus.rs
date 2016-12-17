@@ -191,7 +191,7 @@ impl Bus {
             0xFF0F => (self.if_ | 0xE0),
 
             // Interrupt Enable (IE)
-            0xFFFF => (self.ie | 0xE0),
+            0xFFFF => self.ie,
 
             _ => {
                 // Unhandled
@@ -255,7 +255,7 @@ impl Bus {
 
             // Interrupt Enable (IE)
             0xFFFF => {
-                self.ie = value & !0xE0;
+                self.ie = value;
             }
 
             _ => {
