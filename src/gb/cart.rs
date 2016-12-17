@@ -37,6 +37,7 @@ impl Default for MBC {
     }
 }
 
+// TODO: Separate out static/header information into a Header struct
 #[derive(Default)]
 pub struct Cartridge {
     /// [0x0 -] Cartridge ROM (loaded from ROM file)
