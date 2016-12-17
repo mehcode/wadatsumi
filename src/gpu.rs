@@ -1,4 +1,5 @@
 use std::vec::Vec;
+use std::cmp;
 
 use ::bits;
 
@@ -338,15 +339,19 @@ impl GPU {
         match address {
             // Video RAM
             0x8000...0x9FFF => {
-                // TODO: VRAM cannot be read during mode 3
-                self.vram[((address & 0x1FFF) + (0x2000 * (self.vram_bank as u16))) as usize]
+                // VRAM cannot be read during mode 3
+                if self.mode != 3 {
+                    self.vram[((address & 0x1FFF) + (0x2000 * (self.vram_bank as u16))) as usize]
+                } else {
+                    0xFF
+                }
             }
 
             // OAM
             0xFE00...0xFE9F => {
-                // TODO: OAM cannot be read during mode-2 or mode-3
+                // OAM cannot be read during mode-2 or mode-3
                 // OAM cannot be read during OAM DMA
-                if !in_oam_dma {
+                if !in_oam_dma && self.mode < 2 {
                     self.oam[(address - 0xFE00) as usize]
                 } else {
                     0xFF
@@ -572,7 +577,9 @@ impl GPU {
 
         // The PPU stalls for fine SCX adjustments for up to 2 M-Cycles depending on SCX
         let scx_ = self.scx % 8;
-        if scx_ <= 4 {
+        if scx_ == 0 {
+            self.m3_cycles += 0;
+        } else if scx_ <= 4 {
             self.m3_cycles += 4;
         } else {
             self.m3_cycles += 8;
@@ -728,7 +735,9 @@ impl GPU {
         //    Bit3   Tile VRAM-Bank  **CGB Mode Only**     (0=Bank 0, 1=Bank 1)
         //    Bit2-0 Palette number  **CGB Mode Only**     (OBP0-7)
 
-        let cycles = 0;
+        let mut cycles = (self.scx & 7) as u32;
+        let mut has_sprite_at_0 = false;
+        let mut buckets = [0; 22];
 
         let sprite_sz = if self.sprite_16 { 16 } else { 8 };
         let mut n = 0;
@@ -778,7 +787,8 @@ impl GPU {
                         let pcache = self.priority_cache[cache_i];
 
                         // Another sprite was drawn and the drawn sprite is < on the
-                        // X-axis (only checked in GB mode)
+                        // X-axis
+                        // TODO: only checked in GB mode
                         if bits::test(pcache, 1) &&
                            (self.sprite_x_cache[cache_i] <= (sprite_x + 8) as u8) {
                             continue;
@@ -841,8 +851,34 @@ impl GPU {
                 }
 
                 if rendered {
+                    let sprite_x = self.oam[(i * 4) + 1] as i16;
                     if sprite_x < 168 {
                         // Visible and rendered sprite affects timing
+                        // This is a visible sprite; takes 6 cycles
+                        cycles += 6;
+
+                        let mut x = sprite_x + (self.scx as i16);
+
+                        if x < 0 {
+                            x = 0;
+                        }
+
+                        // Mark if this sprite is at <=0
+                        if x <= 0 {
+                            has_sprite_at_0 = true;
+                        }
+
+                        // Determine and update stall bucket
+                        //  Each sprite drawn causes a stall of up to 5 cycles
+                        //  in each 8-pixel "bucket".
+                        let bucket_i = (x >> 3) as usize;
+
+                        let mut stall = 5 - (x & 7);
+                        if stall < 0 {
+                            stall = 0;
+                        }
+
+                        buckets[bucket_i] = cmp::max(buckets[bucket_i], stall as u8);
                     }
 
                     // Rendered sprite affects max # of sprites per scanline
@@ -851,7 +887,18 @@ impl GPU {
             }
         }
 
-        cycles
+        // Sum the 8-pixel bucket stalls
+        for b in buckets.iter() {
+            cycles += (*b) as u32;
+        }
+
+        // If a sprite is at x<=0; PPU stalls for an additional SCX & 7
+        if has_sprite_at_0 {
+            cycles += (self.scx & 7) as u32;
+        }
+
+        // Floor T-cycles to the lowest M-cycle (extra cycles get chopped off)
+        (cycles >> 2) << 2
     }
 
     /// Get tile index from background tile map
