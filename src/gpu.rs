@@ -60,6 +60,9 @@ pub struct GPU {
     /// Sprite X Cache (1byte per pixel that = sprite_x)
     sprite_x_cache: Vec<u8>,
 
+    /// Sprite Stall Buckets
+    sprite_stall_buckets: Vec<u8>,
+
     /// [0xFF44] LCDC Y-Coordinate (LY) (R)
     ly: u8,
 
@@ -737,7 +740,8 @@ impl GPU {
 
         let mut cycles = (self.scx & 7) as u32;
         let mut has_sprite_at_0 = false;
-        let mut buckets = [0; 22];
+        self.sprite_stall_buckets.clear();
+        self.sprite_stall_buckets.resize(35, 0);
 
         let sprite_sz = if self.sprite_16 { 16 } else { 8 };
         let mut n = 0;
@@ -878,7 +882,8 @@ impl GPU {
                             stall = 0;
                         }
 
-                        buckets[bucket_i] = cmp::max(buckets[bucket_i], stall as u8);
+                        self.sprite_stall_buckets[bucket_i] =
+                            cmp::max(self.sprite_stall_buckets[bucket_i], stall as u8);
                     }
 
                     // Rendered sprite affects max # of sprites per scanline
@@ -888,8 +893,8 @@ impl GPU {
         }
 
         // Sum the 8-pixel bucket stalls
-        for b in buckets.iter() {
-            cycles += (*b) as u32;
+        for &b in &self.sprite_stall_buckets {
+            cycles += b as u32;
         }
 
         // If a sprite is at x<=0; PPU stalls for an additional SCX & 7

@@ -161,7 +161,7 @@ impl Bus {
     pub fn read(&mut self, address: u16) -> u8 {
         match address {
             // Cartridge
-            0x0000...0x7FFF => self.cart.read(address),
+            0x0000...0x7FFF | 0xA000...0xBFFF => self.cart.read(address),
 
             // Video RAM, OAM, GPU registers
             0x8000...0x9FFF | 0xFE00...0xFE9F | 0xFF40...0xFF4F | 0xFF68...0xFF6B => {
@@ -205,7 +205,7 @@ impl Bus {
     pub fn write(&mut self, address: u16, value: u8) {
         match address {
             // Cartridge
-            0x0000...0x7FFF => self.cart.write(address, value),
+            0x0000...0x7FFF | 0xA000...0xBFFF => self.cart.write(address, value),
 
             // OAM DMA
             0xFF46 => {

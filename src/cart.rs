@@ -157,6 +157,8 @@ impl Cartridge {
             }
         }) * 1024;
 
+        debug!("rom size: {} ({})", self.rom_size, self.rom[0x148]);
+
         // Set SGB / CGB support flags
         self.sgb = self.rom[0x0146];
         self.cgb = self.rom[0x0143];
@@ -191,6 +193,8 @@ impl Cartridge {
                 panic!(format!("unsupported memory bank controller: {:?}", self.mbc));
             }
         }
+
+        debug!("memory bank controller: {:?}", self.mbc);
 
         // Parse battery-backed RAM enable/disable
         self.has_battery = match self.type_ {
@@ -244,6 +248,7 @@ impl Cartridge {
 
         // If we have a nonzero ram size; allocate some ram
         self.ram.resize(self.ram_size as usize, 0);
+        debug!("ram size: {}", self.ram_size);
 
         // Parse title
         self.title.truncate(0);
@@ -384,8 +389,8 @@ impl Cartridge {
             }
 
             // MBC1: ROM/RAM Mode Select
-            0x6000...0x7FFF if self.mbc == MBC::MBC5 => {
-                self.mbc1_mode = value == 1;
+            0x6000...0x7FFF if self.mbc == MBC::MBC1 => {
+                self.mbc1_mode = value & 1 != 0;
             }
 
             0xA000...0xBFFF => {
