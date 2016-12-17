@@ -420,11 +420,15 @@ impl Cartridge {
 
         // Bump on invalid bank numbers
         match self.mbc {
-            MBC::MBC1 => {}
-
-            MBC::MBC2 | MBC::MBC3 => {
+            MBC::MBC1 => {
                 if self.rom_bank == 0 || self.rom_bank == 0x20 || self.rom_bank == 0x40 ||
                    self.rom_bank == 0x60 {
+                    self.rom_bank += 1;
+                }
+            }
+
+            MBC::MBC2 | MBC::MBC3 => {
+                if self.rom_bank == 0 {
                     self.rom_bank += 1;
                 }
             }
