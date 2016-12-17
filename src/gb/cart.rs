@@ -157,14 +157,18 @@ impl Cartridge {
             }
         }) * 1024;
 
-        debug!("rom size: {} ({})", self.rom_size, self.rom[0x148]);
+        debug!("rom size: {}", self.rom_size);
 
         // Set SGB / CGB support flags
         self.sgb = self.rom[0x0146];
         self.cgb = self.rom[0x0143];
 
+        debug!("sgb: {:x}", self.sgb);
+        debug!("cgb: {:x}", self.cgb);
+
         // Set cartridge type
         self.type_ = self.rom[0x0147];
+        debug!("type: {:x}", self.type_);
 
         // Parse memory bank mbc
         self.mbc = match self.type_ {
@@ -202,6 +206,8 @@ impl Cartridge {
             _ => false,
         };
 
+        debug!("has battery: {:?}", self.has_battery);
+
         // Parse RAM enable/disable
         self.has_ram = (self.has_battery && self.type_ != 0x0F) || self.mbc == MBC::MBC2 ||
                        match self.type_ {
@@ -209,17 +215,23 @@ impl Cartridge {
             _ => false,
         };
 
+        debug!("has ram: {:?}", self.has_ram);
+
         // Parse timer enable/disable
         self.has_timer = match self.type_ {
             0x0F | 0x10 => true,
             _ => false,
         };
 
+        debug!("has timer: {:?}", self.has_timer);
+
         // Parse rumble enable/disable
         self.has_rumble = match self.type_ {
             0x1C...0x1E => true,
             _ => false,
         };
+
+        debug!("has rumble: {:?}", self.has_rumble);
 
         // Parse RAM size
         self.ram_size = if self.mbc == MBC::MBC2 {
@@ -262,6 +274,8 @@ impl Cartridge {
 
             self.title.push(c as char);
         }
+
+        debug!("title: {}", self.title);
 
         Ok(())
     }
