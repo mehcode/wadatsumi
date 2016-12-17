@@ -405,7 +405,7 @@ pub fn _3E(c: &mut Context, b: &mut Bus) {
 
 // 3F — CCF {1}
 pub fn _3F(c: &mut Context, _: &mut Bus) {
-    let carry = c.get_flag(cpu::CARRY);
+    let carry = c.test_flag(cpu::CARRY);
     c.set_flag(cpu::CARRY, !carry);
     c.set_flag(cpu::HALF_CARRY, false);
     c.set_flag(cpu::ADD_SUBTRACT, false);

@@ -90,7 +90,7 @@ impl Context {
 
     /// Test flag
     #[inline]
-    pub fn get_flag(&self, flag: Flags) -> bool {
+    pub fn test_flag(&self, flag: Flags) -> bool {
         self.f.contains(flag)
     }
 

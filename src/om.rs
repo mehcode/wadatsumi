@@ -201,9 +201,8 @@ macro_rules! om_rl8 (($c:expr; $e:expr) => {
 
 /// 8-bit Rotate Accumulator Left (through carry) [000c]
 macro_rules! om_rla8 (($c:ident) => {
-    let z = $c.get_flag(cpu::ZERO);
     $c.a = om_rl8!($c; $c.a);
-    $c.set_flag(cpu::ZERO, z);
+    $c.set_flag(cpu::ZERO, false);
 });
 
 /// 8-bit Rotate Left [z00c]
@@ -223,9 +222,8 @@ macro_rules! om_rlc8 (($c:expr; $e:expr) => {
 
 /// 8-bit Rotate Accumulator Left [000c]
 macro_rules! om_rlca8 (($c:ident) => {
-    let z = $c.get_flag(cpu::ZERO);
     $c.a = om_rlc8!($c; $c.a);
-    $c.set_flag(cpu::ZERO, z);
+    $c.set_flag(cpu::ZERO, false);
 });
 
 /// 8-bit Rotate Right (through carry) [z00c]
@@ -245,9 +243,8 @@ macro_rules! om_rr8 (($c:expr; $e:expr) => {
 
 /// 8-bit Rotate Accumulator Right (through carry) [000c]
 macro_rules! om_rra8 (($c:ident) => {
-    let z = $c.get_flag(cpu::ZERO);
     $c.a = om_rr8!($c; $c.a);
-    $c.set_flag(cpu::ZERO, z);
+    $c.set_flag(cpu::ZERO, false);
 });
 
 /// 8-bit Rotate Right [z00c]
@@ -267,9 +264,8 @@ macro_rules! om_rrc8 (($c:expr; $e:expr) => {
 
 /// 8-bit Rotate Accumulator Right [000c]
 macro_rules! om_rrca8 (($c:ident) => {
-    let z = $c.get_flag(cpu::ZERO);
     $c.a = om_rrc8!($c; $c.a);
-    $c.set_flag(cpu::ZERO, z);
+    $c.set_flag(cpu::ZERO, false);
 });
 
 // 8-bit Shift
