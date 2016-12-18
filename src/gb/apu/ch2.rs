@@ -2,6 +2,9 @@ use ::bits;
 
 #[derive(Default)]
 pub struct Channel2 {
+    /// Enable
+    pub enable: bool,
+
     /// Wave Pattern Duty
     ///     0      00000001    12.5%
     ///     1      10000001    25%
@@ -30,7 +33,13 @@ pub struct Channel2 {
 }
 
 impl Channel2 {
+    pub fn is_enabled(&self) -> bool {
+        self.enable && (!self.length_enable || self.length > 0)
+    }
+
     pub fn reset(&mut self) {
+        self.enable = false;
+
         self.wave_pattern_duty = 0;
 
         self.length = 0;

@@ -2,6 +2,9 @@ use ::bits;
 
 #[derive(Default)]
 pub struct Channel4 {
+    /// Enable
+    pub enable: bool,
+
     /// Sound Length
     pub length: u8,
 
@@ -29,7 +32,13 @@ pub struct Channel4 {
 }
 
 impl Channel4 {
+    pub fn is_enabled(&self) -> bool {
+        self.enable && (!self.length_enable || self.length > 0)
+    }
+
     pub fn reset(&mut self) {
+        self.enable = false;
+
         self.length = 0;
         self.length_enable = false;
 

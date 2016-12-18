@@ -1,6 +1,7 @@
 use std::vec::Vec;
 use std::cmp;
 
+use ::mode;
 use ::bits;
 use ::frame::Frame;
 
@@ -12,6 +13,9 @@ pub const HEIGHT: usize = 144;
 
 #[derive(Default)]
 pub struct GPU {
+    /// Mode (machine)
+    mode: Option<mode::Mode>,
+
     /// Callback: Refresh (v-blank)
     on_refresh: Option<Box<FnMut(Frame) -> ()>>,
 
@@ -86,7 +90,7 @@ pub struct GPU {
     ///   1: V-Blank
     ///   2: Searching OAM-RAM
     ///   3: Transferring Data to LCD Driver.
-    mode: u8,
+    lcd_mode: u8,
 
     /// [0xFF40] - LCDC - LCD Control
     ///   Bit 7 - LCD Display Enable             (0=Off, 1=On)
@@ -187,7 +191,7 @@ impl GPU {
 
         // Mode 2 and 0 IRQ are raised some cycles before the GPU actually enters the
         // respective modes; we use this variable to mark the mode being compared
-        // when we check for a IRQ. If it is still 0xFF it gets set to `self.mode`.
+        // when we check for a IRQ. If it is still 0xFF it gets set to `self.lcd_mode`.
         let mut mode_cmp = 0xFF;
 
         // LY is compared to LYC and the "coincidence" IRQ is raised. However, when the
@@ -199,14 +203,14 @@ impl GPU {
         // Increment cycle counter (reset to 0 at the beginning of each scanline)
         self.cycles += 1;
 
-        if self.mode == 0 && self.cycles == 5 {
+        if self.lcd_mode == 0 && self.cycles == 5 {
             // Lines 0-144 start each scanline in mode 0 for 4 cycles
             if self.ly < 144 {
                 // Proceed to mode 2 — Searching OAM-RAM
-                self.mode = 2;
+                self.lcd_mode = 2;
             } else {
                 // Proceed to mode 1 — V-Blank
-                self.mode = 1;
+                self.lcd_mode = 1;
                 self.window_line = 0;
 
                 // Trigger VBL interrupt
@@ -222,38 +226,38 @@ impl GPU {
                     });
                 }
             }
-        } else if self.mode == 0 && self.cycles >= 1 && self.cycles < 5 && self.ly >= 1 &&
+        } else if self.lcd_mode == 0 && self.cycles >= 1 && self.cycles < 5 && self.ly >= 1 &&
                   self.ly <= 143 {
             // Lines 1-143 signal the M2 IRQ 4 T-cycles early
             mode_cmp = 2;
-        } else if self.mode == 2 && self.cycles == 85 {
+        } else if self.lcd_mode == 2 && self.cycles == 85 {
             // Proceed to mode 3 — Transferring Data to LCD Driver
-            self.mode = 3;
+            self.lcd_mode = 3;
 
             // Render scanline (at the -start- of mode-3)
             self.render();
-        } else if self.mode == 3 && self.cycles >= ((85 + self.m3_cycles) - 7) &&
+        } else if self.lcd_mode == 3 && self.cycles >= ((85 + self.m3_cycles) - 7) &&
                   self.cycles < (85 + self.m3_cycles) {
             // The mode M0 IRQ is signalled 7 T-cycles early
             // TODO: Try and verify that
             mode_cmp = 0;
-        } else if self.mode == 3 && self.cycles == (85 + self.m3_cycles) {
+        } else if self.lcd_mode == 3 && self.cycles == (85 + self.m3_cycles) {
             // Proceed to mode 0 — H-Blank
-            self.mode = 0;
-        } else if self.mode == 0 && self.cycles == 457 {
+            self.lcd_mode = 0;
+        } else if self.lcd_mode == 0 && self.cycles == 457 {
             // A scanline takes 456 T-Cycles to complete
             // This acts as the 0th scanline for lines 1-143
             self.ly += 1;
             self.lyc_timer = 4;
-            self.mode = 0;
+            self.lcd_mode = 0;
             self.cycles = 1;
-        } else if self.mode == 1 {
+        } else if self.lcd_mode == 1 {
             if self.cycles == 457 {
                 self.cycles = 1;
 
                 if self.ly == 0 {
                     // Restart process (back to top of LCD)
-                    self.mode = 0;
+                    self.lcd_mode = 0;
                 } else {
                     self.ly += 1;
                     self.lyc_timer = 4;
@@ -268,7 +272,7 @@ impl GPU {
         // The STAT interrupt is fired when the signal TRANSITIONS from 0 TO 1
         // If it _stays_ 1 during a screen mode change then no interrupt is fired.
         if mode_cmp == 0xFF {
-            mode_cmp = self.mode;
+            mode_cmp = self.lcd_mode;
         }
 
         let irq = ((self.lyc_timer == 0) && (self.ly == self.lyc) && self.lyc_irq_enable) ||
@@ -285,7 +289,10 @@ impl GPU {
     }
 
     /// Reset
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self, m: mode::Mode) {
+        // Assign: Mode
+        self.mode = Some(m);
+
         // Reset: Framebuffer
         self.framebuffer.clear();
         self.framebuffer.resize(WIDTH * HEIGHT * 4, 0xFF);
@@ -337,7 +344,7 @@ impl GPU {
             // Video RAM
             0x8000...0x9FFF => {
                 // VRAM cannot be read during mode 3
-                if self.mode != 3 {
+                if self.lcd_mode != 3 {
                     self.vram[((address & 0x1FFF) + (0x2000 * (self.vram_bank as u16))) as usize]
                 } else {
                     0xFF
@@ -348,7 +355,7 @@ impl GPU {
             0xFE00...0xFE9F => {
                 // OAM cannot be read during mode-2 or mode-3
                 // OAM cannot be read during OAM DMA
-                if !in_oam_dma && self.mode < 2 {
+                if !in_oam_dma && self.lcd_mode < 2 {
                     self.oam[(address - 0xFE00) as usize]
                 } else {
                     0xFF
@@ -371,7 +378,7 @@ impl GPU {
                  bits::bit(self.m1_irq_enable, 4) |
                  bits::bit(self.m0_irq_enable, 3) |
                  bits::bit(self.lyc_timer == 0 && (self.ly == self.lyc), 2) |
-                 self.mode)
+                 self.lcd_mode)
             }
 
             // Scroll Y
@@ -402,26 +409,29 @@ impl GPU {
             0xFF4B => self.wx,
 
             // VRAM Bank
-            // TODO: Only accessible in CGB
-            0xFF4F => self.vram_bank,
+            0xFF4F if self.mode.unwrap().device() == mode::CGB => self.vram_bank,
 
             // Background (Color) Palette Index
-            // TODO: Only accessible in CGB
-            0xFF68 => (self.bcpi | 0x40 | bits::bit(self.bcpi_ai, 7)),
+            0xFF68 if self.mode.unwrap().device() == mode::CGB => {
+                (self.bcpi | 0x40 | bits::bit(self.bcpi_ai, 7))
+            }
 
             // Background (Color) Palette Data
             //  Every 2nd byte has 1 unused bit
-            // TODO: Only accessible in CGB
-            0xFF69 => self.bcpd[self.bcpi as usize] | ((self.bcpi % 2) * 0x80),
+            0xFF69 if self.mode.unwrap().device() == mode::CGB => {
+                self.bcpd[self.bcpi as usize] | ((self.bcpi % 2) * 0x80)
+            }
 
             // Object (Color) Palette Index
-            // TODO: Only accessible in CGB
-            0xFF6A => (self.ocpi | 0x40 | bits::bit(self.ocpi_ai, 7)),
+            0xFF6A if self.mode.unwrap().device() == mode::CGB => {
+                (self.ocpi | 0x40 | bits::bit(self.ocpi_ai, 7))
+            }
 
             // Object (Color) Palette Data
             //  Every 2nd byte has 1 unused bit
-            // TODO: Only accessible in CGB
-            0xFF6B => self.ocpd[self.ocpi as usize] | ((self.ocpi % 2) * 0x80),
+            0xFF6B if self.mode.unwrap().device() == mode::CGB => {
+                self.ocpd[self.ocpi as usize] | ((self.ocpi % 2) * 0x80)
+            }
 
             _ => {
                 // Unhandled
@@ -463,7 +473,7 @@ impl GPU {
                 // Reset mode/scanline counters on LCD disable
                 if !self.lcd_enable {
                     self.ly = 0;
-                    self.mode = 0;
+                    self.lcd_mode = 0;
                     self.cycles = 0;
                 }
             }
@@ -517,20 +527,17 @@ impl GPU {
             }
 
             // VRAM Bank
-            // TODO: Only accessible in CGB
-            0xFF4F => self.vram_bank = value & 1,
+            0xFF4F if self.mode.unwrap().device() == mode::CGB => self.vram_bank = value & 1,
 
             // Background (Color) Palette Index
-            // TODO: Only accessible in CGB
-            0xFF68 => {
+            0xFF68 if self.mode.unwrap().device() == mode::CGB => {
                 self.bcpi = value & 0x3F;
                 self.bcpi_ai = bits::test(value, 7);
             }
 
             // Background (Color) Palette Data
             //  Every 2nd byte has 1 unused bit
-            // TODO: Only accessible in CGB
-            0xFF69 => {
+            0xFF69 if self.mode.unwrap().device() == mode::CGB => {
                 self.bcpd[self.bcpi as usize] = value & !((self.bcpi % 2) * 0x80);
 
                 // Auto-increment
@@ -541,16 +548,14 @@ impl GPU {
             }
 
             // Object (Color) Palette Index
-            // TODO: Only accessible in CGB
-            0xFF6A => {
+            0xFF6A if self.mode.unwrap().device() == mode::CGB => {
                 self.ocpi = value & 0x3F;
                 self.ocpi_ai = bits::test(value, 7);
             }
 
             // Object (Color) Palette Data
             //  Every 2nd byte has 1 unused bit
-            // TODO: Only accessible in CGB
-            0xFF6B => {
+            0xFF6B if self.mode.unwrap().device() == mode::CGB => {
                 self.ocpd[self.ocpi as usize] = value & !((self.ocpi % 2) * 0x80);
 
                 // Auto-increment

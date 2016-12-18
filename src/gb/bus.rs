@@ -127,7 +127,7 @@ impl Bus {
 
         // Reset: Components
         self.cart.reset();
-        self.gpu.reset();
+        self.gpu.reset(mode);
         self.apu.reset();
         self.joypad.reset();
         self.timer.reset(mode);
@@ -138,28 +138,6 @@ impl Bus {
         self.oam_dma_delay_timer = 0;
         self.oam_dma_index = 0;
         self.oam_dma_timer = 0;
-
-        // Reset: (various)
-        // TODO: Remove these as each component should be in charge of reset; this is just copied
-        //       from pandocs for easy right now
-        self.write(0xFF10, 0x80);
-        self.write(0xFF11, 0xBF);
-        self.write(0xFF12, 0xF3);
-        self.write(0xFF14, 0xBF);
-        self.write(0xFF16, 0x3F);
-        self.write(0xFF17, 0x00);
-        self.write(0xFF19, 0xBF);
-        self.write(0xFF1A, 0x7F);
-        self.write(0xFF1B, 0xFF);
-        self.write(0xFF1C, 0x9F);
-        self.write(0xFF1E, 0xBF);
-        self.write(0xFF20, 0xFF);
-        self.write(0xFF21, 0x00);
-        self.write(0xFF22, 0x00);
-        self.write(0xFF23, 0xBF);
-        self.write(0xFF24, 0x77);
-        self.write(0xFF25, 0xF3);
-        self.write(0xFF26, 0xF1);
     }
 
     /// Read

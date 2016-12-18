@@ -2,8 +2,11 @@ use ::bits;
 
 #[derive(Default)]
 pub struct Channel3 {
-    /// Sound On/Off
+    /// Enable
     pub enable: bool,
+
+    /// Sound On/Off
+    pub dac_enable: bool,
 
     /// Sound Length
     pub length: u8,
@@ -19,8 +22,13 @@ pub struct Channel3 {
 }
 
 impl Channel3 {
+    pub fn is_enabled(&self) -> bool {
+        self.enable && self.dac_enable && (!self.length_enable || self.length > 0)
+    }
+
     pub fn reset(&mut self) {
         self.enable = false;
+        self.dac_enable = false;
 
         self.length = 0;
         self.length_enable = false;
@@ -33,7 +41,7 @@ impl Channel3 {
         match address {
             // Channel 3 Sound On/Off
             // [E--- ----] DAC Power
-            0xFF1A => bits::bit(self.enable, 7) | 0x7F,
+            0xFF1A => bits::bit(self.dac_enable, 7) | 0x7F,
 
             // Channel 3 Volume
             // [-VV- ----] Volume
@@ -52,7 +60,7 @@ impl Channel3 {
             // Channel 3 Sound On/Off
             // [E--- ----] DAC Power
             0xFF1A => {
-                self.enable = bits::test(value, 7);
+                self.dac_enable = bits::test(value, 7);
             }
 
             // Channel 3 Sound Length
