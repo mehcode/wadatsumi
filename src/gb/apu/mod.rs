@@ -3,6 +3,9 @@ mod ch2;
 mod ch3;
 mod ch4;
 
+// TODO: Volume envelope is shared 1,2,4
+// TODO: Length counter is shared 1,2,3,4
+
 #[derive(Default)]
 pub struct APU {
     ch1: ch1::Channel2,
