@@ -1,3 +1,4 @@
+use std::vec::Vec;
 use ::bits;
 
 #[derive(Default)]
@@ -19,6 +20,9 @@ pub struct Channel3 {
 
     /// Frequency - 11-bits
     pub frequency: u16,
+
+    /// Wave RAM
+    pub wave_ram: Vec<u8>,
 }
 
 impl Channel3 {
@@ -26,7 +30,7 @@ impl Channel3 {
         self.enable && self.dac_enable && (!self.length_enable || self.length > 0)
     }
 
-    pub fn reset(&mut self) {
+    pub fn clear(&mut self) {
         self.enable = false;
         self.dac_enable = false;
 
@@ -35,6 +39,16 @@ impl Channel3 {
 
         self.volume = 0;
         self.frequency = 0;
+    }
+
+    pub fn reset(&mut self) {
+        // When the Game Boy is switched on (before the internal boot ROM executes),
+        // the values in the wave table depend on the model.
+        // TODO: Make it depend on model (following is for gb:dmg)
+        self.wave_ram = vec![0x84, 0x40, 0x43, 0xAA, 0x2D, 0x78, 0x92, 0x3C, 0x60, 0x59, 0x59,
+                             0xB0, 0x34, 0xB8, 0x2E, 0xDA];
+
+        self.clear();
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
@@ -50,6 +64,9 @@ impl Channel3 {
             // Channel 3 Misc.
             // [TL-- -FFF] Trigger, Length enable, Frequency MSB
             0xFF1E => bits::bit(self.length_enable, 6) | 0xBF,
+
+            // Wave RAM
+            0xFF30...0xFF3F => self.wave_ram[(address - 0xFF30) as usize],
 
             _ => 0xFF,
         }
@@ -72,7 +89,7 @@ impl Channel3 {
             // Channel 3 Volume
             // [-VV- ----] Volume
             0xFF1C => {
-                self.volume = (value & 0b11) << 5;
+                self.volume = (value >> 5) & 0b11;
             }
 
             // Channel 2 Frequency (lo)
@@ -89,6 +106,11 @@ impl Channel3 {
                 self.frequency |= ((value & 0b111) as u16) << 8;
 
                 self.length_enable = bits::test(value, 6);
+            }
+
+            // Wave RAM
+            0xFF30...0xFF3F => {
+                self.wave_ram[(address - 0xFF30) as usize] = value;
             }
 
             _ => {}

@@ -51,6 +51,10 @@ impl Channel4 {
         self.divisor = 0;
     }
 
+    pub fn clear(&mut self) {
+        self.reset();
+    }
+
     pub fn read(&mut self, address: u16) -> u8 {
         match address {
             // Channel 4 Volume Envelope

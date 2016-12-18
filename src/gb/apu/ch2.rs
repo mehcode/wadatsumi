@@ -37,7 +37,7 @@ impl Channel2 {
         self.enable && (!self.length_enable || self.length > 0)
     }
 
-    pub fn reset(&mut self) {
+    pub fn clear(&mut self) {
         self.enable = false;
 
         self.wave_pattern_duty = 0;
@@ -50,6 +50,10 @@ impl Channel2 {
         self.volume_envl_period = 0;
 
         self.frequency = 0;
+    }
+
+    pub fn reset(&mut self) {
+        self.clear();
     }
 
     pub fn read(&mut self, address: u16) -> u8 {

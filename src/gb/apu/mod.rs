@@ -62,21 +62,25 @@ impl APU {
         self.ch3.reset();
         self.ch4.reset();
 
-        self.enable = true;
+        self.clear();
+    }
+
+    pub fn clear(&mut self) {
+        self.enable = false;
 
         self.left_vin_enable = false;
         self.right_vin_enable = false;
 
-        self.left_volume = 0x7;
-        self.right_volume = 0x7;
+        self.left_volume = 0;
+        self.right_volume = 0;
 
-        self.ch1_left_enable = true;
-        self.ch2_left_enable = true;
-        self.ch3_left_enable = true;
-        self.ch4_left_enable = true;
+        self.ch1_left_enable = false;
+        self.ch2_left_enable = false;
+        self.ch3_left_enable = false;
+        self.ch4_left_enable = false;
 
-        self.ch1_right_enable = true;
-        self.ch2_right_enable = true;
+        self.ch1_right_enable = false;
+        self.ch2_right_enable = false;
         self.ch3_right_enable = false;
         self.ch4_right_enable = false;
     }
@@ -85,7 +89,7 @@ impl APU {
         match address {
             0xFF10...0xFF14 => self.ch1.read(address),
             0xFF16...0xFF19 => self.ch2.read(address),
-            0xFF1A...0xFF1E => self.ch3.read(address),
+            0xFF1A...0xFF1E | 0xFF30...0xFF3F => self.ch3.read(address),
             0xFF20...0xFF23 => self.ch4.read(address),
 
             // Channel control / ON-OFF / Volume
@@ -119,21 +123,21 @@ impl APU {
 
     pub fn write(&mut self, address: u16, value: u8) {
         match address {
-            0xFF10...0xFF14 => self.ch1.write(address, value),
-            0xFF16...0xFF19 => self.ch2.write(address, value),
-            0xFF1A...0xFF1E => self.ch3.write(address, value),
-            0xFF20...0xFF23 => self.ch4.write(address, value),
+            0xFF10...0xFF14 if self.enable => self.ch1.write(address, value),
+            0xFF16...0xFF19 if self.enable => self.ch2.write(address, value),
+            0xFF1A...0xFF1E | 0xFF30...0xFF3F if self.enable => self.ch3.write(address, value),
+            0xFF20...0xFF23 if self.enable => self.ch4.write(address, value),
 
             // Channel control / ON-OFF / Volume
-            0xFF24 => {
+            0xFF24 if self.enable => {
                 self.left_vin_enable = bits::test(value, 7);
                 self.right_vin_enable = bits::test(value, 3);
-                self.left_volume = (value & 0b111) >> 4;
+                self.left_volume = (value >> 4) & 0b111;
                 self.right_volume = value & 0b111;
             }
 
             // Selection of Sound output terminal
-            0xFF25 => {
+            0xFF25 if self.enable => {
                 self.ch4_left_enable = bits::test(value, 7);
                 self.ch3_left_enable = bits::test(value, 6);
                 self.ch2_left_enable = bits::test(value, 5);
@@ -147,6 +151,14 @@ impl APU {
             // Sound On/Off
             0xFF26 => {
                 self.enable = bits::test(value, 7);
+                if !self.enable {
+                    // When sound is disabled; clear all channels
+                    self.clear();
+                    self.ch1.clear();
+                    self.ch2.clear();
+                    self.ch3.clear();
+                    self.ch4.clear();
+                }
             }
 
             _ => {}

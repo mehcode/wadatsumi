@@ -46,23 +46,27 @@ impl Channel1 {
         self.enable && (!self.length_enable || self.length > 0)
     }
 
-    pub fn reset(&mut self) {
-        self.enable = true;
+    pub fn clear(&mut self) {
+        self.enable = false;
 
         self.sweep_period = 0;
         self.sweep_direction = false;
         self.sweep_shift = 0;
 
-        self.wave_pattern_duty = 0x2;
+        self.wave_pattern_duty = 0;
 
-        self.length = 0x3F;
+        self.length = 0;
         self.length_enable = false;
 
-        self.volume_envl_initial = 0xF;
+        self.volume_envl_initial = 0;
         self.volume_envl_direction = false;
-        self.volume_envl_period = 0x3;
+        self.volume_envl_period = 0;
 
         self.frequency = 0;
+    }
+
+    pub fn reset(&mut self) {
+        self.clear();
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
