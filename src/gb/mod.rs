@@ -12,3 +12,4 @@ mod bus;
 mod cart;
 mod timer;
 mod joypad;
+mod apu;

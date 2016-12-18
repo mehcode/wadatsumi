@@ -3,6 +3,7 @@ use std::vec::Vec;
 use gb::cart;
 use ::mode;
 use gb::gpu;
+use gb::apu;
 use gb::timer;
 use gb::joypad;
 
@@ -15,6 +16,9 @@ pub struct Bus {
 
     /// Component: GPU
     pub gpu: gpu::GPU,
+
+    /// Component: APU
+    pub apu: apu::APU,
 
     /// Component: Timer
     pub timer: timer::Timer,
@@ -110,7 +114,7 @@ impl Bus {
     pub fn reset(&mut self, mode: mode::Mode) {
         // Interrupt Enable/Flag
         self.ie = 0;
-        self.if_ = 0;
+        self.if_ = 0x1;
 
         // Reset: WRAM
         self.wram.clear();
@@ -124,6 +128,7 @@ impl Bus {
         // Reset: Components
         self.cart.reset();
         self.gpu.reset();
+        self.apu.reset();
         self.joypad.reset();
         self.timer.reset(mode);
 
@@ -184,6 +189,9 @@ impl Bus {
             // Timer
             0xFF04...0xFF07 => self.timer.read(address),
 
+            // APU
+            0xFF10...0xFF3F => self.apu.read(address),
+
             // High RAM
             0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
 
@@ -242,6 +250,9 @@ impl Bus {
                     // TODO: self.apu.on_change_div(div_last, div);
                 }
             }
+
+            // APU
+            0xFF10...0xFF3F => self.apu.write(address, value),
 
             // High RAM
             0xFF80...0xFFFE => {
