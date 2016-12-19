@@ -275,7 +275,7 @@ impl GPU {
             mode_cmp = self.lcd_mode;
         }
 
-        let irq = ((self.lyc_timer == 0) && (self.ly == self.lyc) && self.lyc_irq_enable) ||
+        let irq = ((self.lyc_timer == 1) && (self.ly == self.lyc) && self.lyc_irq_enable) ||
                   (mode_cmp == 0 && self.m0_irq_enable) ||
                   (mode_cmp == 2 && self.m2_irq_enable) ||
                   (mode_cmp == 1 && (self.m1_irq_enable || self.m2_irq_enable));
