@@ -98,7 +98,15 @@ impl Channel1 {
 
     pub fn reset(&mut self) {
         self.clear();
+
+        self.enable = true;
+
         self.length = 0;
+
+        self.wave_pattern_duty = 0b10;
+
+        self.volume_envl_period = 0b11;
+        self.volume_envl_initial = 0xF;
     }
 
     pub fn trigger(&mut self, frame_seq_step: u8) {

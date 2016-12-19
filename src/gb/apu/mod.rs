@@ -91,8 +91,18 @@ impl APU {
 
         self.enable = true;
 
-        self.left_volume = 0xF;
-        self.right_volume = 0xF;
+        self.left_volume = 0x7;
+        self.right_volume = 0x7;
+
+        self.ch1_left_enable = true;
+        self.ch2_left_enable = true;
+        self.ch3_left_enable = true;
+        self.ch4_left_enable = true;
+
+        self.ch1_right_enable = true;
+        self.ch2_right_enable = true;
+        self.ch3_right_enable = false;
+        self.ch4_right_enable = false;
     }
 
     pub fn clear(&mut self) {
