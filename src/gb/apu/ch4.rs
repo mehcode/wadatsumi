@@ -60,13 +60,19 @@ impl Channel4 {
         self.reset();
     }
 
-    pub fn trigger(&mut self) {
+    pub fn trigger(&mut self, frame_seq_step: u8) {
         // Channel is enabled
         self.enable = true;
 
         // If length counter is zero; set to max
         if self.length == 0 {
-            self.length = 64;
+            self.length = if self.length_enable && (frame_seq_step % 2 == 1) {
+                // If the length counter is being unfrozen when the frame sequencer's next
+                // step would not clock the length counter (and its enabled); clock it
+                63
+            } else {
+                64
+            };
         }
 
         // TODO: Frequency timer is reloaded with period
@@ -106,7 +112,7 @@ impl Channel4 {
         }
     }
 
-    pub fn write(&mut self, address: u16, value: u8) {
+    pub fn write(&mut self, address: u16, value: u8, frame_seq_step: u8) {
         match address {
             // Channel 4 Sound Length
             // [--LL LLLL] Length load (64-L)
@@ -139,10 +145,23 @@ impl Channel4 {
             // Channel 4 Misc.
             // [TL-- ----] Trigger, Length enable
             0xFF23 => {
+                let prev_length_enable = self.length_enable;
                 self.length_enable = bits::test(value, 6);
 
+                // Enabling the length counter when the next step of the frame sequencer
+                // would not clock the length counter; should clock the length counter
+                if !prev_length_enable && self.length_enable && (frame_seq_step % 2 == 1) {
+                    if self.length > 0 {
+                        self.length -= 1;
+                    }
+                }
+
                 if bits::test(value, 7) {
-                    self.trigger();
+                    self.trigger(frame_seq_step);
+                } else if self.length == 0 {
+                    // If the extra length clock brought our length to 0 and we weren't triggered;
+                    // disable
+                    self.enable = false;
                 }
             }
 

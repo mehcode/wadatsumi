@@ -56,8 +56,6 @@ pub struct APU {
 
     /// Output Channel 4 to SO1 (right) terminal
     ch4_right_enable: bool,
-
-    cycles: u32,
 }
 
 impl APU {
@@ -68,7 +66,6 @@ impl APU {
         self.ch4.reset();
 
         self.clear();
-        self.cycles = 0;
     }
 
     pub fn clear(&mut self) {
@@ -94,7 +91,6 @@ impl APU {
 
     pub fn step(&mut self) {
         // [...]
-        self.cycles += 1;
     }
 
     pub fn on_change_div(&mut self, div_last: u16, div: u16) {
@@ -103,8 +99,6 @@ impl APU {
         if bits::test((div_last >> 8) as u8, 4) && !bits::test((div >> 8) as u8, 4) {
             if self.frame_seq_step % 2 == 0 {
                 // Steps 0, 2, 4, and 6 clock the length counters (every 16,384 T-cycles)
-                self.cycles = 0;
-
                 self.ch1.step_length();
                 self.ch2.step_length();
                 self.ch3.step_length();
@@ -162,10 +156,14 @@ impl APU {
 
     pub fn write(&mut self, address: u16, value: u8) {
         match address {
-            0xFF10...0xFF14 if self.enable => self.ch1.write(address, value),
-            0xFF16...0xFF19 if self.enable => self.ch2.write(address, value),
-            0xFF1A...0xFF1E | 0xFF30...0xFF3F if self.enable => self.ch3.write(address, value),
-            0xFF20...0xFF23 if self.enable => self.ch4.write(address, value),
+            // TODO(Architecture): Each channel needs a read-only reference to the frame sequencer
+            //                     step
+            0xFF10...0xFF14 if self.enable => self.ch1.write(address, value, self.frame_seq_step),
+            0xFF16...0xFF19 if self.enable => self.ch2.write(address, value, self.frame_seq_step),
+            0xFF1A...0xFF1E | 0xFF30...0xFF3F if self.enable => {
+                self.ch3.write(address, value, self.frame_seq_step)
+            }
+            0xFF20...0xFF23 if self.enable => self.ch4.write(address, value, self.frame_seq_step),
 
             // Channel control / ON-OFF / Volume
             0xFF24 if self.enable => {
