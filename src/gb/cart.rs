@@ -326,14 +326,14 @@ impl Cartridge {
             // MBC5: Lower 8 bits of ROM bank number
             0x2000...0x2FFF if (self.mbc == MBC::MBC5) => {
                 self.rom_bank &= (!0xFF) as usize;
-                self.rom_bank |= (value & 0xFF) as usize;
+                self.rom_bank |= value as usize;
                 self.limit_rom_bank();
             }
 
             // MBC5: Upper 1 bits of ROM bank number
             0x3000...0x3FFF if (self.mbc == MBC::MBC5) => {
-                self.rom_bank &= (!0x100) as usize;
-                self.rom_bank |= ((value & 0x01) as usize) << 8;
+                self.rom_bank &= (!0xFF00) as usize;
+                self.rom_bank |= (value as usize) << 8;
                 self.limit_rom_bank();
             }
 
@@ -431,12 +431,16 @@ impl Cartridge {
         // Ensure ROM bank doesn't select invalid banks and is under the limit for the MBC
 
         // Wrap around the max size
-        self.rom_bank &= match self.mbc {
+        let max_rom_bank = match self.mbc {
             MBC::MBC1 | MBC::MBC3 => 0x7F,
             MBC::MBC2 => 0xF,
             MBC::MBC5 => 0x1E0,
             _ => 0,
         };
+
+        if self.rom_bank > max_rom_bank {
+            self.rom_bank = self.rom_bank - max_rom_bank;
+        }
 
         // Bump on invalid bank numbers
         match self.mbc {
