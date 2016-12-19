@@ -21,8 +21,17 @@ pub struct Channel3 {
     /// Frequency - 11-bits
     pub frequency: u16,
 
+    /// Timer (Frequency)
+    pub timer: u16,
+
     /// Wave RAM
     pub wave_ram: Vec<u8>,
+
+    /// Wave RAM Buffer
+    pub wave_ram_buffer: u8,
+
+    /// Wave RAM Buffer Position
+    pub wave_ram_buffer_position: u8,
 }
 
 impl Channel3 {
@@ -38,6 +47,10 @@ impl Channel3 {
 
         self.volume = 0;
         self.frequency = 0;
+        self.timer = 0;
+
+        self.wave_ram_buffer = 0;
+        self.wave_ram_buffer_position = 0;
     }
 
     pub fn reset(&mut self) {
@@ -67,8 +80,45 @@ impl Channel3 {
             };
         }
 
-        // TODO: Frequency timer is reloaded with period
-        // TODO: Wave channel's position is set to 0 but sample buffer is NOT refilled.
+        // Frequency timer is reloaded with period
+        self.timer = (2048 - self.frequency) * 2;
+
+        // Wave channel's position is set to 0 but sample buffer is NOT refilled.
+        self.wave_ram_buffer_position = 0;
+    }
+
+    pub fn sample(&mut self) -> i16 {
+        if !self.is_enabled() {
+            return 0;
+        }
+
+        // The DAC receives the current value from the upper/lower nibble of the
+        // sample buffer, shifted right by the volume control.
+        return (self.wave_ram_buffer >> (if self.volume > 0 { self.volume - 1 } else { 4 })) as i16;
+    }
+
+    pub fn step(&mut self) {
+        if self.timer > 0 {
+            self.timer -= 1;
+        }
+
+        if self.timer == 0 {
+            // Increment position in the duty pattern
+            self.wave_ram_buffer_position += 1;
+            if self.wave_ram_buffer_position == 32 {
+                self.wave_ram_buffer_position = 0;
+            }
+
+            // Fill the sample buffer
+            //  <position> / 2 = wave index
+            self.wave_ram_buffer = self.wave_ram[(self.wave_ram_buffer_position / 2) as usize];
+            //  <position> % 2 = 0 (hi) or 1 (lo)
+            self.wave_ram_buffer >>= (1 - (self.wave_ram_buffer_position % 2)) * 4;
+            self.wave_ram_buffer &= 0x0F;
+
+            // Reload timer
+            self.timer = (2048 - self.frequency) * 2;
+        }
     }
 
     pub fn step_length(&mut self) {

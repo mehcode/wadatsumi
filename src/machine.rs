@@ -12,7 +12,8 @@ pub trait Machine {
 
     fn on_key_up(&mut self, scancode: keyboard::Scancode);
 
-    fn set_on_refresh(&mut self, callback: Box<FnMut(::frame::Frame) -> ()>);
+    fn set_on_video_refresh(&mut self, callback: Box<FnMut(::frame::Frame) -> ()>);
+    fn set_on_sound_refresh(&mut self, callback: Box<FnMut(&[i16]) -> ()>);
 
     /// Get (initial) display width
     fn get_width(&self) -> u32;

@@ -77,8 +77,12 @@ impl ::machine::Machine for Machine {
         self.bus.joypad.on_key_up(scancode);
     }
 
-    fn set_on_refresh(&mut self, callback: Box<FnMut(::frame::Frame) -> ()>) {
+    fn set_on_video_refresh(&mut self, callback: Box<FnMut(::frame::Frame) -> ()>) {
         self.bus.gpu.set_on_refresh(callback);
+    }
+
+    fn set_on_sound_refresh(&mut self, callback: Box<FnMut(&[i16]) -> ()>) {
+        self.bus.apu.set_on_refresh(callback);
     }
 
     fn get_width(&self) -> u32 {

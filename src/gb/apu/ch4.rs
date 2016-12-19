@@ -11,6 +11,12 @@ pub struct Channel4 {
     /// Counter / Consecutive selection (Length Enable)
     pub length_enable: bool,
 
+    /// Current volume
+    pub volume: u8,
+
+    /// Volume envelope timer
+    pub volume_envl_timer: u8,
+
     /// Initial Volume of envelope
     pub volume_envl_initial: u8,
 
@@ -32,6 +38,29 @@ pub struct Channel4 {
 
     /// Linear Feedback Shift Register (LFSR)
     pub lfsr: u16,
+
+    /// Timer (Frequency)
+    pub timer: u16,
+}
+
+fn get_divisor(index: u8) -> u16 {
+    return if index == 1 {
+        16
+    } else if index == 2 {
+        32
+    } else if index == 3 {
+        48
+    } else if index == 4 {
+        64
+    } else if index == 5 {
+        80
+    } else if index == 6 {
+        96
+    } else if index == 7 {
+        112
+    } else {
+        8
+    };
 }
 
 impl Channel4 {
@@ -45,9 +74,11 @@ impl Channel4 {
 
         self.length_enable = false;
 
+        self.volume = 0;
         self.volume_envl_initial = 0;
         self.volume_envl_direction = false;
         self.volume_envl_period = 0;
+        self.volume_envl_timer = 0;
 
         self.shift = 0;
         self.width = false;
@@ -75,11 +106,64 @@ impl Channel4 {
             };
         }
 
-        // TODO: Frequency timer is reloaded with period
-        // TODO: Volume envelope timer is reloaded with period
+        // Frequency timer is reloaded with period
+        self.timer = get_divisor(self.divisor) << self.shift;
+
+        // Volume envelope timer is reloaded with period
+        self.volume = self.volume_envl_initial;
+        self.volume_envl_timer = if self.volume_envl_period == 0 {
+            8
+        } else {
+            self.volume_envl_period
+        };
 
         // Noise channel's LFSR bits are all set to 1.
         self.lfsr = 0xFFFF;
+    }
+
+    pub fn sample(&mut self) -> i16 {
+        if !self.is_enabled() {
+            return 0;
+        }
+
+        // The waveform output is bit 0 of the LFSR, INVERTED
+        return if (self.lfsr & 0x1) == 0 {
+            self.volume as i16
+        } else {
+            0
+        };
+    }
+
+    pub fn step(&mut self) {
+        if self.timer > 0 {
+            self.timer -= 1;
+        }
+
+        if self.timer == 0 {
+            // When clocked by the frequency timer, the low two bits (0 and 1)
+            // are XORed
+            let b = bits::test(self.lfsr as u8, 0) ^ bits::test(self.lfsr as u8, 1);
+
+            // All bits are shifted right by one
+            self.lfsr >>= 1;
+
+            // And the result of the XOR is put into the now-empty high bit
+            if b {
+                self.lfsr |= 0x4000;
+            }
+
+            // If width mode is 1 (NR43), the XOR result is ALSO put into
+            // bit 6 AFTER the shift, resulting in a 7-bit LFSR.
+            if self.width {
+                self.lfsr &= !0x40;
+                if b {
+                    self.lfsr |= 0x40;
+                }
+            }
+
+            // Reload timer
+            self.timer = get_divisor(self.divisor) << self.shift;
+        }
     }
 
     pub fn step_length(&mut self) {
@@ -88,6 +172,32 @@ impl Channel4 {
             if self.length == 0 {
                 self.enable = false;
             }
+        }
+    }
+
+    pub fn step_volume(&mut self) {
+        if self.volume_envl_timer > 0 {
+            self.volume_envl_timer -= 1;
+        }
+
+        if self.volume_envl_period > 0 && self.volume_envl_timer == 0 {
+            if self.volume_envl_direction {
+                if self.volume < 0xF {
+                    self.volume += 1;
+                }
+            } else {
+                if self.volume > 0 {
+                    self.volume -= 1;
+                }
+            }
+        }
+
+        if self.volume_envl_timer == 0 {
+            self.volume_envl_timer = if self.volume_envl_period == 0 {
+                8
+            } else {
+                self.volume_envl_period
+            };
         }
     }
 

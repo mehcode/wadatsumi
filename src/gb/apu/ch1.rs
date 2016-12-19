@@ -33,11 +33,20 @@ pub struct Channel1 {
     ///     3      01111110    75%
     pub wave_pattern_duty: u8,
 
+    /// Current index into the wave pattern
+    pub wave_pattern_index: u8,
+
     /// Sound Length
     pub length: u8,
 
     /// Counter / Consecutive selection (Length Enable)
     pub length_enable: bool,
+
+    /// Current volume
+    pub volume: u8,
+
+    /// Volume envelope timer
+    pub volume_envl_timer: u8,
 
     /// Initial Volume of envelope
     pub volume_envl_initial: u8,
@@ -51,6 +60,9 @@ pub struct Channel1 {
 
     /// Frequency - 11-bits
     pub frequency: u16,
+
+    /// Timer (Frequency)
+    pub timer: u16,
 }
 
 impl Channel1 {
@@ -70,14 +82,18 @@ impl Channel1 {
         self.sweep_negate_calcd = false;
 
         self.wave_pattern_duty = 0;
+        self.wave_pattern_index = 0;
 
         self.length_enable = false;
 
+        self.volume = 0;
         self.volume_envl_initial = 0;
         self.volume_envl_direction = false;
         self.volume_envl_period = 0;
+        self.volume_envl_timer = 0;
 
         self.frequency = 0;
+        self.timer = 0;
     }
 
     pub fn reset(&mut self) {
@@ -100,8 +116,16 @@ impl Channel1 {
             };
         }
 
-        // TODO: Frequency timer is reloaded with period
-        // TODO: Volume envelope timer is reloaded with period
+        // Frequency timer is reloaded with period
+        self.timer = (2048 - self.frequency) * 4;
+
+        // Volume envelope timer is reloaded with period
+        self.volume = self.volume_envl_initial;
+        self.volume_envl_timer = if self.volume_envl_period == 0 {
+            8
+        } else {
+            self.volume_envl_period
+        };
 
         // [Sweep] Square 1's frequency is copied to the shadow register.
         self.frequency_sh = self.frequency;
@@ -125,12 +149,73 @@ impl Channel1 {
         }
     }
 
+    pub fn sample(&mut self) -> i16 {
+        if !self.is_enabled() {
+            return 0;
+        }
+
+        let pattern = if self.wave_pattern_duty == 0b11 {
+            0b01111110
+        } else if self.wave_pattern_duty == 0b10 {
+            0b10000111
+        } else if self.wave_pattern_duty == 0b01 {
+            0b10000001
+        } else {
+            0b00000001
+        };
+
+        let bit = bits::test(pattern, (7 - self.wave_pattern_index));
+
+        return if bit { self.volume as i16 } else { 0 };
+    }
+
+    pub fn step(&mut self) {
+        if self.timer > 0 {
+            self.timer -= 1;
+        }
+
+        if self.timer == 0 {
+            self.wave_pattern_index += 1;
+            if self.wave_pattern_index == 8 {
+                self.wave_pattern_index = 0;
+            }
+
+            self.timer = (2048 - self.frequency) * 4;
+        }
+    }
+
     pub fn step_length(&mut self) {
         if self.length_enable && self.length > 0 {
             self.length -= 1;
             if self.length == 0 {
                 self.enable = false;
             }
+        }
+    }
+
+    pub fn step_volume(&mut self) {
+        if self.volume_envl_timer > 0 {
+            self.volume_envl_timer -= 1;
+        }
+
+        if self.volume_envl_period > 0 && self.volume_envl_timer == 0 {
+            if self.volume_envl_direction {
+                if self.volume < 0xF {
+                    self.volume += 1;
+                }
+            } else {
+                if self.volume > 0 {
+                    self.volume -= 1;
+                }
+            }
+        }
+
+        if self.volume_envl_timer == 0 {
+            self.volume_envl_timer = if self.volume_envl_period == 0 {
+                8
+            } else {
+                self.volume_envl_period
+            };
         }
     }
 

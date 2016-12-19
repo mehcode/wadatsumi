@@ -1,4 +1,7 @@
+use std::vec::Vec;
+
 use ::bits;
+use ::sound;
 
 mod ch1;
 mod ch2;
@@ -14,6 +17,16 @@ pub struct APU {
     ch2: ch2::Channel2,
     ch3: ch3::Channel3,
     ch4: ch4::Channel4,
+
+    // Sound buffer
+    buffer: Vec<i16>,
+    buffer_index: usize,
+
+    // Sample timing
+    sample_timer: usize,
+
+    /// Callback: Refresh (sound buffer full)
+    on_refresh: Option<Box<FnMut(&[i16]) -> ()>>,
 
     /// Master enable
     enable: bool,
@@ -59,24 +72,39 @@ pub struct APU {
 }
 
 impl APU {
+    pub fn set_on_refresh(&mut self, callback: Box<FnMut(&[i16]) -> ()>) {
+        self.on_refresh = Some(callback);
+    }
+
     pub fn reset(&mut self) {
+        self.buffer_index = 0;
+        self.buffer = vec![0; sound::BUFFER_SIZE * 2];
+
+        self.sample_timer = 0;
+
         self.ch1.reset();
         self.ch2.reset();
         self.ch3.reset();
         self.ch4.reset();
 
         self.clear();
+
+        self.enable = true;
+
+        self.left_volume = 0xF;
+        self.right_volume = 0xF;
     }
 
     pub fn clear(&mut self) {
         self.enable = false;
-        self.frame_seq_step = 0;
 
-        self.left_vin_enable = false;
-        self.right_vin_enable = false;
+        self.frame_seq_step = 0;
 
         self.left_volume = 0;
         self.right_volume = 0;
+
+        self.left_vin_enable = false;
+        self.right_vin_enable = false;
 
         self.ch1_left_enable = false;
         self.ch2_left_enable = false;
@@ -90,7 +118,72 @@ impl APU {
     }
 
     pub fn step(&mut self) {
-        // [...]
+        // Step: Channels
+        self.ch1.step();
+        self.ch2.step();
+        self.ch3.step();
+        self.ch4.step();
+
+        // Collect sample from channels (if ready)
+        if self.sample_timer > 0 {
+            self.sample_timer -= 1;
+        }
+
+        if self.sample_timer == 0 {
+            let mut sample_l = 0;
+            let mut sample_r = 0;
+
+            if self.enable {
+                let ch1 = self.ch1.sample();
+                let ch2 = self.ch2.sample();
+                let ch3 = self.ch3.sample();
+                let ch4 = self.ch4.sample();
+
+                if self.ch1_left_enable {
+                    sample_l += ch1;
+                }
+                if self.ch2_left_enable {
+                    sample_l += ch2;
+                }
+                if self.ch3_left_enable {
+                    sample_l += ch3;
+                }
+                if self.ch4_left_enable {
+                    sample_l += ch4;
+                }
+
+                if self.ch1_right_enable {
+                    sample_r += ch1;
+                }
+                if self.ch2_right_enable {
+                    sample_r += ch2;
+                }
+                if self.ch3_right_enable {
+                    sample_r += ch3;
+                }
+                if self.ch4_right_enable {
+                    sample_r += ch4;
+                }
+            }
+
+            sample_l *= (self.left_volume as i16) * 8;
+            sample_r *= (self.right_volume as i16) * 8;
+
+            self.buffer[self.buffer_index] = sample_l;
+            self.buffer[self.buffer_index + 1] = sample_r;
+            self.buffer_index += 2;
+
+            if self.buffer_index >= (sound::BUFFER_SIZE * 2) {
+                self.buffer_index = 0;
+
+                if let &mut Some(ref mut on_refresh) = &mut self.on_refresh {
+                    (on_refresh)(&self.buffer);
+                }
+            }
+
+            // Reload sample timer
+            self.sample_timer = 4194304 / sound::SAMPLE_RATE;
+        }
     }
 
     pub fn on_change_div(&mut self, div_last: u16, div: u16) {
@@ -111,6 +204,9 @@ impl APU {
 
             if self.frame_seq_step == 7 {
                 // Step 7 clocks the volume envelope
+                self.ch1.step_volume();
+                self.ch2.step_volume();
+                self.ch4.step_volume();
             }
 
             if self.frame_seq_step == 6 || self.frame_seq_step == 2 {

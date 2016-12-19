@@ -21,6 +21,7 @@ use clap::{Arg, App};
 mod mode;
 mod bits;
 mod frame;
+mod sound;
 mod machine;
 mod gb;  // Gameboy, Gameboy Color (*), Super Gameboy (*)
 
@@ -70,6 +71,27 @@ fn main() {
     let mut m: Box<Machine> = Box::new(gb::machine::Machine::new(mode));
     m.open(rom_filename).unwrap();
 
+    // Create audio queue
+    let audio = c.audio().unwrap();
+    let audio_queue = audio.open_queue::<i16>(None,
+                           &sdl2::audio::AudioSpecDesired {
+                               samples: Some(::sound::BUFFER_SIZE as u16),
+                               channels: Some(2),
+                               freq: Some(::sound::SAMPLE_RATE as i32),
+                           })
+        .unwrap();
+
+    audio_queue.resume();
+
+    m.set_on_sound_refresh(Box::new(move |buffer| {
+        // Sync to audio queue
+        while audio_queue.size() > (::sound::BUFFER_SIZE as u32 * 4) {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        audio_queue.queue(buffer);
+    }));
+
     // Create window
     let width = m.get_width();
     let height = m.get_height();
@@ -90,7 +112,7 @@ fn main() {
         renderer.create_texture_streaming(sdl2::pixels::PixelFormatEnum::ARGB8888, width, height)
             .unwrap();
 
-    m.set_on_refresh(Box::new(move |frame| {
+    m.set_on_video_refresh(Box::new(move |frame| {
         // Render: Update texture and flip
         texture.update(None, &frame.data, frame.pitch).unwrap();
         renderer.copy(&texture, None, None).unwrap();
