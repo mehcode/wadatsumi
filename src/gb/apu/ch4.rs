@@ -40,10 +40,9 @@ impl Channel4 {
         (self.volume_envl_initial > 0 || self.volume_envl_direction)
     }
 
-    pub fn reset(&mut self) {
+    pub fn clear(&mut self) {
         self.enable = false;
 
-        self.length = 0;
         self.length_enable = false;
 
         self.volume_envl_initial = 0;
@@ -56,8 +55,9 @@ impl Channel4 {
         self.lfsr = 0;
     }
 
-    pub fn clear(&mut self) {
-        self.reset();
+    pub fn reset(&mut self) {
+        self.clear();
+        self.length = 0;
     }
 
     pub fn trigger(&mut self, frame_seq_step: u8) {
@@ -112,7 +112,7 @@ impl Channel4 {
         }
     }
 
-    pub fn write(&mut self, address: u16, value: u8, frame_seq_step: u8) {
+    pub fn write(&mut self, address: u16, value: u8, frame_seq_step: u8, master_enable: bool) {
         match address {
             // Channel 4 Sound Length
             // [--LL LLLL] Length load (64-L)
@@ -122,7 +122,7 @@ impl Channel4 {
 
             // Channel 4 Volume Envelope
             // [VVVV APPP] Starting volume, Envelope add mode, period
-            0xFF21 => {
+            0xFF21 if master_enable => {
                 self.volume_envl_initial = (value >> 4) & 0b1111;
                 self.volume_envl_direction = bits::test(value, 3);
                 self.volume_envl_period = value & 0b111;
@@ -136,7 +136,7 @@ impl Channel4 {
 
             // Channel 4 Polynomial Counter
             // [SSSS WDDD] Clock shift, Width mode of LFSR, Divisor code
-            0xFF22 => {
+            0xFF22 if master_enable => {
                 self.shift = (value >> 4) & 0b1111;
                 self.width = bits::test(value, 3);
                 self.divisor = value & 0b111;
@@ -144,7 +144,7 @@ impl Channel4 {
 
             // Channel 4 Misc.
             // [TL-- ----] Trigger, Length enable
-            0xFF23 => {
+            0xFF23 if master_enable => {
                 let prev_length_enable = self.length_enable;
                 self.length_enable = bits::test(value, 6);
 

@@ -34,7 +34,6 @@ impl Channel3 {
         self.enable = false;
         self.dac_enable = false;
 
-        self.length = 0;
         self.length_enable = false;
 
         self.volume = 0;
@@ -47,6 +46,8 @@ impl Channel3 {
         // TODO: Make it depend on model (following is for gb:dmg)
         self.wave_ram = vec![0x84, 0x40, 0x43, 0xAA, 0x2D, 0x78, 0x92, 0x3C, 0x60, 0x59, 0x59,
                              0xB0, 0x34, 0xB8, 0x2E, 0xDA];
+
+        self.length = 0;
 
         self.clear();
     }
@@ -100,11 +101,11 @@ impl Channel3 {
         }
     }
 
-    pub fn write(&mut self, address: u16, value: u8, frame_seq_step: u8) {
+    pub fn write(&mut self, address: u16, value: u8, frame_seq_step: u8, master_enable: bool) {
         match address {
             // Channel 3 Sound On/Off
             // [E--- ----] DAC Power
-            0xFF1A => {
+            0xFF1A if master_enable => {
                 self.dac_enable = bits::test(value, 7);
 
                 // Disabling power to the channel kills the enabled bit
@@ -121,20 +122,20 @@ impl Channel3 {
 
             // Channel 3 Volume
             // [-VV- ----] Volume
-            0xFF1C => {
+            0xFF1C if master_enable => {
                 self.volume = (value >> 5) & 0b11;
             }
 
             // Channel 2 Frequency (lo)
             // [FFFF FFFF] Frequency LSB
-            0xFF1D => {
+            0xFF1D if master_enable => {
                 self.frequency &= !0xFF;
                 self.frequency |= value as u16;
             }
 
             // Channel 2 Misc.
             // [TL-- -FFF] Trigger, Length enable, Frequency MSB
-            0xFF1E => {
+            0xFF1E if master_enable => {
                 self.frequency &= !0x700;
                 self.frequency |= ((value & 0b111) as u16) << 8;
 

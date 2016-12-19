@@ -5,6 +5,18 @@ pub struct Channel1 {
     /// Enable
     pub enable: bool,
 
+    /// Sweep Enabled
+    pub sweep_enable: bool,
+
+    /// Sweep Timer
+    pub sweep_timer: u8,
+
+    /// # of Sweep Calculations since Trigger
+    pub sweep_negate_calcd: bool,
+
+    /// Sweep Shadow Frequency
+    pub frequency_sh: u16,
+
     /// Sweep Period
     pub sweep_period: u8,
 
@@ -49,13 +61,16 @@ impl Channel1 {
     pub fn clear(&mut self) {
         self.enable = false;
 
+        self.sweep_enable = false;
+        self.sweep_timer = 0;
+        self.frequency_sh = 0;
         self.sweep_period = 0;
         self.sweep_direction = false;
         self.sweep_shift = 0;
+        self.sweep_negate_calcd = false;
 
         self.wave_pattern_duty = 0;
 
-        self.length = 0;
         self.length_enable = false;
 
         self.volume_envl_initial = 0;
@@ -67,6 +82,7 @@ impl Channel1 {
 
     pub fn reset(&mut self) {
         self.clear();
+        self.length = 0;
     }
 
     pub fn trigger(&mut self, frame_seq_step: u8) {
@@ -87,11 +103,26 @@ impl Channel1 {
         // TODO: Frequency timer is reloaded with period
         // TODO: Volume envelope timer is reloaded with period
 
-        // Sweep
-        // TODO: Square 1's frequency is copied to the shadow register.
-        // TODO: The sweep timer is reloaded.
-        // TODO: The internal enabled flag is set if either the sweep period or shift are non-zero, cleared otherwise.
-        // TODO: If the sweep shift is non-zero, frequency calculation and the overflow check are performed immediately.
+        // [Sweep] Square 1's frequency is copied to the shadow register.
+        self.frequency_sh = self.frequency;
+
+        // [Sweep] The sweep timer is reloaded.
+        self.sweep_timer = if self.sweep_period == 0 {
+            8
+        } else {
+            self.sweep_period
+        };
+
+        // The internal enabled flag is set if either the sweep period or shift are non-zero,
+        // cleared otherwise.
+        self.sweep_enable = self.sweep_period > 0 || self.sweep_shift > 0;
+        self.sweep_negate_calcd = false;
+
+        // If the sweep shift is non-zero, frequency calculation and the overflow check
+        // are performed immediately.
+        if self.sweep_enable && self.sweep_shift > 0 {
+            self.calc_sweep();
+        }
     }
 
     pub fn step_length(&mut self) {
@@ -101,6 +132,53 @@ impl Channel1 {
                 self.enable = false;
             }
         }
+    }
+
+    pub fn step_sweep(&mut self) {
+        if self.sweep_timer > 0 {
+            self.sweep_timer -= 1;
+        }
+
+        if self.sweep_period > 0 && self.sweep_enable && self.sweep_timer == 0 {
+            let freq = self.calc_sweep();
+            if freq <= 2047 && self.sweep_shift > 0 {
+                self.frequency_sh = freq;
+                self.frequency = freq;
+
+                self.calc_sweep();
+            }
+        }
+
+        if self.sweep_timer == 0 {
+            self.sweep_timer = if self.sweep_period == 0 {
+                8
+            } else {
+                self.sweep_period
+            };
+        }
+    }
+
+    pub fn calc_sweep(&mut self) -> u16 {
+        // Calculate new frequency using sweep
+        let mut freq = self.frequency_sh;
+        let r = self.frequency_sh >> self.sweep_shift;
+        if self.sweep_direction {
+            freq -= r;
+        } else {
+            freq += r;
+        }
+
+        // Disable channel if overflow
+        if freq > 2047 {
+            self.enable = false;
+            self.sweep_enable = false;
+        }
+
+        if self.sweep_direction {
+            self.sweep_negate_calcd = true;
+        }
+
+        freq
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
@@ -131,26 +209,37 @@ impl Channel1 {
         }
     }
 
-    pub fn write(&mut self, address: u16, value: u8, frame_seq_step: u8) {
+    pub fn write(&mut self, address: u16, value: u8, frame_seq_step: u8, master_enable: bool) {
         match address {
             // Channel 1 Sweep
             // [-PPP NSSS] Sweep period, negate, shift
-            0xFF10 => {
+            0xFF10 if master_enable => {
                 self.sweep_period = (value >> 4) & 0b111;
-                self.sweep_direction = bits::test(value, 3);
                 self.sweep_shift = value & 0b111;
+
+                // Clearing the sweep negate mode bit in NR10 after at least one
+                // sweep calculation has been made using the negate mode since
+                // the last trigger causes the channel to be immediately disabled.
+                if self.sweep_direction && !bits::test(value, 3) && self.sweep_negate_calcd {
+                    self.enable = false;
+                    self.sweep_enable = false;
+                }
+
+                self.sweep_direction = bits::test(value, 3);
             }
 
             // Channel 1 Sound Length/Wave Pattern Duty
             // [DDLL LLLL] Duty, Length load (64-L)
             0xFF11 => {
-                self.wave_pattern_duty = (value >> 6) & 0b11;
+                if master_enable {
+                    self.wave_pattern_duty = (value >> 6) & 0b11;
+                }
                 self.length = 64 - (value & 0b11_1111);
             }
 
             // Channel 1 Volume Envelope
             // [VVVV APPP] Starting volume, Envelope add mode, period
-            0xFF12 => {
+            0xFF12 if master_enable => {
                 self.volume_envl_initial = (value >> 4) & 0b1111;
                 self.volume_envl_direction = bits::test(value, 3);
                 self.volume_envl_period = value & 0b111;
@@ -164,14 +253,14 @@ impl Channel1 {
 
             // Channel 1 Frequency (lo)
             // [FFFF FFFF] Frequency LSB
-            0xFF13 => {
+            0xFF13 if master_enable => {
                 self.frequency &= !0xFF;
                 self.frequency |= value as u16;
             }
 
             // Channel 1 Misc.
             // [TL-- -FFF] Trigger, Length enable, Frequency MSB
-            0xFF14 => {
+            0xFF14 if master_enable => {
                 self.frequency &= !0x700;
                 self.frequency |= ((value & 0b111) as u16) << 8;
 

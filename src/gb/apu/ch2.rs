@@ -43,7 +43,6 @@ impl Channel2 {
 
         self.wave_pattern_duty = 0;
 
-        self.length = 0;
         self.length_enable = false;
 
         self.volume_envl_initial = 0;
@@ -55,6 +54,7 @@ impl Channel2 {
 
     pub fn reset(&mut self) {
         self.clear();
+        self.length = 0;
     }
 
     pub fn trigger(&mut self, frame_seq_step: u8) {
@@ -106,18 +106,21 @@ impl Channel2 {
         }
     }
 
-    pub fn write(&mut self, address: u16, value: u8, frame_seq_step: u8) {
+    pub fn write(&mut self, address: u16, value: u8, frame_seq_step: u8, master_enable: bool) {
         match address {
             // Channel 2 Sound Length/Wave Pattern Duty
             // [DDLL LLLL] Duty, Length load (64-L)
             0xFF16 => {
-                self.wave_pattern_duty = (value >> 6) & 0b11;
+                if master_enable {
+                    self.wave_pattern_duty = (value >> 6) & 0b11;
+                }
+
                 self.length = 64 - (value & 0b11_1111);
             }
 
             // Channel 2 Volume Envelope
             // [VVVV APPP] Starting volume, Envelope add mode, period
-            0xFF17 => {
+            0xFF17 if master_enable => {
                 self.volume_envl_initial = (value >> 4) & 0b1111;
                 self.volume_envl_direction = bits::test(value, 3);
                 self.volume_envl_period = value & 0b111;
@@ -131,14 +134,14 @@ impl Channel2 {
 
             // Channel 2 Frequency (lo)
             // [FFFF FFFF] Frequency LSB
-            0xFF18 => {
+            0xFF18 if master_enable => {
                 self.frequency &= !0xFF;
                 self.frequency |= value as u16;
             }
 
             // Channel 2 Misc.
             // [TL-- -FFF] Trigger, Length enable, Frequency MSB
-            0xFF19 => {
+            0xFF19 if master_enable => {
                 self.frequency &= !0x700;
                 self.frequency |= ((value & 0b111) as u16) << 8;
 

@@ -94,6 +94,10 @@ impl APU {
     }
 
     pub fn on_change_div(&mut self, div_last: u16, div: u16) {
+        if !self.enable {
+            return;
+        }
+
         // The APU is driven off ticks of the DIV timer
         // TODO: Double speed mode (APU goes the same speed regardless of the CPU speeding up)
         if bits::test((div_last >> 8) as u8, 4) && !bits::test((div >> 8) as u8, 4) {
@@ -111,6 +115,7 @@ impl APU {
 
             if self.frame_seq_step == 6 || self.frame_seq_step == 2 {
                 // Steps 6 and 2 clock the sweep
+                self.ch1.step_sweep();
             }
 
             self.frame_seq_step += 1;
@@ -158,12 +163,12 @@ impl APU {
         match address {
             // TODO(Architecture): Each channel needs a read-only reference to the frame sequencer
             //                     step
-            0xFF10...0xFF14 if self.enable => self.ch1.write(address, value, self.frame_seq_step),
-            0xFF16...0xFF19 if self.enable => self.ch2.write(address, value, self.frame_seq_step),
-            0xFF1A...0xFF1E | 0xFF30...0xFF3F if self.enable => {
-                self.ch3.write(address, value, self.frame_seq_step)
+            0xFF10...0xFF14 => self.ch1.write(address, value, self.frame_seq_step, self.enable),
+            0xFF16...0xFF19 => self.ch2.write(address, value, self.frame_seq_step, self.enable),
+            0xFF1A...0xFF1E | 0xFF30...0xFF3F => {
+                self.ch3.write(address, value, self.frame_seq_step, self.enable)
             }
-            0xFF20...0xFF23 if self.enable => self.ch4.write(address, value, self.frame_seq_step),
+            0xFF20...0xFF23 => self.ch4.write(address, value, self.frame_seq_step, self.enable),
 
             // Channel control / ON-OFF / Volume
             0xFF24 if self.enable => {
