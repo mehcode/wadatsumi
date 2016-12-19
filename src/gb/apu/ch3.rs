@@ -10,7 +10,7 @@ pub struct Channel3 {
     pub dac_enable: bool,
 
     /// Sound Length
-    pub length: u8,
+    pub length: u16,
 
     /// Counter / Consecutive selection (Length Enable)
     pub length_enable: bool,
@@ -51,6 +51,28 @@ impl Channel3 {
         self.clear();
     }
 
+    pub fn trigger(&mut self) {
+        // Channel is enabled
+        self.enable = true;
+
+        // If length counter is zero; set to max
+        if self.length == 0 {
+            self.length = 256;
+        }
+
+        // TODO: Frequency timer is reloaded with period
+        // TODO: Wave channel's position is set to 0 but sample buffer is NOT refilled.
+    }
+
+    pub fn step_length(&mut self) {
+        if self.length_enable && self.length > 0 {
+            self.length -= 1;
+            if self.length == 0 {
+                self.enable = false;
+            }
+        }
+    }
+
     pub fn read(&mut self, address: u16) -> u8 {
         match address {
             // Channel 3 Sound On/Off
@@ -78,12 +100,17 @@ impl Channel3 {
             // [E--- ----] DAC Power
             0xFF1A => {
                 self.dac_enable = bits::test(value, 7);
+
+                // Disabling power to the channel kills the enabled bit
+                if !self.dac_enable {
+                    self.enable = false;
+                }
             }
 
             // Channel 3 Sound Length
             // [LLLL LLLL] Length load (256-L)
             0xFF1B => {
-                self.length = (256 as u16 - value as u16) as u8;
+                self.length = 256u16 - value as u16;
             }
 
             // Channel 3 Volume
@@ -106,6 +133,10 @@ impl Channel3 {
                 self.frequency |= ((value & 0b111) as u16) << 8;
 
                 self.length_enable = bits::test(value, 6);
+
+                if bits::test(value, 7) {
+                    self.trigger();
+                }
             }
 
             // Wave RAM

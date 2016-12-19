@@ -105,8 +105,8 @@ impl Bus {
 
             self.gpu.step(&mut self.if_);
 
-            // TODO: self.apu.step();
-            // TODO: self.apu.on_change_div(self.timer.div_last, self.timer.div);
+            self.apu.step();
+            self.apu.on_change_div(self.timer.div_last, self.timer.div);
         }
     }
 
@@ -225,7 +225,7 @@ impl Bus {
                     let div = self.timer.div;
 
                     self.timer.on_change_div(div_last, div, &mut self.if_);
-                    // TODO: self.apu.on_change_div(div_last, div);
+                    self.apu.on_change_div(div_last, div);
                 }
             }
 

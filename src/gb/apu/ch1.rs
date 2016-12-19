@@ -43,7 +43,8 @@ pub struct Channel1 {
 
 impl Channel1 {
     pub fn is_enabled(&self) -> bool {
-        self.enable && (!self.length_enable || self.length > 0)
+        self.enable && (!self.length_enable || self.length > 0) &&
+        (self.volume_envl_initial > 0 || self.volume_envl_direction)
     }
 
     pub fn clear(&mut self) {
@@ -67,6 +68,34 @@ impl Channel1 {
 
     pub fn reset(&mut self) {
         self.clear();
+    }
+
+    pub fn trigger(&mut self) {
+        // Channel is enabled
+        self.enable = true;
+
+        // If length counter is zero; set to max
+        if self.length == 0 {
+            self.length = 64;
+        }
+
+        // TODO: Frequency timer is reloaded with period
+        // TODO: Volume envelope timer is reloaded with period
+
+        // Sweep
+        // TODO: Square 1's frequency is copied to the shadow register.
+        // TODO: The sweep timer is reloaded.
+        // TODO: The internal enabled flag is set if either the sweep period or shift are non-zero, cleared otherwise.
+        // TODO: If the sweep shift is non-zero, frequency calculation and the overflow check are performed immediately.
+    }
+
+    pub fn step_length(&mut self) {
+        if self.length_enable && self.length > 0 {
+            self.length -= 1;
+            if self.length == 0 {
+                self.enable = false;
+            }
+        }
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
@@ -120,6 +149,12 @@ impl Channel1 {
                 self.volume_envl_initial = (value >> 4) & 0b1111;
                 self.volume_envl_direction = bits::test(value, 3);
                 self.volume_envl_period = value & 0b111;
+
+                // Setting the volume envelope to 0 with a decrease direction will disable
+                // the channel
+                if self.volume_envl_initial == 0 && !self.volume_envl_direction {
+                    self.enable = false;
+                }
             }
 
             // Channel 1 Frequency (lo)
@@ -136,6 +171,10 @@ impl Channel1 {
                 self.frequency |= ((value & 0b111) as u16) << 8;
 
                 self.length_enable = bits::test(value, 6);
+
+                if bits::test(value, 7) {
+                    self.trigger();
+                }
             }
 
             _ => {}

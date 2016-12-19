@@ -29,11 +29,15 @@ pub struct Channel4 {
 
     /// Dividing Ratio of Frequencies
     pub divisor: u8,
+
+    /// Linear Feedback Shift Register (LFSR)
+    pub lfsr: u16,
 }
 
 impl Channel4 {
     pub fn is_enabled(&self) -> bool {
-        self.enable && (!self.length_enable || self.length > 0)
+        self.enable && (!self.length_enable || self.length > 0) &&
+        (self.volume_envl_initial > 0 || self.volume_envl_direction)
     }
 
     pub fn reset(&mut self) {
@@ -49,10 +53,36 @@ impl Channel4 {
         self.shift = 0;
         self.width = false;
         self.divisor = 0;
+        self.lfsr = 0;
     }
 
     pub fn clear(&mut self) {
         self.reset();
+    }
+
+    pub fn trigger(&mut self) {
+        // Channel is enabled
+        self.enable = true;
+
+        // If length counter is zero; set to max
+        if self.length == 0 {
+            self.length = 64;
+        }
+
+        // TODO: Frequency timer is reloaded with period
+        // TODO: Volume envelope timer is reloaded with period
+
+        // Noise channel's LFSR bits are all set to 1.
+        self.lfsr = 0xFFFF;
+    }
+
+    pub fn step_length(&mut self) {
+        if self.length_enable && self.length > 0 {
+            self.length -= 1;
+            if self.length == 0 {
+                self.enable = false;
+            }
+        }
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
@@ -90,6 +120,12 @@ impl Channel4 {
                 self.volume_envl_initial = (value >> 4) & 0b1111;
                 self.volume_envl_direction = bits::test(value, 3);
                 self.volume_envl_period = value & 0b111;
+
+                // Setting the volume envelope to 0 with a decrease direction will disable
+                // the channel
+                if self.volume_envl_initial == 0 && !self.volume_envl_direction {
+                    self.enable = false;
+                }
             }
 
             // Channel 4 Polynomial Counter
@@ -104,6 +140,10 @@ impl Channel4 {
             // [TL-- ----] Trigger, Length enable
             0xFF23 => {
                 self.length_enable = bits::test(value, 6);
+
+                if bits::test(value, 7) {
+                    self.trigger();
+                }
             }
 
             _ => {}

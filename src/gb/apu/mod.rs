@@ -18,6 +18,9 @@ pub struct APU {
     /// Master enable
     enable: bool,
 
+    /// Current step of the frame sequencer
+    frame_seq_step: u8,
+
     /// Output Vin to SO2 terminal (left)
     left_vin_enable: bool,
 
@@ -53,6 +56,8 @@ pub struct APU {
 
     /// Output Channel 4 to SO1 (right) terminal
     ch4_right_enable: bool,
+
+    cycles: u32,
 }
 
 impl APU {
@@ -63,10 +68,12 @@ impl APU {
         self.ch4.reset();
 
         self.clear();
+        self.cycles = 0;
     }
 
     pub fn clear(&mut self) {
         self.enable = false;
+        self.frame_seq_step = 0;
 
         self.left_vin_enable = false;
         self.right_vin_enable = false;
@@ -83,6 +90,38 @@ impl APU {
         self.ch2_right_enable = false;
         self.ch3_right_enable = false;
         self.ch4_right_enable = false;
+    }
+
+    pub fn step(&mut self) {
+        // [...]
+        self.cycles += 1;
+    }
+
+    pub fn on_change_div(&mut self, div_last: u16, div: u16) {
+        // The APU is driven off ticks of the DIV timer
+        // TODO: Double speed mode (APU goes the same speed regardless of the CPU speeding up)
+        if bits::test((div_last >> 8) as u8, 4) && !bits::test((div >> 8) as u8, 4) {
+            if self.frame_seq_step % 2 == 0 {
+                // Steps 0, 2, 4, and 6 clock the length counters (every 16,384 T-cycles)
+                self.cycles = 0;
+
+                self.ch1.step_length();
+                self.ch2.step_length();
+                self.ch3.step_length();
+                self.ch4.step_length();
+            }
+
+            if self.frame_seq_step == 7 {
+                // Step 7 clocks the volume envelope
+            }
+
+            if self.frame_seq_step == 6 || self.frame_seq_step == 2 {
+                // Steps 6 and 2 clock the sweep
+            }
+
+            self.frame_seq_step += 1;
+            self.frame_seq_step &= 7;
+        }
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
