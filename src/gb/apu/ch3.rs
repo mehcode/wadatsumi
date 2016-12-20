@@ -94,7 +94,7 @@ impl Channel3 {
 
         // The DAC receives the current value from the upper/lower nibble of the
         // sample buffer, shifted right by the volume control.
-        return (self.wave_ram_buffer >> (if self.volume > 0 { self.volume - 1 } else { 4 })) as i16;
+        (self.wave_ram_buffer >> (if self.volume > 0 { self.volume - 1 } else { 4 })) as i16
     }
 
     pub fn step(&mut self) {
@@ -194,10 +194,9 @@ impl Channel3 {
 
                 // Enabling the length counter when the next step of the frame sequencer
                 // would not clock the length counter; should clock the length counter
-                if !prev_length_enable && self.length_enable && (frame_seq_step % 2 == 1) {
-                    if self.length > 0 {
-                        self.length -= 1;
-                    }
+                if !prev_length_enable && self.length_enable && (frame_seq_step % 2 == 1) &&
+                   self.length > 0 {
+                    self.length -= 1;
                 }
 
                 if bits::test(value, 7) {

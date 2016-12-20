@@ -186,7 +186,7 @@ impl APU {
             if self.buffer_index >= (sound::BUFFER_SIZE * 2) {
                 self.buffer_index = 0;
 
-                if let &mut Some(ref mut on_refresh) = &mut self.on_refresh {
+                if let Some(ref mut on_refresh) = self.on_refresh {
                     (on_refresh)(&self.buffer);
                 }
             }

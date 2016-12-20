@@ -217,7 +217,7 @@ impl GPU {
                 (*if_) |= 0x1;
 
                 // Trigger the front-end to refresh the scren
-                if let &mut Some(ref mut on_refresh) = &mut self.on_refresh {
+                if let Some(ref mut on_refresh) = self.on_refresh {
                     (on_refresh)(Frame {
                         data: &self.framebuffer,
                         width: WIDTH,
@@ -691,15 +691,15 @@ impl GPU {
             0x1800
         }) + (((line as usize) >> 3) << 5);
 
-        let mut x = 0;
         let y = line % 8;
         let offset = (self.ly as usize) * WIDTH as usize;
-
-        for i in (if self.wx > 7 {
+        let start_i = if self.wx > 7 {
             (self.wx - 7) as usize
         } else {
             0
-        })..(WIDTH as usize) {
+        };
+
+        for (x, i) in (start_i..(WIDTH as usize)).enumerate() {
             // Offset to the tile index for this 8-pixel spot on the background
             let col = (x / 8) % 32;
 
@@ -707,7 +707,7 @@ impl GPU {
             let tile_idx = self.get_tile(row, col as usize);
 
             // Get palette index for tile (given x and y)
-            let tile_x = x % 8;
+            let tile_x = (x % 8) as u8;
             let tile_y = y;
             let pal_idx = self.get_tile_data(tile_idx, tile_x, tile_y);
 
@@ -722,8 +722,6 @@ impl GPU {
             self.framebuffer[((offset + i) * 4) + 1] = g;
             self.framebuffer[((offset + i) * 4) + 2] = r;
             self.framebuffer[((offset + i) * 4) + 3] = 0xFF;
-
-            x += 1;
         }
 
         cycles

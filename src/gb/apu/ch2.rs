@@ -117,7 +117,7 @@ impl Channel2 {
 
         let bit = bits::test(pattern, (7 - self.wave_pattern_index));
 
-        return if bit { self.volume as i16 } else { 0 };
+        if bit { self.volume as i16 } else { 0 }
     }
 
     pub fn step(&mut self) {
@@ -154,10 +154,8 @@ impl Channel2 {
                 if self.volume < 0xF {
                     self.volume += 1;
                 }
-            } else {
-                if self.volume > 0 {
-                    self.volume -= 1;
-                }
+            } else if self.volume > 0 {
+                self.volume -= 1;
             }
         }
 
@@ -235,10 +233,9 @@ impl Channel2 {
 
                 // Enabling the length counter when the next step of the frame sequencer
                 // would not clock the length counter; should clock the length counter
-                if !prev_length_enable && self.length_enable && (frame_seq_step % 2 == 1) {
-                    if self.length > 0 {
-                        self.length -= 1;
-                    }
+                if !prev_length_enable && self.length_enable && (frame_seq_step % 2 == 1) &&
+                   self.length > 0 {
+                    self.length -= 1;
                 }
 
                 if bits::test(value, 7) {

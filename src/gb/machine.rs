@@ -86,10 +86,10 @@ impl ::machine::Machine for Machine {
     }
 
     fn get_width(&self) -> u32 {
-        return gpu::WIDTH as u32;
+        gpu::WIDTH as u32
     }
 
     fn get_height(&self) -> u32 {
-        return gpu::HEIGHT as u32;
+        gpu::HEIGHT as u32
     }
 }

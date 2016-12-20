@@ -44,7 +44,7 @@ pub struct Channel4 {
 }
 
 fn get_divisor(index: u8) -> u16 {
-    return if index == 1 {
+    if index == 1 {
         16
     } else if index == 2 {
         32
@@ -60,7 +60,7 @@ fn get_divisor(index: u8) -> u16 {
         112
     } else {
         8
-    };
+    }
 }
 
 impl Channel4 {
@@ -127,11 +127,11 @@ impl Channel4 {
         }
 
         // The waveform output is bit 0 of the LFSR, INVERTED
-        return if (self.lfsr & 0x1) == 0 {
+        if (self.lfsr & 0x1) == 0 {
             self.volume as i16
         } else {
             0
-        };
+        }
     }
 
     pub fn step(&mut self) {
@@ -185,10 +185,8 @@ impl Channel4 {
                 if self.volume < 0xF {
                     self.volume += 1;
                 }
-            } else {
-                if self.volume > 0 {
-                    self.volume -= 1;
-                }
+            } else if self.volume > 0 {
+                self.volume -= 1;
             }
         }
 
@@ -260,10 +258,9 @@ impl Channel4 {
 
                 // Enabling the length counter when the next step of the frame sequencer
                 // would not clock the length counter; should clock the length counter
-                if !prev_length_enable && self.length_enable && (frame_seq_step % 2 == 1) {
-                    if self.length > 0 {
-                        self.length -= 1;
-                    }
+                if !prev_length_enable && self.length_enable && (frame_seq_step % 2 == 1) &&
+                   self.length > 0 {
+                    self.length -= 1;
                 }
 
                 if bits::test(value, 7) {

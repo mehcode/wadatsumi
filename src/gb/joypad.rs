@@ -41,41 +41,27 @@ impl Joypad {
 
     /// Read
     pub fn read(&mut self, address: u16) -> u8 {
-        match address {
-            0xFF00 => {
-                (0xC0 | bits::bit(!self.sel_button, 5) | bits::bit(!self.sel_direction, 4) |
-                 bits::bit(!((self.sel_direction && self.st_down) ||
-                             (self.sel_button && self.st_start)),
-                           3) |
-                 bits::bit(!((self.sel_direction && self.st_up) ||
-                             (self.sel_button && self.st_sel)),
-                           2) |
-                 bits::bit(!((self.sel_direction && self.st_left) ||
-                             (self.sel_button && self.st_b)),
-                           1) |
-                 bits::bit(!((self.sel_direction && self.st_right) ||
-                             (self.sel_button && self.st_a)),
-                           0))
-            }
-
-            _ => {
-                // Unhandled
-                0xFF
-            }
+        if address == 0xFF00 {
+            (0xC0 | bits::bit(!self.sel_button, 5) | bits::bit(!self.sel_direction, 4) |
+             bits::bit(!((self.sel_direction && self.st_down) ||
+                         (self.sel_button && self.st_start)),
+                       3) |
+             bits::bit(!((self.sel_direction && self.st_up) || (self.sel_button && self.st_sel)),
+                       2) |
+             bits::bit(!((self.sel_direction && self.st_left) || (self.sel_button && self.st_b)),
+                       1) |
+             bits::bit(!((self.sel_direction && self.st_right) || (self.sel_button && self.st_a)),
+                       0))
+        } else {
+            0xFF
         }
     }
 
     /// Write
     pub fn write(&mut self, address: u16, value: u8) {
-        match address {
-            0xFF00 => {
-                self.sel_button = !bits::test(value, 5);
-                self.sel_direction = !bits::test(value, 4);
-            }
-
-            _ => {
-                // Unhandled
-            }
+        if address == 0xFF00 {
+            self.sel_button = !bits::test(value, 5);
+            self.sel_direction = !bits::test(value, 4);
         }
     }
 

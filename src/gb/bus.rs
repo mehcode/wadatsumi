@@ -147,9 +147,8 @@ impl Bus {
             0x0000...0x7FFF | 0xA000...0xBFFF => self.cart.read(address),
 
             // Video RAM, OAM, GPU registers
-            0x8000...0x9FFF | 0xFE00...0xFE9F | 0xFF40...0xFF4F | 0xFF68...0xFF6B => {
-                self.gpu.read(address, self.oam_dma_timer != 0)
-            }
+            0x8000...0x9FFF | 0xFE00...0xFE9F | 0xFF40...0xFF45 | 0xFF47...0xFF4F |
+            0xFF68...0xFF6B => self.gpu.read(address, self.oam_dma_timer != 0),
 
             // Work RAM
             0xC000...0xFDFF => {
@@ -201,7 +200,8 @@ impl Bus {
             }
 
             // Video RAM, OAM, GPU registers
-            0x8000...0x9FFF | 0xFE00...0xFE9F | 0xFF40...0xFF4F | 0xFF68...0xFF6B => {
+            0x8000...0x9FFF | 0xFE00...0xFE9F | 0xFF40...0xFF45 | 0xFF47...0xFF4F |
+            0xFF68...0xFF6B => {
                 self.gpu.write(address, value, self.oam_dma_timer != 0);
             }
 

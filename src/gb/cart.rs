@@ -439,7 +439,7 @@ impl Cartridge {
         };
 
         if self.rom_bank > max_rom_bank {
-            self.rom_bank = self.rom_bank - max_rom_bank;
+            self.rom_bank -= max_rom_bank;
         }
 
         // Bump on invalid bank numbers

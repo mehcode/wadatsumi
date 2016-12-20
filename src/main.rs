@@ -114,7 +114,7 @@ fn main() {
 
     m.set_on_video_refresh(Box::new(move |frame| {
         // Render: Update texture and flip
-        texture.update(None, &frame.data, frame.pitch).unwrap();
+        texture.update(None, frame.data, frame.pitch).unwrap();
         renderer.copy(&texture, None, None).unwrap();
 
         // Render: Present
