@@ -3,9 +3,11 @@
 use std::fs::File;
 use std::io;
 use std::io::Read;
+use std::io::Write;
 use std::vec;
 use std::string;
 use std::ascii::AsciiExt;
+use std::path::Path;
 
 use ::bits;
 
@@ -40,6 +42,9 @@ impl Default for MBC {
 // TODO: Separate out static/header information into a Header struct
 #[derive(Default)]
 pub struct Cartridge {
+    /// Filename
+    pub filename: string::String,
+
     /// [0x0 -] Cartridge ROM (loaded from ROM file)
     pub rom: vec::Vec<u8>,
 
@@ -111,6 +116,9 @@ impl Cartridge {
     }
 
     pub fn open(&mut self, filename: &str) -> io::Result<()> {
+        // Store filename (for later)
+        self.filename = filename.to_string();
+
         // Read in cartridge memory
         let mut stream = try!(File::open(filename));
         try!(stream.read_to_end(&mut self.rom));
@@ -258,6 +266,14 @@ impl Cartridge {
                 }
             }) * 1024
         };
+
+        // If we have battery-backed RAM; we should check for an existing <filename>.sav file
+        let sav_filename = Path::new(filename).with_extension("sav");
+        if sav_filename.exists() {
+            // We seem to have a file
+            let mut stream = try!(File::open(sav_filename));
+            try!(stream.read_to_end(&mut self.ram));
+        }
 
         // If we have a nonzero ram size; allocate some ram
         self.ram.resize(self.ram_size as usize, 0);
@@ -459,5 +475,17 @@ impl Cartridge {
 
             _ => {}
         }
+    }
+}
+
+impl Drop for Cartridge {
+    fn drop(&mut self) {
+        // TODO: Currently we _just_ write SRAM at end of app; it might be nice to write this
+        //       more frequently in case of crashes/etc. Perhaps debounce on write OR disable
+        //       to SRAM as well.
+        // If we have battery backed RAM; write it
+        let sav_filename = Path::new(&self.filename).with_extension("sav");
+        let mut stream = File::create(sav_filename).unwrap();
+        stream.write_all(&self.ram).unwrap();
     }
 }
