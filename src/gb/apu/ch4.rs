@@ -65,8 +65,7 @@ fn get_divisor(index: u8) -> u16 {
 
 impl Channel4 {
     pub fn is_enabled(&self) -> bool {
-        self.enable && (!self.length_enable || self.length > 0) &&
-        (self.volume_envl_initial > 0 || self.volume_envl_direction)
+        self.enable && (self.volume_envl_initial > 0 || self.volume_envl_direction)
     }
 
     pub fn clear(&mut self) {
@@ -117,8 +116,15 @@ impl Channel4 {
             self.volume_envl_period
         };
 
+        // If a channel is triggered when the frame sequencer's next
+        // step will clock the volume envelope, the envelope's timer is
+        // reloaded with one greater than it would have been.
+        if frame_seq_step == 7 {
+            self.volume_envl_timer += 1;
+        }
+
         // Noise channel's LFSR bits are all set to 1.
-        self.lfsr = 0xFFFF;
+        self.lfsr = 0x7FFF;
     }
 
     pub fn sample(&mut self) -> i16 {
@@ -137,32 +143,36 @@ impl Channel4 {
     pub fn step(&mut self) {
         if self.timer > 0 {
             self.timer -= 1;
-        }
 
-        if self.timer == 0 {
-            // When clocked by the frequency timer, the low two bits (0 and 1)
-            // are XORed
-            let b = bits::test(self.lfsr as u8, 0) ^ bits::test(self.lfsr as u8, 1);
+            if self.timer == 0 {
+                // Using a noise channel clock shift of 14 or 15 results in the
+                // LFSR receiving no clocks.
+                if self.shift < 14 {
+                    // When clocked by the frequency timer, the low two bits (0 and 1)
+                    // are XORed
+                    let b = (self.lfsr & 0x1) ^ ((self.lfsr & 0x2) >> 1);
 
-            // All bits are shifted right by one
-            self.lfsr >>= 1;
+                    // All bits are shifted right by one
+                    self.lfsr >>= 1;
 
-            // And the result of the XOR is put into the now-empty high bit
-            if b {
-                self.lfsr |= 0x4000;
-            }
+                    // And the result of the XOR is put into the now-empty high bit
+                    if b != 0 {
+                        self.lfsr |= 0x4000;
+                    }
 
-            // If width mode is 1 (NR43), the XOR result is ALSO put into
-            // bit 6 AFTER the shift, resulting in a 7-bit LFSR.
-            if self.width {
-                self.lfsr &= !0x40;
-                if b {
-                    self.lfsr |= 0x40;
+                    // If width mode is 1 (NR43), the XOR result is ALSO put into
+                    // bit 6 AFTER the shift, resulting in a 7-bit LFSR.
+                    if self.width {
+                        self.lfsr &= !0x40;
+                        if b != 0 {
+                            self.lfsr |= 0x40;
+                        }
+                    }
                 }
-            }
 
-            // Reload timer
-            self.timer = get_divisor(self.divisor) << self.shift;
+                // Reload timer
+                self.timer = get_divisor(self.divisor) << self.shift;
+            }
         }
     }
 
@@ -231,7 +241,28 @@ impl Channel4 {
             // Channel 4 Volume Envelope
             // [VVVV APPP] Starting volume, Envelope add mode, period
             0xFF21 if master_enable => {
+                // If the old envelope period was zero and the envelope is
+                // still doing automatic updates, volume is incremented by 1,
+                // otherwise if the envelope was in subtract mode, volume is
+                // incremented by 2.
+                if self.volume_envl_period == 0 && (self.volume > 0 || self.volume < 0xF) {
+                    self.volume += 1;
+                    if self.volume_envl_direction {
+                        self.volume += 1;
+                    }
+
+                    self.volume &= 0xF;
+                }
+
                 self.volume_envl_initial = (value >> 4) & 0b1111;
+
+                // If the mode was changed (add to subtract or subtract to add),
+                // volume is set to 16-volume.
+                if self.volume_envl_direction != bits::test(value, 3) {
+                    self.volume = 16 - self.volume;
+                    self.volume &= 0xF;
+                }
+
                 self.volume_envl_direction = bits::test(value, 3);
                 self.volume_envl_period = value & 0b111;
 

@@ -46,8 +46,7 @@ pub struct Channel2 {
 
 impl Channel2 {
     pub fn is_enabled(&self) -> bool {
-        self.enable && (!self.length_enable || self.length > 0) &&
-        (self.volume_envl_initial > 0 || self.volume_envl_direction)
+        self.enable && (self.volume_envl_initial > 0 || self.volume_envl_direction)
     }
 
     pub fn clear(&mut self) {
@@ -65,12 +64,16 @@ impl Channel2 {
         self.volume_envl_timer = 0;
 
         self.frequency = 0;
-        self.timer = 0;
+
+        // When triggering a square channel, the low two bits of the
+        // frequency timer are NOT modified.
+        self.timer &= 3;
     }
 
     pub fn reset(&mut self) {
         self.clear();
         self.length = 0;
+        self.timer = 0;
     }
 
     pub fn trigger(&mut self, frame_seq_step: u8) {
@@ -98,6 +101,13 @@ impl Channel2 {
         } else {
             self.volume_envl_period
         };
+
+        // If a channel is triggered when the frame sequencer's next
+        // step will clock the volume envelope, the envelope's timer is
+        // reloaded with one greater than it would have been.
+        if frame_seq_step == 7 {
+            self.volume_envl_timer += 1;
+        }
     }
 
     pub fn sample(&mut self) -> i16 {
@@ -204,7 +214,28 @@ impl Channel2 {
             // Channel 2 Volume Envelope
             // [VVVV APPP] Starting volume, Envelope add mode, period
             0xFF17 if master_enable => {
+                // If the old envelope period was zero and the envelope is
+                // still doing automatic updates, volume is incremented by 1,
+                // otherwise if the envelope was in subtract mode, volume is
+                // incremented by 2.
+                if self.volume_envl_period == 0 && (self.volume > 0 || self.volume < 0xF) {
+                    self.volume += 1;
+                    if self.volume_envl_direction {
+                        self.volume += 1;
+                    }
+
+                    self.volume &= 0xF;
+                }
+
                 self.volume_envl_initial = (value >> 4) & 0b1111;
+
+                // If the mode was changed (add to subtract or subtract to add),
+                // volume is set to 16-volume.
+                if self.volume_envl_direction != bits::test(value, 3) {
+                    self.volume = 16 - self.volume;
+                    self.volume &= 0xF;
+                }
+
                 self.volume_envl_direction = bits::test(value, 3);
                 self.volume_envl_period = value & 0b111;
 

@@ -36,7 +36,7 @@ pub struct Channel3 {
 
 impl Channel3 {
     pub fn is_enabled(&self) -> bool {
-        self.enable && self.dac_enable && (!self.length_enable || self.length > 0)
+        self.enable && self.dac_enable
     }
 
     pub fn clear(&mut self) {

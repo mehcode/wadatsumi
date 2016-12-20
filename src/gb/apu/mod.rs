@@ -176,14 +176,17 @@ impl APU {
                 }
             }
 
-            sample_l *= (self.left_volume as i16) * 8;
-            sample_r *= (self.right_volume as i16) * 8;
+            sample_l *= self.left_volume as i16;
+            sample_r *= self.right_volume as i16;
+
+            sample_l *= 12;
+            sample_r *= 12;
 
             self.buffer[self.buffer_index] = sample_l;
             self.buffer[self.buffer_index + 1] = sample_r;
             self.buffer_index += 2;
 
-            if self.buffer_index >= (sound::BUFFER_SIZE * 2) {
+            if self.buffer_index >= (sound::BUFFER_SIZE) * 2 {
                 self.buffer_index = 0;
 
                 if let Some(ref mut on_refresh) = self.on_refresh {
