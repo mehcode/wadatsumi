@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# Build initial binary with cargo
+cargo build --release
+
+# Strip out debug symbols (from release build)
+strip ./target/release/wadatsumi > /dev/null
+
+# Compress executable (with upx, if present)
+which upx > /dev/null && upx --brute target/release/wadatsumi > /dev/null
