@@ -85,7 +85,7 @@ fn main() {
 
     m.set_on_sound_refresh(Box::new(move |buffer| {
         // Sync to audio queue
-        while audio_queue.size() > (::sound::BUFFER_SIZE as u32 * 4) {
+        while audio_queue.size() > (::sound::BUFFER_SIZE as u32) * 2 {
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
 
