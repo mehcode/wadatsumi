@@ -112,13 +112,28 @@ fn main() {
         renderer.create_texture_streaming(sdl2::pixels::PixelFormatEnum::ARGB8888, width, height)
             .unwrap();
 
+    // Create texture for previous framebuffer
+    let mut prev_texture =
+        renderer.create_texture_streaming(sdl2::pixels::PixelFormatEnum::ARGB8888, width, height)
+            .unwrap();
+
     m.set_on_video_refresh(Box::new(move |frame| {
+        renderer.clear();
+
+        // Render: Previous frame
+        renderer.copy(&prev_texture, None, None).unwrap();
+
         // Render: Update texture and flip
         texture.update(None, frame.data, frame.pitch).unwrap();
+        texture.set_alpha_mod(127);
+        texture.set_blend_mode(sdl2::render::BlendMode::Blend);
         renderer.copy(&texture, None, None).unwrap();
 
         // Render: Present
         renderer.present();
+
+        // Copy: Frame -> Previous Frame
+        prev_texture.update(None, frame.data, frame.pitch).unwrap();
     }));
 
     m.reset();
