@@ -96,6 +96,9 @@ pub struct GPU {
     ///   Bit 7 - LCD Display Enable             (0=Off, 1=On)
     lcd_enable: bool,
 
+    /// When the LCD is enabled; the first frame is not rendered
+    lcd_delay: u8,
+
     /// [0xFF40] - LCDC - LCD Control
     ///   Bit 6 - Window Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF)
     window_tile_map_select: bool,
@@ -215,6 +218,11 @@ impl GPU {
 
                 // Trigger VBL interrupt
                 (*if_) |= 0x1;
+
+                // Reduce frame delay (if present)
+                if self.lcd_delay > 0 {
+                    self.lcd_delay -= 1;
+                }
 
                 // Trigger the front-end to refresh the scren
                 if let Some(ref mut on_refresh) = self.on_refresh {
@@ -344,7 +352,7 @@ impl GPU {
             // Video RAM
             0x8000...0x9FFF => {
                 // VRAM cannot be read during mode 3
-                if self.lcd_mode != 3 {
+                if !self.lcd_enable || self.lcd_mode != 3 {
                     self.vram[((address & 0x1FFF) + (0x2000 * (self.vram_bank as u16))) as usize]
                 } else {
                     0xFF
@@ -355,7 +363,7 @@ impl GPU {
             0xFE00...0xFE9F => {
                 // OAM cannot be read during mode-2 or mode-3
                 // OAM cannot be read during OAM DMA
-                if !in_oam_dma && self.lcd_mode < 2 {
+                if !in_oam_dma && (!self.lcd_enable || (self.lcd_mode != 3 && self.lcd_mode != 2)) {
                     self.oam[(address - 0xFE00) as usize]
                 } else {
                     0xFF
@@ -445,22 +453,26 @@ impl GPU {
         match address {
             // Video RAM
             0x8000...0x9FFF => {
-                // TODO: VRAM cannot be written during mode 3
-                self.vram[((address & 0x1FFF) + (0x2000 * (self.vram_bank as u16))) as usize] =
-                    value
+                // VRAM cannot be written during mode 3
+                if !self.lcd_enable || self.lcd_mode != 3 {
+                    self.vram[((address & 0x1FFF) + (0x2000 * (self.vram_bank as u16))) as usize] =
+                        value
+                }
             }
 
             // OAM
             0xFE00...0xFE9F => {
-                // TODO: OAM cannot be written during mode-2 or mode-3
+                // OAM cannot be written during mode-2 or mode-3
                 // OAM cannot be written during OAM DMA
-                if !in_oam_dma {
+                if !in_oam_dma && (!self.lcd_enable || (self.lcd_mode != 3 && self.lcd_mode != 2)) {
                     self.oam[(address - 0xFE00) as usize] = value;
                 }
             }
 
             // LCD Control
             0xFF40 => {
+                let prev_lcd_enable = self.lcd_enable;
+
                 self.lcd_enable = bits::test(value, 7);
                 self.window_tile_map_select = bits::test(value, 6);
                 self.window_enable = bits::test(value, 5);
@@ -470,11 +482,15 @@ impl GPU {
                 self.sprite_enable = bits::test(value, 1);
                 self.background_display = bits::test(value, 0);
 
-                // Reset mode/scanline counters on LCD disable
-                if !self.lcd_enable {
+                if prev_lcd_enable && !self.lcd_enable {
+                    // Reset mode/scanline counters on LCD disable
                     self.ly = 0;
+                    self.lcd_delay = 0;
                     self.lcd_mode = 0;
                     self.cycles = 0;
+                } else if !prev_lcd_enable && self.lcd_enable {
+                    // The first frame after LCD enable is not rendered (thrown out)
+                    self.lcd_delay = 1;
                 }
             }
 
@@ -571,9 +587,19 @@ impl GPU {
         }
     }
 
+    /// Clear (Scanline)
+    fn render_clearline(&mut self) {
+        let offset = (self.ly as usize) * WIDTH as usize;
+        for i in 0..WIDTH {
+            self.framebuffer[((offset + i) * 4)] = 0xFF;
+            self.framebuffer[((offset + i) * 4) + 1] = 0xFF;
+            self.framebuffer[((offset + i) * 4) + 2] = 0xFF;
+            self.framebuffer[((offset + i) * 4) + 3] = 0xFF;
+        }
+    }
+
     /// Render (Scanline)
     fn render(&mut self) {
-        // TODO: What should the cycle time be when the background is disabled?
         // Rendering a full scanline takes at least 175 cycles
         self.m3_cycles = 175;
 
@@ -597,6 +623,9 @@ impl GPU {
         // TODO: If CGB, background_display just disables priority on background
         if self.lcd_enable && self.background_display {
             self.render_background();
+        } else {
+            // Clear the framebuffer for this scanline as window/sprites might not hit a square
+            self.render_clearline();
         }
 
         if self.lcd_enable && self.window_enable {
@@ -605,6 +634,12 @@ impl GPU {
 
         if self.lcd_enable && self.sprite_enable {
             self.m3_cycles += self.render_sprites();
+        }
+
+        // If this is the first frame since the LCD was enabled; clear the line
+        // That frame is supposed to be dropped
+        if self.lcd_delay > 0 {
+            self.render_clearline();
         }
     }
 
