@@ -605,11 +605,6 @@ impl Default for Table {
                                   Operation::new(op::_CB_FE, "SET 7, (HL)", 1),
                                   Operation::new(op::_CB_FF, "SET 7, A", 1)];
 
-        // DEBUG: Fill operations table with empty operations
-        while operations.len() < 0x200 {
-            operations.push(Operation::empty());
-        }
-
         Table { operations: operations }
     }
 }

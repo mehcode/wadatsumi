@@ -6,7 +6,7 @@ dependencies = [
  "clap 2.19.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "sdl2 0.27.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2 0.27.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "strfmt 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -143,7 +143,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "sdl2"
-version = "0.27.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -247,7 +247,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum rand 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)" = "022e0636ec2519ddae48154b028864bdce4eaf7d35226ab8e65c611be97b189d"
 "checksum regex 0.1.80 (registry+https://github.com/rust-lang/crates.io-index)" = "4fd4ace6a8cf7860714a2c2280d6c1f7e6a413486c13298bbc86fd3da019402f"
 "checksum regex-syntax 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "f9ec002c35e86791825ed294b50008eea9ddfc8def4420124fbc6b08db834957"
-"checksum sdl2 0.27.0 (registry+https://github.com/rust-lang/crates.io-index)" = "52728fd7966342c2d399b79894e3015212e15dc2dc6f9cdb4366b43c34cfda31"
+"checksum sdl2 0.27.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f25b2bffe83338c59d67397a48f509467149242021fd686a7f35def0fca09534"
 "checksum sdl2-sys 0.27.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4a0bdea4b43f34f85548f585eb27590b7146534f5add9a449fb78e8efc16e7da"
 "checksum strfmt 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "c6ca97d0705fce080739a3ba7170279e4c87900817a0219ed8cbb7b6db7db220"
 "checksum strsim 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "67f84c44fbb2f91db7fef94554e6b2ac05909c9c0b0bc23bb98d3a1aebfe7f7c"
