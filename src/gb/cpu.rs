@@ -60,7 +60,7 @@ pub struct Context {
     cycles: u32,
 
     /// Total/Running M-cycle counter
-    total_cycles: u32,
+    total_cycles: u64,
 }
 
 impl Context {
@@ -233,6 +233,8 @@ impl CPU {
 
                 // Push PC (as if we're making a CALL) – 3 M-cycles
                 om_push16!(self.ctx, bus; self.ctx.pc);
+                // let r = bus.read(0xFF41);
+                // info!("ie: ${:02X} stat: ${:02X}", bus.ie, r);
 
                 // Jump to the appropriate vector (and reset IF bit) - 1 cycle
                 if (irq & 0x01) != 0 {
