@@ -11,6 +11,9 @@ pub const WIDTH: usize = 160;
 /// Display height
 pub const HEIGHT: usize = 144;
 
+/// LYC = LY Comparison Delay (in T-cycles)
+pub const LYC_DELAY: u8 = 3 + 1;
+
 #[derive(Default)]
 pub struct GPU {
     /// Mode (machine)
@@ -256,7 +259,7 @@ impl GPU {
             // A scanline takes 456 T-Cycles to complete
             // This acts as the 0th scanline for lines 1-143
             self.ly += 1;
-            self.lyc_timer = 4;
+            self.lyc_timer = LYC_DELAY;
             self.lcd_mode = 0;
             self.cycles = 1;
         } else if self.lcd_mode == 1 {
@@ -268,12 +271,12 @@ impl GPU {
                     self.lcd_mode = 0;
                 } else {
                     self.ly += 1;
-                    self.lyc_timer = 4;
+                    self.lyc_timer = LYC_DELAY;
                 }
             } else if self.ly == 153 && self.cycles == 5 {
                 // Scanline 153 spends only 4 T-Cycles with LY == 153
                 self.ly = 0;
-                self.lyc_timer = 4;
+                self.lyc_timer = LYC_DELAY;
             }
         }
 
