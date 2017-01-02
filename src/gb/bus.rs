@@ -141,7 +141,25 @@ impl Bus {
     }
 
     /// Read
-    pub fn read(&mut self, address: u16) -> u8 {
+    pub fn read(&mut self, address_: u16) -> u8 {
+        let mut address = address_;
+
+        // During an OAM DMA; accesses to memory outside of HIRAM are essentially wonky
+        // If there is a bus conflict (eg. CPU is accessing memory where the OAM DMA process
+        // wants to access), the OAM DMA process wins and the CPU sees the value the OAM DMA
+        // process just read.
+        if self.oam_dma_timer > 0 {
+            let ext_bus_1 = 0x0000..0x8000;
+            let ext_bus_2 = 0xA000..0xFE00;
+            let vram_bus = 0x8000..0xA000;
+
+            if (ext_bus_1.contains(self.oam_dma_source) && ext_bus_1.contains(address)) ||
+               (ext_bus_2.contains(self.oam_dma_source) && ext_bus_2.contains(address)) ||
+               (vram_bus.contains(self.oam_dma_source) && vram_bus.contains(address)) {
+                address = self.oam_dma_source + self.oam_dma_index;
+            }
+        }
+
         match address {
             // Cartridge
             0x0000...0x7FFF | 0xA000...0xBFFF => self.cart.read(address),
