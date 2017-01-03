@@ -326,7 +326,7 @@ pub fn _32(c: &mut Context, b: &mut Bus) {
 
 // 33 — INC SP {2}
 pub fn _33(c: &mut Context, b: &mut Bus) {
-    c.sp += 1;
+    c.sp = c.sp.wrapping_add(1);
     c.step(b);
 }
 
