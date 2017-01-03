@@ -384,7 +384,7 @@ pub fn _3A(c: &mut Context, b: &mut Bus) {
 
 // 3B — DEC SP {2}
 pub fn _3B(c: &mut Context, b: &mut Bus) {
-    c.sp -= 1;
+    c.sp = c.sp.wrapping_sub(1);
     c.step(b);
 }
 
