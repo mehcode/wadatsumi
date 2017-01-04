@@ -456,8 +456,8 @@ macro_rules! om_add16_hl (($c:expr, $b:expr; $e:expr) => {
 macro_rules! om_add16_sp (($c:expr, $b:expr; $e:expr) => {
     {
         let a = $c.sp;
-        let b = ($e as i8) as i16;
-        let r = ((a as i16) + b) as u16;
+        let b = ($e as i8) as i32;
+        let r = ((a as i32) + b) as u16;
 
         $c.set_flag(cpu::CARRY, (r & 0xFF) < (a & 0xFF));
         $c.set_flag(cpu::HALF_CARRY, (r & 0xF) < (a & 0xF));
