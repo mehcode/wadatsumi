@@ -12,7 +12,7 @@ pub const WIDTH: usize = 160;
 pub const HEIGHT: usize = 144;
 
 /// LYC = LY Comparison Delay (in T-cycles)
-pub const LYC_DELAY: u8 = 2 + 1;
+pub const LYC_DELAY: u8 = 3;
 
 #[derive(Default)]
 pub struct GPU {
