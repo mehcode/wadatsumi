@@ -4,3 +4,10 @@ version = "0.1.0"
 authors = ["Ryan Leckey <leckey.ryan@gmail.com>"]
 
 [dependencies]
+sdl2 = "0.30"
+error-chain = "0.11.0-rc.2"
+log = { version = "0.3", features = ["release_max_level_warn"] }
+pretty_env_logger = "0.1"
+
+[profile.dev]
+opt-level = 2
