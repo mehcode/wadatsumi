@@ -1,5 +1,4 @@
 use std::io;
-
 use log;
 use sdl2;
 

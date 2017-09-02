@@ -1,16 +1,15 @@
-extern crate sdl2;
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
+extern crate sdl2;
 
 mod errors;
 mod cartridge;
 
 use std::env;
 use std::fs::File;
-
 use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -24,6 +23,7 @@ quick_main!(|| -> Result<()> {
     let filename = &argv[1];
 
     let cart = cartridge::Cartridge::from_reader(File::open(filename)?)?;
+    println!("{:?}", cart.title);
 
     //let sdl_context = sdl2::init()?;
     //let video_subsystem = sdl_context.video()?;
