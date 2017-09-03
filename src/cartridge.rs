@@ -7,6 +7,7 @@ pub struct Cartridge {
     ram: Box<[u8]>,
 }
 
+// TODO(@rust): Is there a better way to declare this?
 const NINTENDO_LOGO: [u8; 0x30] = [
     0xCE,
     0xED,
@@ -120,7 +121,7 @@ impl Cartridge {
         }
 
         // Check Cartridge Kind for 0 "ROM ONLY"; we don't support anything else (yet)
-        // FIXME(@rust): How to avoid repeating header[0x147] ?
+        // TODO(@rust): How to avoid repeating header[0x147] ?
         if header[0x147] != 0 {
             bail!("unsupported cartridge type {}", header[0x147]);
         }
@@ -131,7 +132,7 @@ impl Cartridge {
             .into_iter()
             .fold(0, |x, &val| x.wrapping_sub(val).wrapping_sub(1));
 
-        // FIXME(@rust): How to avoid repeating header[0x14d] ?
+        // TODO(@rust): How to avoid repeating header[0x14d] ?
         if checksum != header[0x14d] {
             bail!(
                 "invalid header checksum; expected ${:02x}, found ${:02x}",
