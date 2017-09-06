@@ -1,5 +1,6 @@
 use std::io::Read;
 use errors::*;
+use bus::Bus;
 
 pub struct Cartridge {
     pub title: String,
@@ -122,9 +123,9 @@ impl Cartridge {
 
         // Check Cartridge Kind for 0 "ROM ONLY"; we don't support anything else (yet)
         // TODO(@rust): How to avoid repeating header[0x147] ?
-        if header[0x147] != 0 {
-            bail!("unsupported cartridge type {}", header[0x147]);
-        }
+        // if header[0x147] != 0 {
+        //     bail!("unsupported cartridge type {}", header[0x147]);
+        // }
 
         // Calculate the header checksum
         //  x=0:FOR i=0134h TO 014Ch:x=x-MEM[i]-1:NEXT
@@ -144,11 +145,28 @@ impl Cartridge {
         // Allocate cartridge ROM, copy the header to the start
         let mut rom = vec![0; (rom_size * 1024)].into_boxed_slice();
         rom[..header.len()].copy_from_slice(&mut header[..]);
-        reader.read_exact(&mut rom[..header.len()])?;
+        reader.read_exact(&mut rom[header.len()..])?;
 
         // Allocate cartridge RAM
         let ram = vec![0; (ram_size * 1024)].into_boxed_slice();
 
         Ok(Cartridge { title, rom, ram })
+    }
+}
+
+impl Bus for Cartridge {
+    fn read8(&self, address: u16) -> u8 {
+        // TODO: Don't assume rom-only
+        if address <= 0x7FFF {
+            self.rom[address as usize]
+        } else {
+            // TODO: This should return some kind of error or perhaps None
+            0
+        }
+    }
+
+    fn write8(&mut self, _: u16, _: u8) {
+        // TODO: Don't assume rom-only
+        // Ignore writes to ROM
     }
 }
