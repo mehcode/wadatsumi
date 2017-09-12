@@ -7,7 +7,8 @@ use super::executor::Executor;
 use super::disassembler::Disassembler;
 use super::operations::Operations;
 use super::State;
-use super::io::{In8, Out8};
+use super::registers::Register16;
+use super::io::{In16, In8, Out16, Out8};
 
 pub struct BusTracer<'a, B: Bus + 'a> {
     inner: &'a mut B,
@@ -48,9 +49,9 @@ impl<'a, B: Bus> InstructionTracer<'a, B> {
         InstructionTracer {
             initial_pc,
             executor,
-            disassembler: Disassembler(Box::new(move || {
-                read_buffer.borrow_mut().pop_front().unwrap()
-            })),
+            disassembler: Disassembler(Box::new(
+                move || read_buffer.borrow_mut().pop_front().unwrap(),
+            )),
         }
     }
 }
@@ -102,8 +103,16 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; nop());
     }
 
-    fn load8<I: In8, O: Out8>(&mut self, destination: O, source: I) -> Self::Output {
-        instr_trace!(self; load8(destination, source));
+    fn load8<I: In8, O: Out8>(&mut self, dst: O, src: I) -> Self::Output {
+        instr_trace!(self; load8(dst, src));
+    }
+
+    fn load8_immediate<O: Out8>(&mut self, dst: O) -> Self::Output {
+        instr_trace!(self; load8_immediate(dst));
+    }
+
+    fn load16_immediate(&mut self, r: Register16) -> Self::Output {
+        instr_trace!(self; load16_immediate(r));
     }
 
     fn jp(&mut self) -> Self::Output {

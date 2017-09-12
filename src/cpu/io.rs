@@ -13,3 +13,7 @@ pub trait Out8: Into<Operand8> + Copy {
 pub trait In16 {
     fn read16<B: Bus>(&self, state: &mut State, bus: &mut B) -> u16;
 }
+
+pub trait Out16 {
+    fn write16<B: Bus>(&self, state: &mut State, bus: &mut B, value: u16);
+}

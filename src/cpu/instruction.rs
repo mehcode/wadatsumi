@@ -23,6 +23,8 @@ pub enum Instruction {
     Undefined(u8),
     Nop,
     Load8(Operand8, Operand8),
+    Load8Immediate(Operand8, u8),
+    Load16Immediate(Register16, u16),
     Jp(Address),
 }
 
@@ -53,6 +55,17 @@ impl In8 for Address {
     }
 }
 
+impl fmt::Display for Operand8 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Operand8::*;
+
+        match *self {
+            Register(register) => write!(f, "{:?}", register),
+            _ => unimplemented!(),
+        }
+    }
+}
+
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Instruction::*;
@@ -61,8 +74,10 @@ impl fmt::Display for Instruction {
         match *self {
             Nop => write!(f, "NOP"),
             Jp(Direct(address)) => write!(f, "JP {:04x}", address),
+            Load8(ref src, ref dst) => write!(f, "LD {}, {}", src, dst),
+            Load8Immediate(ref dst, value) => write!(f, "LD {}, {:04x}", dst, value),
+            Load16Immediate(dst, value) => write!(f, "LD {:?}, {:04x}", dst, value),
             Undefined(opcode) => write!(f, "UNDEF {:02x}", opcode),
-            _ => unimplemented!(),
         }
     }
 }

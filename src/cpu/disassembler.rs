@@ -2,6 +2,7 @@ use super::operations::Operations;
 use super::io::{In8, Out8};
 use super::instruction::{Address, Instruction};
 use super::tracer::BusTracer;
+use super::registers::Register16;
 use super::super::bus::Bus;
 
 pub struct Disassembler<'a>(pub Box<Fn() -> u8 + 'a>);
@@ -26,8 +27,16 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Nop
     }
 
-    fn load8<I: In8, O: Out8>(&mut self, destination: O, source: I) -> Instruction {
-        Instruction::Load8(destination.into(), source.into())
+    fn load8<I: In8, O: Out8>(&mut self, dst: O, src: I) -> Instruction {
+        Instruction::Load8(dst.into(), src.into())
+    }
+
+    fn load8_immediate<O: Out8>(&mut self, dst: O) -> Instruction {
+        Instruction::Load8Immediate(dst.into(), self.next8())
+    }
+
+    fn load16_immediate(&mut self, r: Register16) -> Instruction {
+        Instruction::Load16Immediate(r, self.next16())
     }
 
     fn jp(&mut self) -> Instruction {

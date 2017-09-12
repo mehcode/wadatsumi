@@ -1,6 +1,7 @@
 use super::super::bus::Bus;
-use super::io::{In16, In8, Out8};
+use super::io::{In16, In8, Out16, Out8};
 use super::State;
+use super::state::Flags;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Register8 {
@@ -47,7 +48,6 @@ impl Out8 for Register8 {
     }
 }
 
-
 #[derive(Debug, Clone, Copy)]
 pub enum Register16 {
     AF,
@@ -66,6 +66,35 @@ impl In16 for Register16 {
             BC => (state.b as u16) << 8 | state.c as u16,
             DE => (state.d as u16) << 8 | state.e as u16,
             HL => (state.h as u16) << 8 | state.l as u16,
+        }
+    }
+}
+
+impl Out16 for Register16 {
+    #[inline]
+    fn write16<B: Bus>(&self, state: &mut State, _: &mut B, value: u16) {
+        use self::Register16::*;
+
+        match *self {
+            AF => {
+                state.a = (value >> 8) as u8;
+                state.f = Flags::from_bits_truncate(value as u8);
+            }
+
+            BC => {
+                state.b = (value >> 8) as u8;
+                state.c = value as u8;
+            }
+
+            DE => {
+                state.d = (value >> 8) as u8;
+                state.e = value as u8;
+            }
+
+            HL => {
+                state.h = (value >> 8) as u8;
+                state.l = value as u8;
+            }
         }
     }
 }

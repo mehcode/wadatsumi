@@ -2,7 +2,9 @@ use super::State;
 use super::io::{In8, Out8};
 use super::instruction::Address;
 use super::registers::Register8;
+use super::registers::Register16;
 use super::registers::Register8::*;
+use super::registers::Register16::*;
 
 /// Defines a visitor for a CPU (micro) operation.
 pub trait Operations {
@@ -11,11 +13,17 @@ pub trait Operations {
     /// No Operation ~ NOP
     fn nop(&mut self) -> Self::Output;
 
-    /// 8-bit Loads ::
+    /// 8-bit Reversible Loads ::
     ///     LD r8, r8
     ///     LD (r16), r8
     ///     LD r8, (r16)
     fn load8<I: In8, O: Out8>(&mut self, destination: O, source: I) -> Self::Output;
+
+    /// 8-bit Immediate Load ~ LD r8, u8
+    fn load8_immediate<O: Out8>(&mut self, destination: O) -> Self::Output;
+
+    /// 16-bit Immediate Load ~ LD r16, u16
+    fn load16_immediate(&mut self, register: Register16) -> Self::Output;
 
     /// Absolute Jump ~ JP #16
     fn jp(&mut self) -> Self::Output;
@@ -27,8 +35,7 @@ pub trait Operations {
 #[inline]
 pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
     match opcode {
-        // 8-bit Loads
-        // ===========
+        // 8-bit Reversible Loads
         // LD B, _
         0x40 => ops.load8(B, B),
         0x41 => ops.load8(B, C),
@@ -89,12 +96,26 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         // TODO: 0x6e => ops.load8(L, Address::HL),
         0x6f => ops.load8(L, A),
 
+        // 8-bit Immediate Loads
+        0x06 => ops.load8_immediate(B),
+        0x16 => ops.load8_immediate(D),
+        0x26 => ops.load8_immediate(H),
+        // TODO: 0x36 => ops.load8_immediate(Address::HL),
+        0x0e => ops.load8_immediate(C),
+        0x1e => ops.load8_immediate(E),
+        0x2e => ops.load8_immediate(L),
+        0x3e => ops.load8_immediate(A),
+
+        // 16-bit Immediate Loads
+        0x01 => ops.load16_immediate(BC),
+        0x11 => ops.load16_immediate(DE),
+        0x21 => ops.load16_immediate(HL),
+        // TOOD: 0x31 => ops.load16_immediate(SP),
+
         // Jumps
-        // =====
         0xc3 => ops.jp(),
 
         // Miscellaneous
-        // =============
         0x00 => ops.nop(),
         _ => ops.undefined(opcode),
     }
