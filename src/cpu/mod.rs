@@ -31,12 +31,16 @@ impl Cpu {
 
     /// Run the _next_ instruction.
     pub fn run_next<B: Bus>(&mut self, bus: &mut B) {
+        // Capture the initial PC (used for tracing)
+        let pc = self.state.pc;
+
         // Fetch the opcode (and increment PC)
-        // TODO: Dedicated .next_ fn
-        let opcode = bus.read8(self.state.pc);
-        self.state.pc += 1;
+        let opcode = self.state.next8(bus);
 
         if log_enabled!(Trace) {
+            // TODO(@rust): It'd be nice to move `BusTracer::new` into
+            //              `InstructionTracer::new` but I can't get the lifetimes to be happy that way
+
             // Wrap the Bus in a `BusTracer`. This will buffer reads so we can retrieve them
             // at the end of the instruction. We do this to achieve an accurate
             // instruction decoding (properly reflecting timing).
@@ -45,7 +49,7 @@ impl Cpu {
 
             // Wrap our executor in an `InstructionTracer`. This will access the `BusTracer`
             // for values and produce `trace!` statements.
-            let visitor = tracer::InstructionTracer::new(executor);
+            let visitor = tracer::InstructionTracer::new(pc, executor);
             operations::visit(visitor, opcode)
         } else {
             // Directly execute the instruction

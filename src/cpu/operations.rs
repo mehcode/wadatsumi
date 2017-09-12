@@ -29,7 +29,6 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
     match opcode {
         // 8-bit Loads
         // ===========
-
         // LD B, _
         0x40 => ops.load8(B, B),
         0x41 => ops.load8(B, C),
@@ -92,12 +91,10 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
 
         // Jumps
         // =====
-
         0xc3 => ops.jp(),
 
         // Miscellaneous
         // =============
-
         0x00 => ops.nop(),
         _ => ops.undefined(opcode),
     }

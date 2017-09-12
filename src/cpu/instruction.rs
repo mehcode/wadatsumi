@@ -1,7 +1,7 @@
 use std::fmt;
 
 use super::super::bus::Bus;
-use super::registers::{Register8, Register16};
+use super::registers::{Register16, Register8};
 use super::io::{In8, Out8};
 use super::State;
 
@@ -60,8 +60,8 @@ impl fmt::Display for Instruction {
 
         match *self {
             Nop => write!(f, "NOP"),
-            Jp(Direct(address)) => write!(f, "JP #{:04x}", address),
-            Undefined(opcode) => write!(f, "UNDEF #{:02x}", opcode),
+            Jp(Direct(address)) => write!(f, "JP {:04x}", address),
+            Undefined(opcode) => write!(f, "UNDEF {:02x}", opcode),
             _ => unimplemented!(),
         }
     }

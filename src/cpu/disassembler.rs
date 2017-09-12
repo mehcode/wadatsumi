@@ -1,10 +1,10 @@
 use super::operations::Operations;
 use super::io::{In8, Out8};
-use super::instruction::{Instruction, Address};
+use super::instruction::{Address, Instruction};
 use super::tracer::BusTracer;
 use super::super::bus::Bus;
 
-pub(super) struct Disassembler<'a>(pub(super) Box<Fn() -> u8 + 'a>);
+pub struct Disassembler<'a>(pub Box<Fn() -> u8 + 'a>);
 
 impl<'a> Disassembler<'a> {
     fn next8(&mut self) -> u8 {

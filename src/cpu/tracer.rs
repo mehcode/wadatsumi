@@ -1,7 +1,7 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::collections::VecDeque;
-
+use ansi_term::Colour;
 use super::super::bus::Bus;
 use super::executor::Executor;
 use super::disassembler::Disassembler;
@@ -9,15 +9,17 @@ use super::operations::Operations;
 use super::State;
 use super::io::{In8, Out8};
 
-pub(super) struct BusTracer<'a, B: Bus + 'a> {
+pub struct BusTracer<'a, B: Bus + 'a> {
     inner: &'a mut B,
-    pub(super) read_buffer: RefCell<VecDeque<u8>>,
+    read_buffer: Rc<RefCell<VecDeque<u8>>>,
 }
 
 impl<'a, B: Bus> BusTracer<'a, B> {
-    #[cfg_attr(not(feature = "trace"), allow(unused))]
-    pub(super) fn new(inner: &'a mut B) -> Self {
-        Self { inner, read_buffer: Default::default() }
+    pub fn new(inner: &'a mut B) -> Self {
+        Self {
+            inner,
+            read_buffer: Default::default(),
+        }
     }
 }
 
@@ -33,36 +35,63 @@ impl<'a, B: Bus> Bus for BusTracer<'a, B> {
     }
 }
 
-pub(super) struct InstructionTracer<'a, B: Bus + 'a>(
-    Rc<RefCell<Executor<'a, BusTracer<'a, B>>>>,
-    Disassembler<'a>,
-);
+pub struct InstructionTracer<'a, B: Bus + 'a> {
+    initial_pc: u16,
+    executor: Executor<'a, BusTracer<'a, B>>,
+    disassembler: Disassembler<'a>,
+}
 
 impl<'a, B: Bus> InstructionTracer<'a, B> {
-    pub(super) fn new(executor: Executor<'a, BusTracer<'a, B>>) -> Self {
-        let executor = Rc::new(RefCell::new(executor));
+    pub fn new(initial_pc: u16, executor: Executor<'a, BusTracer<'a, B>>) -> Self {
+        let read_buffer = executor.1.read_buffer.clone();
 
-        InstructionTracer(
-            executor.clone(),
-            Disassembler(Box::new(move || {
-                let executor = executor.borrow_mut();
-                let bus_tracer = &executor.1;
-                let result = bus_tracer.read_buffer.borrow_mut().pop_front().unwrap();
-
-                result
+        InstructionTracer {
+            initial_pc,
+            executor,
+            disassembler: Disassembler(Box::new(move || {
+                read_buffer.borrow_mut().pop_front().unwrap()
             })),
-        )
+        }
     }
 }
 
 macro_rules! instr_trace {
     ($s:expr; $($e:tt)+) => {
-        let output = ($s.0).borrow_mut().$($e)*;
-        let instr = ($s.1).$($e)*;
+        use ::cpu::registers::Register8::*;
+        use ::cpu::registers::Register16::*;
+        use ::cpu::io::{In8, In16};
 
-        trace!("{:<25} PC #{:04x}", format!("{}", instr), ($s.0.borrow()).0.pc);
+        let output = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
+            $s.executor.$($e)*
+        }));
 
-        return output;
+        let instr = $s.disassembler.$($e)*;
+
+        let a = A.read8($s.executor.0, $s.executor.1);
+        let bc = BC.read16($s.executor.0, $s.executor.1);
+        let de = DE.read16($s.executor.0, $s.executor.1);
+        let hl = HL.read16($s.executor.0, $s.executor.1);
+
+        trace!("{}{:04x}{} {} {} {:04x} {} {:02x} {} {:04x} {} {:04x} {} {:04x} {} {}",
+            Colour::Yellow.paint("["),
+            $s.initial_pc,
+            Colour::Yellow.paint("]"),
+            Colour::Fixed(15).paint(format!("{:<25}", format!("{}", instr))),
+            Colour::Yellow.paint("PC"),
+            $s.executor.0.pc,
+            Colour::Yellow.paint("A"),
+            a,
+            Colour::Yellow.paint("BC"),
+            bc,
+            Colour::Yellow.paint("DE"),
+            de,
+            Colour::Yellow.paint("HL"),
+            hl,
+            Colour::Yellow.paint("FLAGS"),
+            "-nh-",
+        );
+
+        return output.unwrap_or_else(|_| ::std::process::exit(101));
     };
 }
 
@@ -77,12 +106,10 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; load8(destination, source));
     }
 
-    #[inline(always)]
     fn jp(&mut self) -> Self::Output {
         instr_trace!(self; jp());
     }
 
-    #[inline(always)]
     fn undefined(&mut self, opcode: u8) -> Self::Output {
         instr_trace!(self; undefined(opcode));
     }

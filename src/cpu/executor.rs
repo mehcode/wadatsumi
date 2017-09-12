@@ -1,13 +1,10 @@
 use super::super::bus::Bus;
-use super::io::{In8, Out8};
+use super::io::{In8, Out8, In16};
 use super::operations;
 use super::instruction::Instruction;
 use super::State;
 
-pub struct Executor<'a, B: Bus + 'a>(
-    pub(super) &'a mut State,
-    pub(super) &'a mut B
-);
+pub struct Executor<'a, B: Bus + 'a>(pub &'a mut State, pub &'a mut B);
 
 impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     type Output = ();
@@ -26,6 +23,6 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     }
 
     fn undefined(&mut self, opcode: u8) {
-        panic!("undefined opcode #{:02x} at #{:04x}", opcode, self.0.pc);
+        panic!("undefined opcode {:02x}", opcode);
     }
 }

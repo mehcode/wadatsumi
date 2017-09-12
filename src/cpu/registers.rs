@@ -1,5 +1,5 @@
 use super::super::bus::Bus;
-use super::io::{In8, Out8};
+use super::io::{In16, In8, Out8};
 use super::State;
 
 #[derive(Debug, Clone, Copy)]
@@ -13,19 +13,11 @@ pub enum Register8 {
     L,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Register16 {
-    AF,
-    BC,
-    DE,
-    HL
-}
-
-use self::Register8::*;
-
 impl In8 for Register8 {
     #[inline]
     fn read8<B: Bus>(&self, state: &mut State, _: &mut B) -> u8 {
+        use self::Register8::*;
+
         match *self {
             A => state.a,
             B => state.b,
@@ -41,6 +33,8 @@ impl In8 for Register8 {
 impl Out8 for Register8 {
     #[inline]
     fn write8<B: Bus>(&self, state: &mut State, _: &mut B, value: u8) {
+        use self::Register8::*;
+
         match *self {
             A => state.a = value,
             B => state.b = value,
@@ -49,6 +43,29 @@ impl Out8 for Register8 {
             E => state.e = value,
             H => state.h = value,
             L => state.l = value,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Copy)]
+pub enum Register16 {
+    AF,
+    BC,
+    DE,
+    HL,
+}
+
+impl In16 for Register16 {
+    #[inline]
+    fn read16<B: Bus>(&self, state: &mut State, _: &mut B) -> u16 {
+        use self::Register16::*;
+
+        match *self {
+            AF => (state.a as u16) << 8 | state.f.bits() as u16,
+            BC => (state.b as u16) << 8 | state.c as u16,
+            DE => (state.d as u16) << 8 | state.e as u16,
+            HL => (state.h as u16) << 8 | state.l as u16,
         }
     }
 }

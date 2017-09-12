@@ -12,7 +12,6 @@ lazy_static = "0.2"
 bitflags = "0.9"
 ansi_term = "0.9"
 chrono = "0.4"
-cfg-if = "0.1"
 
 [profile.release]
 lto = true
