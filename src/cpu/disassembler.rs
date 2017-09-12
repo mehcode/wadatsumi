@@ -1,9 +1,31 @@
 use super::operations::Operations;
 use super::io::{In8, Out8};
-use super::instruction::{Address, Instruction};
+use super::instruction::{Instruction, Operand8};
 use super::tracer::BusTracer;
-use super::registers::Register16;
+use super::operands::{Address, Immediate8, Register16, Register8};
 use super::super::bus::Bus;
+
+pub trait ToOperand8 {
+    fn to_operand8(&self, disassembler: &mut Disassembler) -> Operand8;
+}
+
+impl ToOperand8 for Address {
+    fn to_operand8(&self, _: &mut Disassembler) -> Operand8 {
+        Operand8::Memory(*self)
+    }
+}
+
+impl ToOperand8 for Immediate8 {
+    fn to_operand8(&self, disassembler: &mut Disassembler) -> Operand8 {
+        Operand8::Immediate(disassembler.next8())
+    }
+}
+
+impl ToOperand8 for Register8 {
+    fn to_operand8(&self, _: &mut Disassembler) -> Operand8 {
+        Operand8::Register(*self)
+    }
+}
 
 pub struct Disassembler<'a>(pub Box<Fn() -> u8 + 'a>);
 
@@ -28,11 +50,7 @@ impl<'a> Operations for Disassembler<'a> {
     }
 
     fn load8<I: In8, O: Out8>(&mut self, dst: O, src: I) -> Instruction {
-        Instruction::Load8(dst.into(), src.into())
-    }
-
-    fn load8_immediate<O: Out8>(&mut self, dst: O) -> Instruction {
-        Instruction::Load8Immediate(dst.into(), self.next8())
+        Instruction::Load8(dst.to_operand8(self), src.to_operand8(self))
     }
 
     fn load16_immediate(&mut self, r: Register16) -> Instruction {
@@ -40,7 +58,19 @@ impl<'a> Operations for Disassembler<'a> {
     }
 
     fn jp(&mut self) -> Instruction {
-        Instruction::Jp(Address::Direct(self.next16()))
+        Instruction::Jp(self.next16())
+    }
+
+    fn and<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::And(io.to_operand8(self))
+    }
+
+    fn or<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::Or(io.to_operand8(self))
+    }
+
+    fn xor<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::Xor(io.to_operand8(self))
     }
 
     fn undefined(&mut self, opcode: u8) -> Instruction {

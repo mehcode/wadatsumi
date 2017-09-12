@@ -7,7 +7,7 @@ use super::executor::Executor;
 use super::disassembler::Disassembler;
 use super::operations::Operations;
 use super::State;
-use super::registers::Register16;
+use super::operands::Register16;
 use super::io::{In16, In8, Out16, Out8};
 
 pub struct BusTracer<'a, B: Bus + 'a> {
@@ -58,8 +58,8 @@ impl<'a, B: Bus> InstructionTracer<'a, B> {
 
 macro_rules! instr_trace {
     ($s:expr; $($e:tt)+) => {
-        use ::cpu::registers::Register8::*;
-        use ::cpu::registers::Register16::*;
+        use ::cpu::operands::Register8::*;
+        use ::cpu::operands::Register16::*;
         use ::cpu::io::{In8, In16};
 
         let output = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
@@ -107,16 +107,24 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; load8(dst, src));
     }
 
-    fn load8_immediate<O: Out8>(&mut self, dst: O) -> Self::Output {
-        instr_trace!(self; load8_immediate(dst));
-    }
-
     fn load16_immediate(&mut self, r: Register16) -> Self::Output {
         instr_trace!(self; load16_immediate(r));
     }
 
     fn jp(&mut self) -> Self::Output {
         instr_trace!(self; jp());
+    }
+
+    fn and<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; and(io));
+    }
+
+    fn or<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; or(io));
+    }
+
+    fn xor<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; xor(io));
     }
 
     fn undefined(&mut self, opcode: u8) -> Self::Output {

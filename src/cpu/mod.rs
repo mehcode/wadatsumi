@@ -1,4 +1,4 @@
-mod registers;
+mod operands;
 mod state;
 mod operations;
 mod io;
