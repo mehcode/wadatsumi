@@ -20,24 +20,7 @@ fn main() {
     let f = fs::File::open("tests/cpu_instrs/individual/06-ld r,r.gb").unwrap();
     let mut cartridge = wadatsumi::cartridge::Cartridge::from_reader(f).unwrap();
 
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
-    cpu.run_next(&mut cartridge);
+    loop {
+        cpu.run_next(&mut cartridge);
+    }
 }

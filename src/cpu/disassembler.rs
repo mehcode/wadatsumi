@@ -61,6 +61,14 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Load16Immediate(r, self.next16())
     }
 
+    fn inc8<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::Increment8(io.into_operand8(self))
+    }
+
+    fn dec8<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::Decrement8(io.into_operand8(self))
+    }
+
     fn and<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
         Instruction::And(io.into_operand8(self))
     }
@@ -74,15 +82,23 @@ impl<'a> Operations for Disassembler<'a> {
     }
 
     fn jr<C: Condition>(&mut self, cond: C) -> Instruction {
-        Instruction::Jr(cond.into_condition(), self.next8() as i8)
+        Instruction::JumpRelative(cond.into_condition(), self.next8() as i8)
     }
 
     fn jp<C: Condition>(&mut self, cond: C) -> Instruction {
-        Instruction::Jp(cond.into_condition(), self.next16())
+        Instruction::Jump(cond.into_condition(), self.next16())
     }
 
     fn call<C: Condition>(&mut self, cond: C) -> Instruction {
         Instruction::Call(cond.into_condition(), self.next16())
+    }
+
+    fn ei(&mut self) -> Instruction {
+        Instruction::EnableInterrupts
+    }
+
+    fn di(&mut self) -> Instruction {
+        Instruction::DisableInterrupts
     }
 
     fn undefined(&mut self, opcode: u8) -> Instruction {

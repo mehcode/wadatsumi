@@ -116,6 +116,8 @@ macro_rules! instr_trace {
     };
 }
 
+// FIXME: Use macros to reduce work here
+
 impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
     type Output = <Executor<'a, Rc<RefCell<BusTracer<'a, B>>>> as Operations>::Output;
 
@@ -153,6 +155,22 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
 
     fn xor<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
         instr_trace!(self; xor(io));
+    }
+
+    fn inc8<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; inc8(io));
+    }
+
+    fn dec8<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; dec8(io));
+    }
+
+    fn ei(&mut self) -> Self::Output {
+        instr_trace!(self; ei());
+    }
+
+    fn di(&mut self) -> Self::Output {
+        instr_trace!(self; di());
     }
 
     fn undefined(&mut self, opcode: u8) -> Self::Output {

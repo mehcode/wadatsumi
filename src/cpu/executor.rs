@@ -4,6 +4,7 @@ use super::operations;
 use super::operands::{Condition, Register16};
 use super::instruction::Instruction;
 use super::State;
+use super::state::Flags;
 
 pub struct Executor<'a, B: Bus + 'a>(pub &'a mut State, pub &'a mut B);
 
@@ -72,6 +73,36 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         value ^= self.0.a;
 
         io.write8(self.0, self.1, value);
+    }
+
+    fn inc8<IO: In8 + Out8>(&mut self, io: IO) {
+        let mut value = io.read8(self.0, self.1);
+        value = value.wrapping_add(1);
+
+        // TODO: Set HALF_CARRY
+        self.0.f.set(Flags::ZERO, value == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+
+        io.write8(self.0, self.1, value);
+    }
+
+    fn dec8<IO: In8 + Out8>(&mut self, io: IO) {
+        let mut value = io.read8(self.0, self.1);
+        value = value.wrapping_sub(1);
+
+        // TODO: Set HALF_CARRY
+        self.0.f.set(Flags::ZERO, value == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, true);
+
+        io.write8(self.0, self.1, value);
+    }
+
+    fn ei(&mut self) {
+        warn!("unimplemented: EI");
+    }
+
+    fn di(&mut self) {
+        warn!("unimplemented: EI");
     }
 
     fn undefined(&mut self, opcode: u8) {

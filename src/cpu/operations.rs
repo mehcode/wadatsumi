@@ -33,6 +33,18 @@ pub trait Operations {
     /// Bitwise XOR
     fn xor<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
 
+    /// 8-bit Increment
+    fn inc8<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
+    /// 8-bit Decrement
+    fn dec8<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
+    /// Enable Interrupts
+    fn ei(&mut self) -> Self::Output;
+
+    /// Disable Interrupts
+    fn di(&mut self) -> Self::Output;
+
     /// Undefined operation; an unmapped opcode.
     fn undefined(&mut self, opcode: u8) -> Self::Output;
 }
@@ -43,7 +55,7 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
     use self::Register16::*;
 
     match opcode {
-        // 8-bit Loads ---------------------------------------------------------
+        // 8-bit Loads ----------------------------------------------------------------------------
         // LD A, _
         0x0a => ops.load8(A, Address::BC),
         0x1a => ops.load8(A, Address::DE),
@@ -126,19 +138,19 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x6f => ops.load8(L, A),
 
         // LD (r16), _
-        0x02 => ops.load8(Address::BC, Immediate8),
-        0x12 => ops.load8(Address::DE, Immediate8),
-        0x22 => ops.load8(Address::HLI, Immediate8),
-        0x32 => ops.load8(Address::HLD, Immediate8),
+        0x02 => ops.load8(Address::BC, A),
+        0x12 => ops.load8(Address::DE, A),
+        0x22 => ops.load8(Address::HLI, A),
+        0x32 => ops.load8(Address::HLD, A),
         0x36 => ops.load8(Address::HL, Immediate8),
 
-        // 16-bit Immediate Loads ----------------------------------------------
+        // 16-bit Immediate Loads -----------------------------------------------------------------
         0x01 => ops.load16_immediate(BC),
         0x11 => ops.load16_immediate(DE),
         0x21 => ops.load16_immediate(HL),
         // TOOD: 0x31 => ops.load16_immediate(SP),
 
-        // Jumps and Calls -----------------------------------------------------
+        // Jumps and Calls ------------------------------------------------------------------------
         // Relative Jumps
         0x18 => ops.jr(()),
         0x20 => ops.jr(conditions::NOT_ZERO),
@@ -160,7 +172,28 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xd4 => ops.call(conditions::NOT_CARRY),
         0xdc => ops.call(conditions::CARRY),
 
-        // Arithmetic ----------------------------------------------------------
+        // 8-bit Increment and Decrement ----------------------------------------------------------
+        // INC _
+        0x04 => ops.inc8(B),
+        0x0c => ops.inc8(C),
+        0x14 => ops.inc8(D),
+        0x1c => ops.inc8(E),
+        0x24 => ops.inc8(H),
+        0x2c => ops.inc8(L),
+        0x34 => ops.inc8(Address::HL),
+        0x3c => ops.inc8(Address::HL),
+
+        // DEC _
+        0x05 => ops.dec8(B),
+        0x0d => ops.dec8(C),
+        0x15 => ops.dec8(D),
+        0x1d => ops.dec8(E),
+        0x25 => ops.dec8(H),
+        0x2d => ops.dec8(L),
+        0x35 => ops.dec8(Address::HL),
+        0x3d => ops.dec8(Address::HL),
+
+        // Arithmetic -----------------------------------------------------------------------------
         // AND _
         0xa0 => ops.and(B),
         0xa1 => ops.and(C),
@@ -191,8 +224,10 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xb6 => ops.or(Address::HL),
         0xb7 => ops.or(A),
 
-        // Miscellaneous -------------------------------------------------------
+        // Miscellaneous --------------------------------------------------------------------------
         0x00 => ops.nop(),
+        0xf3 => ops.di(),
+        0xfb => ops.ei(),
         _ => ops.undefined(opcode),
     }
 }
