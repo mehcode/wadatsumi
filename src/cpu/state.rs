@@ -1,4 +1,6 @@
 use std::mem;
+use super::operands::{Address, Immediate16, Register16};
+use super::io::{In16, Out16};
 use super::super::bus::Bus;
 
 bitflags! {
@@ -37,5 +39,26 @@ impl State {
         let h = self.next8(bus);
 
         ((h as u16) << 8) | (l as u16)
+    }
+
+    pub fn indirect<B: Bus>(&mut self, address: Address, bus: &mut B) -> u16 {
+        match address {
+            Address::Direct => Immediate16.read16(self, bus),
+            Address::BC => Register16::BC.read16(self, bus),
+            Address::DE => Register16::DE.read16(self, bus),
+            Address::HL => Register16::HL.read16(self, bus),
+
+            Address::HLI => {
+                let address = Register16::HL.read16(self, bus);
+                Register16::HL.write16(self, bus, address + 1);
+                address
+            }
+
+            Address::HLD => {
+                let address = Register16::HL.read16(self, bus);
+                Register16::HL.write16(self, bus, address - 1);
+                address
+            }
+        }
     }
 }

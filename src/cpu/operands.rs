@@ -147,19 +147,18 @@ pub enum Address {
     BC,
     DE,
     HL,
+
+    /// HL, Decrement or (HL-). Use the address HL then decrement HL.
+    HLD,
+
+    /// HL, Increment or (HL-). Use the address HL then increment HL.
+    HLI,
 }
 
 impl In8 for Address {
     #[inline]
     fn read8<B: Bus>(&self, state: &mut State, bus: &mut B) -> u8 {
-        // FIXME: Duplicated with `Out8 for Address`
-        let address = match *self {
-            Address::Direct => Immediate16.read16(state, bus),
-            Address::BC => Register16::BC.read16(state, bus),
-            Address::DE => Register16::DE.read16(state, bus),
-            Address::HL => Register16::HL.read16(state, bus),
-        };
-
+        let address = state.indirect(*self, bus);
         bus.read8(address)
     }
 }
@@ -167,14 +166,7 @@ impl In8 for Address {
 impl Out8 for Address {
     #[inline]
     fn write8<B: Bus>(&self, state: &mut State, bus: &mut B, value: u8) {
-        // FIXME: Duplicated with `In8 for Address`
-        let address = match *self {
-            Address::Direct => Immediate16.read16(state, bus),
-            Address::BC => Register16::BC.read16(state, bus),
-            Address::DE => Register16::DE.read16(state, bus),
-            Address::HL => Register16::HL.read16(state, bus),
-        };
-
+        let address = state.indirect(*self, bus);
         bus.write8(address, value)
     }
 }
