@@ -1,6 +1,6 @@
 use super::State;
 use super::io::{In8, Out8};
-use super::operands::{Address, Immediate16, Immediate8, Register16, Register8};
+use super::operands::{self, Address, Condition, conditions, Immediate16, Immediate8, Register16, Register8};
 
 /// Defines a visitor for a CPU (micro) operation.
 pub trait Operations {
@@ -15,8 +15,14 @@ pub trait Operations {
     /// 16-bit Immediate Load
     fn load16_immediate(&mut self, Register16) -> Self::Output;
 
+    /// Relative Jump
+    fn jr<C: Condition>(&mut self, C) -> Self::Output;
+
     /// Absolute Jump
-    fn jp(&mut self) -> Self::Output;
+    fn jp<C: Condition>(&mut self, C) -> Self::Output;
+
+    /// Call
+    fn call<C: Condition>(&mut self, C) -> Self::Output;
 
     /// Bitwise AND
     fn and<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
@@ -38,6 +44,21 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
 
     match opcode {
         // 8-bit Loads ---------------------------------------------------------
+        // LD A, _
+        0x0a => ops.load8(A, Address::BC),
+        0x1a => ops.load8(A, Address::DE),
+        0x2a => ops.load8(A, Address::HLI),
+        0x3a => ops.load8(A, Address::HLD),
+        0x3e => ops.load8(A, Immediate8),
+        0x78 => ops.load8(A, B),
+        0x79 => ops.load8(A, C),
+        0x7a => ops.load8(A, D),
+        0x7b => ops.load8(A, E),
+        0x7c => ops.load8(A, H),
+        0x7d => ops.load8(A, L),
+        0x7e => ops.load8(A, Address::HL),
+        0x7f => ops.load8(A, A),
+
         // LD B, _
         0x06 => ops.load8(B, Immediate8),
         0x40 => ops.load8(B, B),
@@ -104,9 +125,6 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x6e => ops.load8(L, Address::HL),
         0x6f => ops.load8(L, A),
 
-        // LD A, _
-        0x3e => ops.load8(A, Immediate8),
-
         // LD (r16), _
         0x02 => ops.load8(Address::BC, Immediate8),
         0x12 => ops.load8(Address::DE, Immediate8),
@@ -120,8 +138,27 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x21 => ops.load16_immediate(HL),
         // TOOD: 0x31 => ops.load16_immediate(SP),
 
-        // Jumps ---------------------------------------------------------------
-        0xc3 => ops.jp(),
+        // Jumps and Calls -----------------------------------------------------
+        // Relative Jumps
+        0x18 => ops.jr(()),
+        0x20 => ops.jr(conditions::NOT_ZERO),
+        0x28 => ops.jr(conditions::ZERO),
+        0x30 => ops.jr(conditions::NOT_CARRY),
+        0x38 => ops.jr(conditions::CARRY),
+
+        // Absolute Jumps
+        0xc3 => ops.jp(()),
+        0xc2 => ops.jp(conditions::NOT_ZERO),
+        0xca => ops.jp(conditions::ZERO),
+        0xd2 => ops.jp(conditions::NOT_CARRY),
+        0xda => ops.jp(conditions::CARRY),
+
+        // Calls
+        0xcd => ops.call(()),
+        0xc4 => ops.call(conditions::NOT_ZERO),
+        0xcc => ops.call(conditions::ZERO),
+        0xd4 => ops.call(conditions::NOT_CARRY),
+        0xdc => ops.call(conditions::CARRY),
 
         // Arithmetic ----------------------------------------------------------
         // AND _

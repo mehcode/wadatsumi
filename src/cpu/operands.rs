@@ -1,7 +1,11 @@
+use std::ops::Not;
+use std::fmt;
 use super::super::bus::Bus;
 use super::io::{In16, In8, Out16, Out8};
 use super::State;
 use super::state::Flags;
+use super::disassembler::IntoCondition as IntoInstrCondition;
+use super::instruction::Condition as InstrCondition;
 
 /// 8-bit Register
 #[derive(Debug, Clone, Copy)]
@@ -158,7 +162,7 @@ pub enum Address {
 impl In8 for Address {
     #[inline]
     fn read8<B: Bus>(&self, state: &mut State, bus: &mut B) -> u8 {
-        let address = state.indirect(*self, bus);
+        let address = state.indirect(bus, *self);
         bus.read8(address)
     }
 }
@@ -166,7 +170,111 @@ impl In8 for Address {
 impl Out8 for Address {
     #[inline]
     fn write8<B: Bus>(&self, state: &mut State, bus: &mut B, value: u8) {
-        let address = state.indirect(*self, bus);
+        let address = state.indirect(bus, *self);
         bus.write8(address, value)
+    }
+}
+
+impl fmt::Display for Address {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Address::*;
+
+        match *self {
+            HLD => write!(f, "HL-"),
+            HLI => write!(f, "HL+"),
+            _ => write!(f, "{:?}", *self),
+        }
+    }
+}
+
+/// Condition
+pub trait Condition: IntoInstrCondition + Copy + fmt::Debug {
+    fn check(&self, state: &State) -> bool;
+}
+
+/// Unit or "constant true" condition. Used to allow a single operation
+/// to optionally accept a condition.
+impl Condition for () {
+    #[inline]
+    fn check(&self, _: &State) -> bool {
+        true
+    }
+}
+
+impl IntoInstrCondition for () {
+    fn into_condition(self) -> Option<InstrCondition> {
+        None
+    }
+}
+
+pub mod conditions {
+    #![allow(non_camel_case_types)]
+
+    use super::{Condition, Flags, State, IntoInstrCondition, InstrCondition};
+
+    // FIXME: De-duplicate and reduce with macros
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct ZERO;
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct NOT_ZERO;
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct CARRY;
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct NOT_CARRY;
+
+    impl IntoInstrCondition for ZERO {
+        fn into_condition(self) -> Option<InstrCondition> {
+            Some(InstrCondition::Zero)
+        }
+    }
+
+    impl Condition for ZERO {
+        #[inline]
+        fn check(&self, state: &State) -> bool {
+            state.f.contains(Flags::ZERO)
+        }
+    }
+
+    impl IntoInstrCondition for NOT_ZERO {
+        fn into_condition(self) -> Option<InstrCondition> {
+            Some(InstrCondition::NotZero)
+        }
+    }
+
+    impl Condition for NOT_ZERO {
+        #[inline]
+        fn check(&self, state: &State) -> bool {
+            !state.f.contains(Flags::ZERO)
+        }
+    }
+
+    impl IntoInstrCondition for CARRY {
+        fn into_condition(self) -> Option<InstrCondition> {
+            Some(InstrCondition::Carry)
+        }
+    }
+
+    impl Condition for CARRY {
+        #[inline]
+        fn check(&self, state: &State) -> bool {
+            state.f.contains(Flags::CARRY)
+        }
+    }
+
+    impl IntoInstrCondition for NOT_CARRY {
+        fn into_condition(self) -> Option<InstrCondition> {
+            Some(InstrCondition::NotCarry)
+        }
+    }
+
+    impl Condition for NOT_CARRY {
+        #[inline]
+        fn check(&self, state: &State) -> bool {
+            !state.f.contains(Flags::CARRY)
+        }
     }
 }

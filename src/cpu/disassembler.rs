@@ -1,29 +1,33 @@
 use super::operations::Operations;
 use super::io::{In8, Out8};
-use super::instruction::{Instruction, Operand8};
+use super::instruction::{Condition as InstrCondition, Instruction, Operand8};
 use super::tracer::BusTracer;
-use super::operands::{Address, Immediate8, Register16, Register8};
+use super::operands::{Condition, Address, Immediate8, Register16, Register8};
 use super::super::bus::Bus;
 
-pub trait ToOperand8 {
-    fn to_operand8(&self, disassembler: &mut Disassembler) -> Operand8;
+pub trait IntoCondition {
+    fn into_condition(self) -> Option<InstrCondition>;
 }
 
-impl ToOperand8 for Address {
-    fn to_operand8(&self, _: &mut Disassembler) -> Operand8 {
-        Operand8::Memory(*self)
+pub trait IntoOperand8 {
+    fn into_operand8(self, disassembler: &mut Disassembler) -> Operand8;
+}
+
+impl IntoOperand8 for Address {
+    fn into_operand8(self, _: &mut Disassembler) -> Operand8 {
+        Operand8::Memory(self)
     }
 }
 
-impl ToOperand8 for Immediate8 {
-    fn to_operand8(&self, disassembler: &mut Disassembler) -> Operand8 {
+impl IntoOperand8 for Immediate8 {
+    fn into_operand8(self, disassembler: &mut Disassembler) -> Operand8 {
         Operand8::Immediate(disassembler.next8())
     }
 }
 
-impl ToOperand8 for Register8 {
-    fn to_operand8(&self, _: &mut Disassembler) -> Operand8 {
-        Operand8::Register(*self)
+impl IntoOperand8 for Register8 {
+    fn into_operand8(self, _: &mut Disassembler) -> Operand8 {
+        Operand8::Register(self)
     }
 }
 
@@ -50,27 +54,35 @@ impl<'a> Operations for Disassembler<'a> {
     }
 
     fn load8<I: In8, O: Out8>(&mut self, dst: O, src: I) -> Instruction {
-        Instruction::Load8(dst.to_operand8(self), src.to_operand8(self))
+        Instruction::Load8(dst.into_operand8(self), src.into_operand8(self))
     }
 
     fn load16_immediate(&mut self, r: Register16) -> Instruction {
         Instruction::Load16Immediate(r, self.next16())
     }
 
-    fn jp(&mut self) -> Instruction {
-        Instruction::Jp(self.next16())
-    }
-
     fn and<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
-        Instruction::And(io.to_operand8(self))
+        Instruction::And(io.into_operand8(self))
     }
 
     fn or<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
-        Instruction::Or(io.to_operand8(self))
+        Instruction::Or(io.into_operand8(self))
     }
 
     fn xor<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
-        Instruction::Xor(io.to_operand8(self))
+        Instruction::Xor(io.into_operand8(self))
+    }
+
+    fn jr<C: Condition>(&mut self, cond: C) -> Instruction {
+        Instruction::Jr(cond.into_condition(), self.next8() as i8)
+    }
+
+    fn jp<C: Condition>(&mut self, cond: C) -> Instruction {
+        Instruction::Jp(cond.into_condition(), self.next16())
+    }
+
+    fn call<C: Condition>(&mut self, cond: C) -> Instruction {
+        Instruction::Call(cond.into_condition(), self.next16())
     }
 
     fn undefined(&mut self, opcode: u8) -> Instruction {
