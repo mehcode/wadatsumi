@@ -1,3 +1,4 @@
+use std::fmt;
 use std::mem;
 use super::operands::{Address, Immediate16, Register16};
 use super::io::{In16, Out16};
@@ -10,6 +11,25 @@ bitflags! {
         const ADD_SUBTRACT = 0b_0100_0000;     // N
         const HALF_CARRY   = 0b_0010_0000;     // H
         const CARRY        = 0b_0001_0000;     // C
+    }
+}
+
+impl fmt::Display for Flags {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // FIXME(@rust): Make this prettier
+
+        write!(
+            f,
+            "{}{}{}{}",
+            if self.contains(Flags::ZERO) { "z" } else { "-" },
+            if self.contains(Flags::ADD_SUBTRACT) {
+                "n"
+            } else {
+                "-"
+            },
+            if self.contains(Flags::HALF_CARRY) { "h" } else { "-" },
+            if self.contains(Flags::CARRY) { "c" } else { "-" },
+        )
     }
 }
 
