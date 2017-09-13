@@ -35,7 +35,12 @@ impl fmt::Display for Flags {
 
 #[derive(Default)]
 pub struct State {
+    /// Stack Pointer (SP)
+    pub sp: u16,
+
+    /// Program Counter (PC)
     pub pc: u16,
+
     pub a: u8,
     pub b: u8,
     pub c: u8,
