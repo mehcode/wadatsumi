@@ -74,14 +74,24 @@ impl State {
         bus.read8(address)
     }
 
+    #[inline]
     pub fn next16<B: Bus>(&mut self, bus: &mut B) -> u16 {
-        let l = self.next8(bus);
-        let h = self.next8(bus);
+        let address = self.pc;
+        self.pc = self.pc.wrapping_add(2);
 
-        ((h as u16) << 8) | (l as u16)
+        bus.read16(address)
     }
 
-    pub fn indirect<B: Bus>(&mut self, address: Address, bus: &mut B) -> u16 {
+    #[inline]
+    pub fn push16<B: Bus>(&mut self, bus: &mut B, value: u16) {
+        // TODO: There is a 1-cycle delay
+
+        self.sp = self.sp.wrapping_sub(2);
+        bus.write16(self.sp, value);
+    }
+
+    #[inline]
+    pub fn indirect<B: Bus>(&mut self, bus: &mut B, address: Address) -> u16 {
         match address {
             Address::Direct => Immediate16.read16(self, bus),
             Address::BC => Register16::BC.read16(self, bus),
