@@ -107,7 +107,11 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         // LD A, _
         0x3e => ops.load8(A, Immediate8),
 
-        // LD (HL), _
+        // LD (r16), _
+        0x02 => ops.load8(Address::BC, Immediate8),
+        0x12 => ops.load8(Address::DE, Immediate8),
+        0x22 => ops.load8(Address::HLI, Immediate8),
+        0x32 => ops.load8(Address::HLD, Immediate8),
         0x36 => ops.load8(Address::HL, Immediate8),
 
         // 16-bit Immediate Loads ----------------------------------------------
