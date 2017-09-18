@@ -148,6 +148,22 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::DisableInterrupts
     }
 
+    fn swap<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::ByteSwap(io.into_operand8(self))
+    }
+
+    fn sla<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::ShiftLeftA(io.into_operand8(self))
+    }
+
+    fn sra<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::ShiftRightA(io.into_operand8(self))
+    }
+
+    fn srl<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::ShiftRightL(io.into_operand8(self))
+    }
+
     fn bit<I: In8>(&mut self, bit: u8, src: I) -> Instruction {
         Instruction::BitTest(bit, src.into_operand8(self))
     }

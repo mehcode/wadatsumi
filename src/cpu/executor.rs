@@ -238,6 +238,58 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         info!("unimplemented: EI");
     }
 
+    fn swap<IO: In8 + Out8>(&mut self, io: IO) {
+        let value = io.read8(self.0, self.1);
+        let result = (value >> 4) | ((value << 4) & 0xF0);
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, false);
+
+        io.write8(self.0, self.1, result);
+    }
+
+    fn sla<IO: In8 + Out8>(&mut self, io: IO) {
+        let value = io.read8(self.0, self.1);
+        let result = value << 1;
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, (value & 0x80) != 0);
+
+        io.write8(self.0, self.1, result);
+    }
+
+    fn sra<IO: In8 + Out8>(&mut self, io: IO) {
+        let value = io.read8(self.0, self.1);
+        let result = if (value & 0x80) != 0 {
+            (value >> 1) | 0x80
+        } else {
+            (value >> 1)
+        };
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, (value & 0x01) != 0);
+
+        io.write8(self.0, self.1, result);
+    }
+
+    fn srl<IO: In8 + Out8>(&mut self, io: IO) {
+        let value = io.read8(self.0, self.1);
+        let result = value >> 1;
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, (value & 0x01) != 0);
+
+        io.write8(self.0, self.1, result);
+    }
+
     #[inline]
     fn bit<I: In8>(&mut self, bit: u8, src: I) {
         let value = src.read8(self.0, self.1);

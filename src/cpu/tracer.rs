@@ -217,6 +217,22 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; di());
     }
 
+    fn swap<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; swap(io));
+    }
+
+    fn sla<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; sla(io));
+    }
+
+    fn sra<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; sra(io));
+    }
+
+    fn srl<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; srl(io));
+    }
+
     fn bit<I: In8>(&mut self, bit: u8, src: I) -> Self::Output {
         instr_trace!(self; bit(bit, src));
     }

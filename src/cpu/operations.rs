@@ -73,6 +73,18 @@ pub trait Operations {
     /// Disable dnterrupts
     fn di(&mut self) -> Self::Output;
 
+    /// Swap, exchange low/hi-nibble
+    fn swap<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
+    /// Shift left (arithmetic)
+    fn sla<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
+    /// Shift right (arithmetic)
+    fn sra<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
+    /// Shift right (logical)
+    fn srl<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
     /// Bit test
     fn bit<I: In8>(&mut self, u8, I) -> Self::Output;
 
@@ -367,7 +379,47 @@ pub fn visit_cb<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
     use self::Register16::*;
 
     match opcode {
-        // Bit ------------------------------------------------------------------------------------
+        // Shift left (arithmetic) ----------------------------------------------------------------
+        0x20 => ops.sla(B),
+        0x21 => ops.sla(C),
+        0x22 => ops.sla(D),
+        0x23 => ops.sla(E),
+        0x24 => ops.sla(H),
+        0x25 => ops.sla(L),
+        0x26 => ops.sla(Address::HL),
+        0x27 => ops.sla(A),
+
+        // Shift right (arithmetic) ---------------------------------------------------------------
+        0x28 => ops.sra(B),
+        0x29 => ops.sra(C),
+        0x2a => ops.sra(D),
+        0x2b => ops.sra(E),
+        0x2c => ops.sra(H),
+        0x2d => ops.sra(L),
+        0x2e => ops.sra(Address::HL),
+        0x2f => ops.sra(A),
+
+        // Shift right (logical) ------------------------------------------------------------------
+        0x38 => ops.srl(B),
+        0x39 => ops.srl(C),
+        0x3a => ops.srl(D),
+        0x3b => ops.srl(E),
+        0x3c => ops.srl(H),
+        0x3d => ops.srl(L),
+        0x3e => ops.srl(Address::HL),
+        0x3f => ops.srl(A),
+
+        // Swap -----------------------------------------------------------------------------------
+        0x30 => ops.swap(B),
+        0x31 => ops.swap(C),
+        0x32 => ops.swap(D),
+        0x33 => ops.swap(E),
+        0x34 => ops.swap(H),
+        0x35 => ops.swap(L),
+        0x36 => ops.swap(Address::HL),
+        0x37 => ops.swap(A),
+
+        // Bit test -------------------------------------------------------------------------------
         // BIT 0, _
         0x40 => ops.bit(0, B),
         0x41 => ops.bit(0, C),
@@ -447,6 +499,168 @@ pub fn visit_cb<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x7d => ops.bit(7, L),
         0x7e => ops.bit(7, Address::HL),
         0x7f => ops.bit(7, A),
+
+        // Bit Set --------------------------------------------------------------------------------
+        // SET 0, _
+        0xc0 => ops.set(0, B),
+        0xc1 => ops.set(0, C),
+        0xc2 => ops.set(0, D),
+        0xc3 => ops.set(0, E),
+        0xc4 => ops.set(0, H),
+        0xc5 => ops.set(0, L),
+        0xc6 => ops.set(0, Address::HL),
+        0xc7 => ops.set(0, A),
+
+        // SET 1, _
+        0xc8 => ops.set(1, B),
+        0xc9 => ops.set(1, C),
+        0xca => ops.set(1, D),
+        0xcb => ops.set(1, E),
+        0xcc => ops.set(1, H),
+        0xcd => ops.set(1, L),
+        0xce => ops.set(1, Address::HL),
+        0xcf => ops.set(1, A),
+
+        // SET 2, _
+        0xd0 => ops.set(2, B),
+        0xd1 => ops.set(2, C),
+        0xd2 => ops.set(2, D),
+        0xd3 => ops.set(2, E),
+        0xd4 => ops.set(2, H),
+        0xd5 => ops.set(2, L),
+        0xd6 => ops.set(2, Address::HL),
+        0xd7 => ops.set(2, A),
+
+        // SET 3, _
+        0xd8 => ops.set(3, B),
+        0xd9 => ops.set(3, C),
+        0xda => ops.set(3, D),
+        0xdb => ops.set(3, E),
+        0xdc => ops.set(3, H),
+        0xdd => ops.set(3, L),
+        0xde => ops.set(3, Address::HL),
+        0xdf => ops.set(3, A),
+
+        // SET 4, _
+        0xe0 => ops.set(4, B),
+        0xe1 => ops.set(4, C),
+        0xe2 => ops.set(4, D),
+        0xe3 => ops.set(4, E),
+        0xe4 => ops.set(4, H),
+        0xe5 => ops.set(4, L),
+        0xe6 => ops.set(4, Address::HL),
+        0xe7 => ops.set(4, A),
+
+        // SET 5, _
+        0xe8 => ops.set(5, B),
+        0xe9 => ops.set(5, C),
+        0xea => ops.set(5, D),
+        0xeb => ops.set(5, E),
+        0xec => ops.set(5, H),
+        0xed => ops.set(5, L),
+        0xee => ops.set(5, Address::HL),
+        0xef => ops.set(5, A),
+
+        // SET 6, _
+        0xf0 => ops.set(6, B),
+        0xf1 => ops.set(6, C),
+        0xf2 => ops.set(6, D),
+        0xf3 => ops.set(6, E),
+        0xf4 => ops.set(6, H),
+        0xf5 => ops.set(6, L),
+        0xf6 => ops.set(6, Address::HL),
+        0xf7 => ops.set(6, A),
+
+        // SET 7, _
+        0xf8 => ops.set(7, B),
+        0xf9 => ops.set(7, C),
+        0xfa => ops.set(7, D),
+        0xfb => ops.set(7, E),
+        0xfc => ops.set(7, H),
+        0xfd => ops.set(7, L),
+        0xfe => ops.set(7, Address::HL),
+        0xff => ops.set(7, A),
+
+        // Bit Reset ------------------------------------------------------------------------------
+        // RES 0, _
+        0x80 => ops.res(0, B),
+        0x81 => ops.res(0, C),
+        0x82 => ops.res(0, D),
+        0x83 => ops.res(0, E),
+        0x84 => ops.res(0, H),
+        0x85 => ops.res(0, L),
+        0x86 => ops.res(0, Address::HL),
+        0x87 => ops.res(0, A),
+
+        // RES 1, _
+        0x88 => ops.res(1, B),
+        0x89 => ops.res(1, C),
+        0x8a => ops.res(1, D),
+        0x8b => ops.res(1, E),
+        0x8c => ops.res(1, H),
+        0x8d => ops.res(1, L),
+        0x8e => ops.res(1, Address::HL),
+        0x8f => ops.res(1, A),
+
+        // RES 2, _
+        0x90 => ops.res(2, B),
+        0x91 => ops.res(2, C),
+        0x92 => ops.res(2, D),
+        0x93 => ops.res(2, E),
+        0x94 => ops.res(2, H),
+        0x95 => ops.res(2, L),
+        0x96 => ops.res(2, Address::HL),
+        0x97 => ops.res(2, A),
+
+        // RES 3, _
+        0x98 => ops.res(3, B),
+        0x99 => ops.res(3, C),
+        0x9a => ops.res(3, D),
+        0x9b => ops.res(3, E),
+        0x9c => ops.res(3, H),
+        0x9d => ops.res(3, L),
+        0x9e => ops.res(3, Address::HL),
+        0x9f => ops.res(3, A),
+
+        // RES 4, _
+        0xa0 => ops.res(4, B),
+        0xa1 => ops.res(4, C),
+        0xa2 => ops.res(4, D),
+        0xa3 => ops.res(4, E),
+        0xa4 => ops.res(4, H),
+        0xa5 => ops.res(4, L),
+        0xa6 => ops.res(4, Address::HL),
+        0xa7 => ops.res(4, A),
+
+        // RES 5, _
+        0xa8 => ops.res(5, B),
+        0xa9 => ops.res(5, C),
+        0xaa => ops.res(5, D),
+        0xab => ops.res(5, E),
+        0xac => ops.res(5, H),
+        0xad => ops.res(5, L),
+        0xae => ops.res(5, Address::HL),
+        0xaf => ops.res(5, A),
+
+        // RES 6, _
+        0xb0 => ops.res(6, B),
+        0xb1 => ops.res(6, C),
+        0xb2 => ops.res(6, D),
+        0xb3 => ops.res(6, E),
+        0xb4 => ops.res(6, H),
+        0xb5 => ops.res(6, L),
+        0xb6 => ops.res(6, Address::HL),
+        0xb7 => ops.res(6, A),
+
+        // RES 7, _
+        0xb8 => ops.res(7, B),
+        0xb9 => ops.res(7, C),
+        0xba => ops.res(7, D),
+        0xbb => ops.res(7, E),
+        0xbc => ops.res(7, H),
+        0xbd => ops.res(7, L),
+        0xbe => ops.res(7, Address::HL),
+        0xbf => ops.res(7, A),
 
         _ => {
             unreachable!("unknown opcode: cb {:02x}", opcode)
