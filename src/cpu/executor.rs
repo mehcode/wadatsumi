@@ -115,6 +115,8 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
             Flags::HALF_CARRY,
             ((((a as i16) & 0x0F) - ((value as i16) & 0x0F)) < 0),
         );
+
+        self.0.a = result as u8;
     }
 
     // CP _
