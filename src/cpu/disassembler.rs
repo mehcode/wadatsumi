@@ -70,16 +70,24 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Decrement8(io.into_operand8(self))
     }
 
-    fn and<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
-        Instruction::And(io.into_operand8(self))
+    fn add<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::Add(src.into_operand8(self))
     }
 
-    fn or<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
-        Instruction::Or(io.into_operand8(self))
+    fn compare<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::Compare(src.into_operand8(self))
     }
 
-    fn xor<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
-        Instruction::Xor(io.into_operand8(self))
+    fn and<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::And(src.into_operand8(self))
+    }
+
+    fn or<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::Or(src.into_operand8(self))
+    }
+
+    fn xor<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::Xor(src.into_operand8(self))
     }
 
     fn jr<C: Condition>(&mut self, cond: C) -> Instruction {

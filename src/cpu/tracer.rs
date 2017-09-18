@@ -161,16 +161,24 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; reti());
     }
 
-    fn and<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
-        instr_trace!(self; and(io));
+    fn add<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; add(src));
     }
 
-    fn or<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
-        instr_trace!(self; or(io));
+    fn compare<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; compare(src));
     }
 
-    fn xor<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
-        instr_trace!(self; xor(io));
+    fn and<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; and(src));
+    }
+
+    fn or<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; or(src));
+    }
+
+    fn xor<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; xor(src));
     }
 
     fn inc8<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {

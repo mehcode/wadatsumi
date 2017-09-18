@@ -2,6 +2,7 @@ use super::super::bus::Bus;
 use super::io::{In8, Out16, Out8};
 use super::operations;
 use super::operands::{Condition, Register16};
+use super::operands::Register8::*;
 use super::instruction::Instruction;
 use super::State;
 use super::state::Flags;
@@ -75,28 +76,83 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.ei();
     }
 
+    // ADD _
+    // A = A + _
     #[inline]
-    fn and<IO: In8 + Out8>(&mut self, io: IO) {
-        let mut value = io.read8(self.0, self.1);
-        value &= self.0.a;
+    fn add<I: In8>(&mut self, src: I) {
+        let a = self.0.a as u16;
+        let value = src.read8(self.0, self.1) as u16;
+        let result = a + value;
 
-        io.write8(self.0, self.1, value);
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0
+            .f
+            .set(Flags::HALF_CARRY, ((a & 0x0F) + (value & 0x0F)) > 0x0F);
+        self.0.f.set(Flags::CARRY, result > 0xFF);
+
+        self.0.a = result as u8;
     }
 
+    // CP _
     #[inline]
-    fn or<IO: In8 + Out8>(&mut self, io: IO) {
-        let mut value = io.read8(self.0, self.1);
-        value |= self.0.a;
+    fn compare<I: In8>(&mut self, src: I) {
+        let a = self.0.a as i16;
+        let value = src.read8(self.0, self.1) as i16;
+        let result = a - value;
 
-        io.write8(self.0, self.1, value);
+        self.0.f.set(Flags::CARRY, result < 0);
+        self.0.f.set(Flags::ZERO, (result & 0xFF) == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, true);
+        self.0.f.set(
+            Flags::HALF_CARRY,
+            ((((a as i16) & 0x0F) - ((value as i16) & 0x0F)) < 0),
+        );
     }
 
+    // AND _
+    // A = A & _
     #[inline]
-    fn xor<IO: In8 + Out8>(&mut self, io: IO) {
-        let mut value = io.read8(self.0, self.1);
-        value ^= self.0.a;
+    fn and<I: In8>(&mut self, src: I) {
+        let value = src.read8(self.0, self.1);
+        let result = self.0.a & value;
 
-        io.write8(self.0, self.1, value);
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, false);
+
+        self.0.a = result;
+    }
+
+    // OR _
+    // A = A | _
+    #[inline]
+    fn or<I: In8>(&mut self, src: I) {
+        let value = src.read8(self.0, self.1);
+        let result = self.0.a | value;
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, false);
+
+        self.0.a = result;
+    }
+
+    // XOR _
+    // A = A ^ _
+    #[inline]
+    fn xor<I: In8>(&mut self, src: I) {
+        let value = src.read8(self.0, self.1);
+        let result = self.0.a ^ value;
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, false);
+
+        self.0.a = result;
     }
 
     #[inline]

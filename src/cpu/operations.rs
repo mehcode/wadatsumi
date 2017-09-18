@@ -31,14 +31,20 @@ pub trait Operations {
     /// Return (from subroutine) and enable interrupts
     fn reti(&mut self) -> Self::Output;
 
+    /// Addition
+    fn add<I: In8>(&mut self, I) -> Self::Output;
+
+    /// Compare
+    fn compare<I: In8>(&mut self, I) -> Self::Output;
+
     /// Bitwise AND
-    fn and<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+    fn and<I: In8>(&mut self, I) -> Self::Output;
 
     /// Bitwise OR
-    fn or<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+    fn or<I: In8>(&mut self, I) -> Self::Output;
 
     /// Bitwise XOR
-    fn xor<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+    fn xor<I: In8>(&mut self, I) -> Self::Output;
 
     /// 8-bit increment
     fn inc8<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
@@ -189,8 +195,7 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xd8 => ops.ret(condition::CARRY),
         0xd9 => ops.reti(),
 
-        // 8-bit Increment and Decrement ----------------------------------------------------------
-        // INC _
+        // 8-bit increment ------------------------------------------------------------------------
         0x04 => ops.inc8(B),
         0x0c => ops.inc8(C),
         0x14 => ops.inc8(D),
@@ -200,7 +205,7 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x34 => ops.inc8(Address::HL),
         0x3c => ops.inc8(Address::HL),
 
-        // DEC _
+        // 8-bit decrement ------------------------------------------------------------------------
         0x05 => ops.dec8(B),
         0x0d => ops.dec8(C),
         0x15 => ops.dec8(D),
@@ -210,8 +215,30 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x35 => ops.dec8(Address::HL),
         0x3d => ops.dec8(Address::HL),
 
-        // Arithmetic -----------------------------------------------------------------------------
-        // AND _
+        // Addition -------------------------------------------------------------------------------
+        0xc6 => ops.add(Immediate8),
+        0x80 => ops.add(B),
+        0x81 => ops.add(C),
+        0x82 => ops.add(D),
+        0x83 => ops.add(E),
+        0x84 => ops.add(H),
+        0x85 => ops.add(L),
+        0x86 => ops.add(Address::HL),
+        0x87 => ops.add(A),
+
+        // Compare --------------------------------------------------------------------------------
+        0xfe => ops.compare(Immediate8),
+        0xb8 => ops.compare(B),
+        0xb9 => ops.compare(C),
+        0xba => ops.compare(D),
+        0xbb => ops.compare(E),
+        0xbc => ops.compare(H),
+        0xbd => ops.compare(L),
+        0xbe => ops.compare(Address::HL),
+        0xbf => ops.compare(A),
+
+        // Bitwise AND ----------------------------------------------------------------------------
+        0xe6 => ops.and(Immediate8),
         0xa0 => ops.and(B),
         0xa1 => ops.and(C),
         0xa2 => ops.and(D),
@@ -221,7 +248,7 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xa6 => ops.and(Address::HL),
         0xa7 => ops.and(A),
 
-        // XOR _
+        // Bitwise XOR ----------------------------------------------------------------------------
         0xa8 => ops.xor(B),
         0xa9 => ops.xor(C),
         0xaa => ops.xor(D),
@@ -231,7 +258,8 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xae => ops.xor(Address::HL),
         0xaf => ops.xor(A),
 
-        // OR _
+        // Bitwise OR -----------------------------------------------------------------------------
+        0xf6 => ops.or(Immediate8),
         0xb0 => ops.or(B),
         0xb1 => ops.or(C),
         0xb2 => ops.or(D),
