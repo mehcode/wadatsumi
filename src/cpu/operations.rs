@@ -282,7 +282,7 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x24 => ops.inc8(H),
         0x2c => ops.inc8(L),
         0x34 => ops.inc8(Address::HL),
-        0x3c => ops.inc8(Address::HL),
+        0x3c => ops.inc8(A),
 
         // 8-bit decrement ------------------------------------------------------------------------
         0x05 => ops.dec8(B),
@@ -292,7 +292,7 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x25 => ops.dec8(H),
         0x2d => ops.dec8(L),
         0x35 => ops.dec8(Address::HL),
-        0x3d => ops.dec8(Address::HL),
+        0x3d => ops.dec8(A),
 
         // 16-bit increment -----------------------------------------------------------------------
         0x03 => ops.inc16(BC),
