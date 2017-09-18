@@ -38,7 +38,7 @@ where
         } else {
             warn!("unhandled read: {:04x}", address);
 
-            0
+            0xff
         }
     }
 
