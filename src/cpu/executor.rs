@@ -157,24 +157,22 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
 
     #[inline]
     fn inc8<IO: In8 + Out8>(&mut self, io: IO) {
-        let mut value = io.read8(self.0, self.1);
-        value = value.wrapping_add(1);
+        let value = io.read8(self.0, self.1).wrapping_add(1);
 
-        // TODO: Set HALF_CARRY
         self.0.f.set(Flags::ZERO, value == 0);
         self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, value & 0x0F == 0x00);
 
         io.write8(self.0, self.1, value);
     }
 
     #[inline]
     fn dec8<IO: In8 + Out8>(&mut self, io: IO) {
-        let mut value = io.read8(self.0, self.1);
-        value = value.wrapping_sub(1);
+        let value = io.read8(self.0, self.1).wrapping_sub(1);
 
-        // TODO: Set HALF_CARRY
         self.0.f.set(Flags::ZERO, value == 0);
         self.0.f.set(Flags::ADD_SUBTRACT, true);
+        self.0.f.set(Flags::HALF_CARRY, value & 0x0F == 0x0F);
 
         io.write8(self.0, self.1, value);
     }
