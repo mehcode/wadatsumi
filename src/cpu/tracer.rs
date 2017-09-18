@@ -1,5 +1,6 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::ops::Range;
 use std::collections::VecDeque;
 use ansi_term::Colour;
 use super::super::bus::Bus;
@@ -173,6 +174,10 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
 
     fn di(&mut self) -> Self::Output {
         instr_trace!(self; di());
+    }
+
+    fn reset(&mut self, address: u8) -> Self::Output {
+        instr_trace!(self; reset(address));
     }
 
     fn undefined(&mut self, opcode: u8) -> Self::Output {

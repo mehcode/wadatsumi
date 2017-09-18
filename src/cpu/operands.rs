@@ -31,6 +31,12 @@ pub enum Register8 {
     L,
 }
 
+impl fmt::Display for Register8 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl In8 for Register8 {
     #[inline]
     fn read8<B: Bus>(&self, state: &mut State, _: &mut B) -> u8 {
@@ -75,6 +81,12 @@ pub enum Register16 {
     BC,
     DE,
     HL,
+}
+
+impl fmt::Display for Register16 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl In16 for Register16 {

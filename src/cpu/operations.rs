@@ -46,6 +46,9 @@ pub trait Operations {
     /// Disable Interrupts
     fn di(&mut self) -> Self::Output;
 
+    /// Reset
+    fn reset(&mut self, address: u8) -> Self::Output;
+
     /// Undefined operation; an unmapped opcode.
     fn undefined(&mut self, opcode: u8) -> Self::Output;
 }
@@ -224,6 +227,16 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xb5 => ops.or(L),
         0xb6 => ops.or(Address::HL),
         0xb7 => ops.or(A),
+
+        // Reset ----------------------------------------------------------------------------------
+        0xc7 => ops.reset(0x00),
+        0xcf => ops.reset(0x08),
+        0xd7 => ops.reset(0x10),
+        0xdf => ops.reset(0x18),
+        0xe7 => ops.reset(0x20),
+        0xef => ops.reset(0x28),
+        0xf7 => ops.reset(0x30),
+        0xff => ops.reset(0x38),
 
         // Miscellaneous --------------------------------------------------------------------------
         0x00 => ops.nop(),

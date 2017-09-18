@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::ops::Range;
 use errors::*;
 use bus::Bus;
 
@@ -157,16 +158,17 @@ impl Cartridge {
 impl Bus for Cartridge {
     fn read8(&self, address: u16) -> u8 {
         // TODO: Don't assume rom-only
-        if address <= 0x7FFF {
+        if address <= 0x7fff {
             self.rom[address as usize]
         } else {
-            // TODO: This should return some kind of error or perhaps None
+            warn!("unhandled read from Cartridge: {:04x}", address);
+
             0
         }
     }
 
-    fn write8(&mut self, _: u16, _: u8) {
+    fn write8(&mut self, address: u16, value: u8) {
         // TODO: Don't assume rom-only
-        // Ignore writes to ROM
+        warn!("unhandled write to Cartridge: {:04x} <- {:02x}", address, value);
     }
 }

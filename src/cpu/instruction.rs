@@ -4,6 +4,49 @@ use super::operands::{Address, Register16, Register8};
 use super::io::{In8, Out8};
 use super::State;
 
+// Data8 ------------------------------------------------------------------------------------------
+
+/// Wraps `u8` to format as hexadecimal.
+#[derive(Debug)]
+pub struct Data8(pub u8);
+
+impl fmt::Display for Data8 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:02x}", self.0)
+    }
+}
+
+// SignedData8 ------------------------------------------------------------------------------------
+
+/// Wraps `i8` to format as signed hexadecimal.
+#[derive(Debug)]
+pub struct SignedData8(pub i8);
+
+impl fmt::Display for SignedData8 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.0 < 0 {
+            write!(f, "{:02x}", self.0 * -1)
+        } else {
+            write!(f, "{:02x}", self.0)
+        }
+    }
+}
+
+// Data16 -----------------------------------------------------------------------------------------
+
+/// Wraps `u16` to format as hexadecimal.
+#[derive(Debug)]
+pub struct Data16(pub u16);
+
+impl fmt::Display for Data16 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:04x}", self.0)
+    }
+}
+
+// Operand8 ---------------------------------------------------------------------------------------
+
+/// Describes a valid operand for an 8-bit instruction.
 #[derive(Debug)]
 pub enum Operand8 {
     Register(Register8),
@@ -23,6 +66,9 @@ impl fmt::Display for Operand8 {
     }
 }
 
+// Condition --------------------------------------------------------------------------------------
+
+/// Describes a condition that may be around a conditional instruction such as `JP` or `CALL`.
 #[derive(Debug)]
 pub enum Condition {
     Zero,
@@ -44,15 +90,17 @@ impl fmt::Display for Condition {
     }
 }
 
+// Instruction ------------------------------------------------------------------------------------
+
 #[derive(Debug)]
 pub enum Instruction {
-    Undefined(u8),
+    Undefined(Data8),
     Nop,
     Load8(Operand8, Operand8),
-    Load16Immediate(Register16, u16),
-    JumpRelative(Option<Condition>, i8),
-    Jump(Option<Condition>, u16),
-    Call(Option<Condition>, u16),
+    Load16Immediate(Register16, Data16),
+    JumpRelative(Option<Condition>, SignedData8),
+    Jump(Option<Condition>, Data16),
+    Call(Option<Condition>, Data16),
     Increment8(Operand8),
     Decrement8(Operand8),
     And(Operand8),
@@ -60,6 +108,22 @@ pub enum Instruction {
     Xor(Operand8),
     EnableInterrupts,
     DisableInterrupts,
+    Reset(Data8),
+}
+
+#[inline]
+fn unary<T: fmt::Display>(f: &mut fmt::Formatter, instr: &str, arg: T) -> fmt::Result {
+    write!(f, "{} {}", instr, arg)
+}
+
+#[inline]
+fn binary<T: fmt::Display, U: fmt::Display>(
+    f: &mut fmt::Formatter,
+    instr: &str,
+    arg0: T,
+    arg1: U,
+) -> fmt::Result {
+    write!(f, "{} {} {}", instr, arg0, arg1)
 }
 
 impl fmt::Display for Instruction {
@@ -67,23 +131,29 @@ impl fmt::Display for Instruction {
         use self::Instruction::*;
 
         match *self {
+            // Unit (0-argument)
             Nop => write!(f, "NOP"),
-            Jump(None, address) => write!(f, "JP {:04x}", address),
-            JumpRelative(None, offset) => write!(f, "JR {}", offset),
-            Call(None, address) => write!(f, "CALL {:04x}", address),
-            Jump(Some(ref cond), address) => write!(f, "JP {} {:04x}", cond, address),
-            JumpRelative(Some(ref cond), offset) => write!(f, "JR {} {}", cond, offset),
-            Call(Some(ref cond), address) => write!(f, "CALL {} {:04x}", cond, address),
-            Load8(ref src, ref dst) => write!(f, "LD {}, {}", src, dst),
-            Load16Immediate(dst, value) => write!(f, "LD {:?}, {:04x}", dst, value),
-            And(ref operand) => write!(f, "AND {}", operand),
-            Or(ref operand) => write!(f, "OR {}", operand),
-            Xor(ref operand) => write!(f, "XOR {}", operand),
             EnableInterrupts => write!(f, "EI"),
             DisableInterrupts => write!(f, "DI"),
-            Increment8(ref operand) => write!(f, "INC {}", operand),
-            Decrement8(ref operand) => write!(f, "DEC {}", operand),
-            Undefined(opcode) => write!(f, "UNDEF {:02x}", opcode),
+
+            // Unary (1-argument)
+            Jump(None, ref address) => unary(f, "JP", address),
+            JumpRelative(None, ref offset) => unary(f, "JR {}", offset),
+            Call(None, ref address) => unary(f, "CALL", address),
+            And(ref operand) => unary(f, "AND", operand),
+            Or(ref operand) => unary(f, "OR", operand),
+            Xor(ref operand) => unary(f, "XOR", operand),
+            Increment8(ref operand) => unary(f, "INC", operand),
+            Decrement8(ref operand) => unary(f, "DEC", operand),
+            Reset(ref address) => unary(f, "RST", address),
+            Undefined(ref opcode) => unary(f, "UNDEF", opcode),
+
+            // Binary (2-argument)
+            Jump(Some(ref cond), ref address) => binary(f, "JP", cond, address),
+            JumpRelative(Some(ref cond), ref offset) => binary(f, "JR", cond, offset),
+            Call(Some(ref cond), ref address) => binary(f, "CALL", cond, address),
+            Load8(ref src, ref dst) => binary(f, "LD", src, dst),
+            Load16Immediate(dst, ref value) => binary(f, "LD", dst, value),
         }
     }
 }

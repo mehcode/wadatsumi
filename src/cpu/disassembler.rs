@@ -1,6 +1,7 @@
 use super::operations::Operations;
 use super::io::{In8, Out8};
-use super::instruction::{Condition as InstrCondition, Instruction, Operand8};
+use super::instruction::{Condition as InstrCondition, Data16, Data8, Instruction, Operand8,
+                         SignedData8};
 use super::tracer::BusTracer;
 use super::operands::{Address, Condition, Immediate8, Register16, Register8};
 use super::super::bus::Bus;
@@ -58,7 +59,7 @@ impl<'a> Operations for Disassembler<'a> {
     }
 
     fn load16_immediate(&mut self, r: Register16) -> Instruction {
-        Instruction::Load16Immediate(r, self.next16())
+        Instruction::Load16Immediate(r, Data16(self.next16()))
     }
 
     fn inc8<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
@@ -82,15 +83,15 @@ impl<'a> Operations for Disassembler<'a> {
     }
 
     fn jr<C: Condition>(&mut self, cond: C) -> Instruction {
-        Instruction::JumpRelative(cond.into_condition(), self.next8() as i8)
+        Instruction::JumpRelative(cond.into_condition(), SignedData8(self.next8() as i8))
     }
 
     fn jp<C: Condition>(&mut self, cond: C) -> Instruction {
-        Instruction::Jump(cond.into_condition(), self.next16())
+        Instruction::Jump(cond.into_condition(), Data16(self.next16()))
     }
 
     fn call<C: Condition>(&mut self, cond: C) -> Instruction {
-        Instruction::Call(cond.into_condition(), self.next16())
+        Instruction::Call(cond.into_condition(), Data16(self.next16()))
     }
 
     fn ei(&mut self) -> Instruction {
@@ -101,7 +102,11 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::DisableInterrupts
     }
 
+    fn reset(&mut self, address: u8) -> Instruction {
+        Instruction::Reset(Data8(address))
+    }
+
     fn undefined(&mut self, opcode: u8) -> Instruction {
-        Instruction::Undefined(opcode)
+        Instruction::Undefined(Data8(opcode))
     }
 }

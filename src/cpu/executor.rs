@@ -11,26 +11,31 @@ pub struct Executor<'a, B: Bus + 'a>(pub &'a mut State, pub &'a mut B);
 impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     type Output = ();
 
+    #[inline]
     fn nop(&mut self) {
         // No Operation
     }
 
+    #[inline]
     fn load8<I: In8, O: Out8>(&mut self, dst: O, src: I) {
         let value = src.read8(self.0, self.1);
         dst.write8(self.0, self.1, value);
     }
 
+    #[inline]
     fn load16_immediate(&mut self, dst: Register16) {
         let value = self.0.next16(self.1);
         dst.write16(self.0, self.1, value);
     }
 
+    #[inline]
     fn jp<C: Condition>(&mut self, cond: C) {
         if cond.check(self.0) {
             self.0.pc = self.0.next16(self.1);
         }
     }
 
+    #[inline]
     fn jr<C: Condition>(&mut self, cond: C) {
         if cond.check(self.0) {
             // Take the _signed_ 8-bit immediate value and extend to 32-bits
@@ -41,6 +46,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         }
     }
 
+    #[inline]
     fn call<C: Condition>(&mut self, cond: C) {
         if cond.check(self.0) {
             let address = self.0.next16(self.1);
@@ -54,6 +60,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         // TODO: On a missed branch there are 2 additional cycles
     }
 
+    #[inline]
     fn and<IO: In8 + Out8>(&mut self, io: IO) {
         let mut value = io.read8(self.0, self.1);
         value &= self.0.a;
@@ -61,6 +68,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         io.write8(self.0, self.1, value);
     }
 
+    #[inline]
     fn or<IO: In8 + Out8>(&mut self, io: IO) {
         let mut value = io.read8(self.0, self.1);
         value |= self.0.a;
@@ -68,6 +76,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         io.write8(self.0, self.1, value);
     }
 
+    #[inline]
     fn xor<IO: In8 + Out8>(&mut self, io: IO) {
         let mut value = io.read8(self.0, self.1);
         value ^= self.0.a;
@@ -75,6 +84,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         io.write8(self.0, self.1, value);
     }
 
+    #[inline]
     fn inc8<IO: In8 + Out8>(&mut self, io: IO) {
         let mut value = io.read8(self.0, self.1);
         value = value.wrapping_add(1);
@@ -86,6 +96,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         io.write8(self.0, self.1, value);
     }
 
+    #[inline]
     fn dec8<IO: In8 + Out8>(&mut self, io: IO) {
         let mut value = io.read8(self.0, self.1);
         value = value.wrapping_sub(1);
@@ -97,14 +108,22 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         io.write8(self.0, self.1, value);
     }
 
+    #[inline]
     fn ei(&mut self) {
-        warn!("unimplemented: EI");
+        info!("unimplemented: EI");
     }
 
+    #[inline]
     fn di(&mut self) {
-        warn!("unimplemented: EI");
+        info!("unimplemented: EI");
     }
 
+    #[inline]
+    fn reset(&mut self, address: u8) {
+        self.0.pc = address as u16;
+    }
+
+    #[inline]
     fn undefined(&mut self, opcode: u8) {
         panic!("undefined opcode {:02x}", opcode);
     }
