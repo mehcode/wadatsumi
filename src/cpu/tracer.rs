@@ -101,7 +101,7 @@ macro_rules! instr_trace {
         let de = DE.read16($s.executor.0, $s.executor.1);
         let hl = HL.read16($s.executor.0, $s.executor.1);
 
-        trace!("{}{:04x}{} {} {} {:04x} {} {:02x} {} {:04x} {} {:04x} {} {:04x} {} {}",
+        trace!("{}{:04x}{} {} {} {:04x} {} {:02x} {} {:04x} {} {:04x} {} {:04x} {} {:04x} {} {}",
             Colour::Yellow.paint("["),
             $s.initial_pc,
             Colour::Yellow.paint("]"),
@@ -116,6 +116,8 @@ macro_rules! instr_trace {
             de,
             Colour::Yellow.paint("HL"),
             hl,
+            Colour::Yellow.paint("SP"),
+            $s.executor.0.sp,
             Colour::Yellow.paint("FLAGS"),
             ($s.executor.0).f,
         );
