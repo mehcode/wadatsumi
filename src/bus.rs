@@ -36,7 +36,7 @@ where
         } else if self.1.contains(address) {
             self.1.read8(address)
         } else {
-            if address == 0xFF01 || address == 0xFF00 {
+            if address == 0xFF01 || address == 0xFF02 {
                 warn!("unhandled read: {:04x}", address);
             }
 
@@ -51,7 +51,7 @@ where
         } else if self.1.contains(address) {
             self.1.write8(address, value);
         } else {
-            if address == 0xFF01 || address == 0xFF00 {
+            if address == 0xFF01 || address == 0xFF02 {
                 warn!("unhandled write: {:04x} <- {:02x}", address, value);
             }
         }
