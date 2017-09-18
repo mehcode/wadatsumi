@@ -48,30 +48,32 @@ pub struct InstructionTracer<'a, B: Bus + 'a> {
 }
 
 impl<'a, B: Bus> InstructionTracer<'a, B> {
-    pub fn new(initial_pc: u16, pc: u16, executor: Executor<'a, Rc<RefCell<BusTracer<'a, B>>>>) -> Self {
+    pub fn new(
+        initial_pc: u16,
+        pc: u16,
+        executor: Executor<'a, Rc<RefCell<BusTracer<'a, B>>>>,
+    ) -> Self {
         let bus_tracer = executor.1.clone();
         let unbuffered_read_counter = Rc::new(Cell::new(0));
 
         InstructionTracer {
             initial_pc,
             executor,
-            disassembler: Disassembler(Box::new(
-                move || {
-                    let buffered_read = {
-                        let self_mut = bus_tracer.borrow_mut();
-                        let mut read_buffer = self_mut.read_buffer.borrow_mut();
+            disassembler: Disassembler(Box::new(move || {
+                let buffered_read = {
+                    let self_mut = bus_tracer.borrow_mut();
+                    let mut read_buffer = self_mut.read_buffer.borrow_mut();
 
-                        read_buffer.pop_front()
-                    };
+                    read_buffer.pop_front()
+                };
 
-                    buffered_read.unwrap_or_else(|| {
-                        let offset = unbuffered_read_counter.get();
-                        unbuffered_read_counter.set(offset + 1);
+                buffered_read.unwrap_or_else(|| {
+                    let offset = unbuffered_read_counter.get();
+                    unbuffered_read_counter.set(offset + 1);
 
-                        bus_tracer.borrow().inner.read8(pc + offset)
-                    })
-                },
-            )),
+                    bus_tracer.borrow().inner.read8(pc + offset)
+                })
+            })),
         }
     }
 }

@@ -27,8 +27,16 @@ impl fmt::Display for Flags {
             } else {
                 "-"
             },
-            if self.contains(Flags::HALF_CARRY) { "h" } else { "-" },
-            if self.contains(Flags::CARRY) { "c" } else { "-" },
+            if self.contains(Flags::HALF_CARRY) {
+                "h"
+            } else {
+                "-"
+            },
+            if self.contains(Flags::CARRY) {
+                "c"
+            } else {
+                "-"
+            },
         )
     }
 }

@@ -2,7 +2,7 @@ use super::operations::Operations;
 use super::io::{In8, Out8};
 use super::instruction::{Condition as InstrCondition, Instruction, Operand8};
 use super::tracer::BusTracer;
-use super::operands::{Condition, Address, Immediate8, Register16, Register8};
+use super::operands::{Address, Condition, Immediate8, Register16, Register8};
 use super::super::bus::Bus;
 
 pub trait IntoCondition {

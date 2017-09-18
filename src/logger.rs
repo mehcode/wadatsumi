@@ -23,7 +23,6 @@ pub fn init(level: LogLevelFilter) -> Result<(), SetLoggerError> {
         format!(
             "{} {} {}",
             chrono::Local::now().format("%H:%M:%S"),
-            // record.target(),
             Colour::Fixed(lvl_color).paint(lvl_s),
             Colour::Fixed(15).paint(record.args().to_string()),
         )

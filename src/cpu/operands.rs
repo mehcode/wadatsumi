@@ -207,10 +207,10 @@ impl IntoInstrCondition for () {
     }
 }
 
-pub mod conditions {
+pub mod condition {
     #![allow(non_camel_case_types)]
 
-    use super::{Condition, Flags, State, IntoInstrCondition, InstrCondition};
+    use super::{Condition, Flags, InstrCondition, IntoInstrCondition, State};
 
     // FIXME: De-duplicate and reduce with macros
 

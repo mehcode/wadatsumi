@@ -1,5 +1,4 @@
 use std::fmt;
-
 use super::super::bus::Bus;
 use super::operands::{Address, Register16, Register8};
 use super::io::{In8, Out8};

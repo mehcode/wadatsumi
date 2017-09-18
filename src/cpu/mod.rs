@@ -39,7 +39,8 @@ impl Cpu {
 
         if log_enabled!(Trace) {
             // TODO(@rust): It'd be nice to move `BusTracer::new` into
-            //              `InstructionTracer::new` but I can't get the lifetimes to be happy that way
+            //              `InstructionTracer::new` but I can't get the lifetimes to be happy
+            //              that way
 
             // Wrap the Bus in a `BusTracer`. This will buffer reads so we can retrieve them
             // at the end of the instruction. We do this to achieve an accurate

@@ -1,6 +1,7 @@
 use super::State;
 use super::io::{In8, Out8};
-use super::operands::{self, Address, Condition, conditions, Immediate16, Immediate8, Register16, Register8};
+use super::operands::{self, condition, Address, Condition, Immediate16, Immediate8, Register16,
+                      Register8};
 
 /// Defines a visitor for a CPU (micro) operation.
 pub trait Operations {
@@ -153,24 +154,24 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         // Jumps and Calls ------------------------------------------------------------------------
         // Relative Jumps
         0x18 => ops.jr(()),
-        0x20 => ops.jr(conditions::NOT_ZERO),
-        0x28 => ops.jr(conditions::ZERO),
-        0x30 => ops.jr(conditions::NOT_CARRY),
-        0x38 => ops.jr(conditions::CARRY),
+        0x20 => ops.jr(condition::NOT_ZERO),
+        0x28 => ops.jr(condition::ZERO),
+        0x30 => ops.jr(condition::NOT_CARRY),
+        0x38 => ops.jr(condition::CARRY),
 
         // Absolute Jumps
         0xc3 => ops.jp(()),
-        0xc2 => ops.jp(conditions::NOT_ZERO),
-        0xca => ops.jp(conditions::ZERO),
-        0xd2 => ops.jp(conditions::NOT_CARRY),
-        0xda => ops.jp(conditions::CARRY),
+        0xc2 => ops.jp(condition::NOT_ZERO),
+        0xca => ops.jp(condition::ZERO),
+        0xd2 => ops.jp(condition::NOT_CARRY),
+        0xda => ops.jp(condition::CARRY),
 
         // Calls
         0xcd => ops.call(()),
-        0xc4 => ops.call(conditions::NOT_ZERO),
-        0xcc => ops.call(conditions::ZERO),
-        0xd4 => ops.call(conditions::NOT_CARRY),
-        0xdc => ops.call(conditions::CARRY),
+        0xc4 => ops.call(condition::NOT_ZERO),
+        0xcc => ops.call(condition::ZERO),
+        0xd4 => ops.call(condition::NOT_CARRY),
+        0xdc => ops.call(condition::CARRY),
 
         // 8-bit Increment and Decrement ----------------------------------------------------------
         // INC _
