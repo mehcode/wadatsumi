@@ -6,21 +6,29 @@ extern crate wadatsumi;
 
 mod logger;
 
+use std::env;
 use std::fs;
 use log::LogLevelFilter;
+use wadatsumi::*;
 
 fn main() {
     // TODO: Allow configuration in command line options
     logger::init(LogLevelFilter::Trace).unwrap();
 
-    let mut cpu = wadatsumi::cpu::Cpu::new();
+    // TODO: Parse arguments properly
+    let argv: Vec<_> = env::args().collect();
+
+    let mut cpu = cpu::Cpu::new();
 
     cpu.reset();
 
-    let f = fs::File::open("tests/cpu_instrs/individual/06-ld r,r.gb").unwrap();
-    let mut cartridge = wadatsumi::cartridge::Cartridge::from_reader(f).unwrap();
+    let f = fs::File::open(&argv[1]).unwrap();
+
+    let cartridge = cartridge::Cartridge::from_reader(f).unwrap();
+    let work_ram = work_ram::WorkRam::new();
+    let mut bus = (cartridge, work_ram);
 
     loop {
-        cpu.run_next(&mut cartridge);
+        cpu.run_next(&mut bus);
     }
 }
