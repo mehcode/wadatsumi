@@ -33,6 +33,8 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     fn jp<C: Condition>(&mut self, cond: C) {
         if cond.check(self.0) {
             self.0.pc = self.0.next16(self.1);
+        } else {
+            self.0.pc = self.0.pc.wrapping_add(2);
         }
     }
 
@@ -44,6 +46,8 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
 
             // Perform signed addition to offset from PC
             self.0.pc = ((self.0.pc as i32) + offset) as u16;
+        } else {
+            self.0.pc = self.0.pc.wrapping_add(1);
         }
     }
 
@@ -56,9 +60,9 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
             self.0.push16(self.1, pc);
 
             self.0.pc = address;
+        } else {
+            self.0.pc = self.0.pc.wrapping_add(2);
         }
-
-        // TODO: On a missed branch there are 2 additional cycles
     }
 
     #[inline]
