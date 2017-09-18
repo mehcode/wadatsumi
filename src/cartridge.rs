@@ -156,12 +156,17 @@ impl Cartridge {
 }
 
 impl Bus for Cartridge {
+    #[inline]
+    fn contains(&self, address: u16) -> bool {
+        (0..0x8000).contains(address)
+    }
+
     fn read8(&self, address: u16) -> u8 {
         // TODO: Don't assume rom-only
         if address <= 0x7fff {
             self.rom[address as usize]
         } else {
-            warn!("unhandled read from Cartridge: {:04x}", address);
+            warn!("unhandled read from cartridge: {:04x}", address);
 
             0
         }
@@ -169,6 +174,10 @@ impl Bus for Cartridge {
 
     fn write8(&mut self, address: u16, value: u8) {
         // TODO: Don't assume rom-only
-        warn!("unhandled write to Cartridge: {:04x} <- {:02x}", address, value);
+        warn!(
+            "unhandled write to cartridge: {:04x} <- {:02x}",
+            address,
+            value
+        );
     }
 }

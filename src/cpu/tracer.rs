@@ -26,6 +26,11 @@ impl<'a, B: Bus> BusTracer<'a, B> {
 }
 
 impl<'a, B: Bus> Bus for Rc<RefCell<BusTracer<'a, B>>> {
+    #[inline]
+    fn contains(&self, address: u16) -> bool {
+        self.borrow().inner.contains(address)
+    }
+
     fn read8(&self, address: u16) -> u8 {
         let value = self.borrow().inner.read8(address);
 
