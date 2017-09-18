@@ -11,9 +11,26 @@ use std::fs;
 use log::LogLevelFilter;
 use wadatsumi::*;
 
+#[derive(Default)]
+struct SerialDataCapture;
+
+impl bus::Bus for SerialDataCapture {
+    fn contains(&self, address: u16) -> bool {
+        0xFF02 == address
+    }
+
+    fn read8(&self, _: u16) -> u8 {
+        0xff
+    }
+
+    fn write8(&mut self, _: u16, value: u8) {
+        print!("{}", value as char)
+    }
+}
+
 fn main() {
     // TODO: Allow configuration in command line options
-    logger::init(LogLevelFilter::Trace).unwrap();
+    // logger::init(LogLevelFilter::Warn).unwrap();
 
     // TODO: Parse arguments properly
     let argv: Vec<_> = env::args().collect();
@@ -26,7 +43,9 @@ fn main() {
 
     let cartridge = cartridge::Cartridge::from_reader(f).unwrap();
     let work_ram = work_ram::WorkRam::new();
-    let mut bus = (cartridge, work_ram);
+    let serial_data_capture = SerialDataCapture;
+
+    let mut bus = (cartridge, (work_ram, serial_data_capture));
 
     loop {
         cpu.run_next(&mut bus);
