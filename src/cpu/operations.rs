@@ -73,6 +73,30 @@ pub trait Operations {
     /// Disable dnterrupts
     fn di(&mut self) -> Self::Output;
 
+    /// Rotate accumulator (A) left (through carry)
+    fn rla(&mut self) -> Self::Output;
+
+    /// Rotate accumulator (A) left
+    fn rlca(&mut self) -> Self::Output;
+
+    /// Rotate accumulator (A) right (through carry)
+    fn rra(&mut self) -> Self::Output;
+
+    /// Rotate accumulator (A) right
+    fn rrca(&mut self) -> Self::Output;
+
+    /// Rotate left (through carry)
+    fn rl<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
+    /// Rotate left
+    fn rlc<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
+    /// Rotate right (through carry)
+    fn rr<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
+    /// Rotate right
+    fn rrc<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
     /// Swap, exchange low/hi-nibble
     fn swap<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
 
@@ -290,6 +314,12 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xe1 => ops.pop16(HL),
         0xf1 => ops.pop16(AF),
 
+        // Rotate accumulator ---------------------------------------------------------------------
+        0x07 => ops.rlca(),
+        0x0f => ops.rrca(),
+        0x17 => ops.rla(),
+        0x1f => ops.rra(),
+
         // Addition -------------------------------------------------------------------------------
         0xc6 => ops.add(Immediate8),
         0x80 => ops.add(B),
@@ -379,6 +409,46 @@ pub fn visit_cb<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
     use self::Register16::*;
 
     match opcode {
+        // Rotate left ----------------------------------------------------------------------------
+        0x00 => ops.rlc(B),
+        0x01 => ops.rlc(C),
+        0x02 => ops.rlc(D),
+        0x03 => ops.rlc(E),
+        0x04 => ops.rlc(H),
+        0x05 => ops.rlc(L),
+        0x06 => ops.rlc(Address::HL),
+        0x07 => ops.rlc(A),
+
+        // Rotate left through carry --------------------------------------------------------------
+        0x10 => ops.rl(B),
+        0x11 => ops.rl(C),
+        0x12 => ops.rl(D),
+        0x13 => ops.rl(E),
+        0x14 => ops.rl(H),
+        0x15 => ops.rl(L),
+        0x16 => ops.rl(Address::HL),
+        0x17 => ops.rl(A),
+
+        // Rotate left ----------------------------------------------------------------------------
+        0x08 => ops.rrc(B),
+        0x09 => ops.rrc(C),
+        0x0a => ops.rrc(D),
+        0x0b => ops.rrc(E),
+        0x0c => ops.rrc(H),
+        0x0d => ops.rrc(L),
+        0x0e => ops.rrc(Address::HL),
+        0x0f => ops.rrc(A),
+
+        // Rotate left through carry --------------------------------------------------------------
+        0x18 => ops.rr(B),
+        0x19 => ops.rr(C),
+        0x1a => ops.rr(D),
+        0x1b => ops.rr(E),
+        0x1c => ops.rr(H),
+        0x1d => ops.rr(L),
+        0x1e => ops.rr(Address::HL),
+        0x1f => ops.rr(A),
+
         // Shift left (arithmetic) ----------------------------------------------------------------
         0x20 => ops.sla(B),
         0x21 => ops.sla(C),

@@ -217,6 +217,38 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; di());
     }
 
+    fn rla(&mut self) -> Self::Output {
+        instr_trace!(self; rla());
+    }
+
+    fn rlca(&mut self) -> Self::Output {
+        instr_trace!(self; rlca());
+    }
+
+    fn rra(&mut self) -> Self::Output {
+        instr_trace!(self; rra());
+    }
+
+    fn rrca(&mut self) -> Self::Output {
+        instr_trace!(self; rrca());
+    }
+
+    fn rl<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; rl(io));
+    }
+
+    fn rlc<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; rlc(io));
+    }
+
+    fn rr<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; rr(io));
+    }
+
+    fn rrc<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
+        instr_trace!(self; rrc(io));
+    }
+
     fn swap<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
         instr_trace!(self; swap(io));
     }

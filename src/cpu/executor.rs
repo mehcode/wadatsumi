@@ -238,6 +238,87 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         info!("unimplemented: EI");
     }
 
+    #[inline]
+    fn rla(&mut self) {
+        // `RLA` is exactly `RL A` with the ZERO flag always reset
+        self.rl(A);
+        self.0.f.set(Flags::ZERO, false);
+    }
+
+    #[inline]
+    fn rlca(&mut self) {
+        // `RLCA` is exactly `RLC A` with the ZERO flag always reset
+        self.rlc(A);
+        self.0.f.set(Flags::ZERO, false);
+    }
+
+    #[inline]
+    fn rra(&mut self) {
+        // `RRA` is exactly `RR A` with the ZERO flag always reset
+        self.rr(A);
+        self.0.f.set(Flags::ZERO, false);
+    }
+
+    #[inline]
+    fn rrca(&mut self) {
+        // `RRCA` is exactly `RRC A` with the ZERO flag always reset
+        self.rrc(A);
+        self.0.f.set(Flags::ZERO, false);
+    }
+
+    #[inline]
+    fn rl<IO: In8 + Out8>(&mut self, io: IO) {
+        let value = io.read8(self.0, self.1);
+        let result = (value << 1) | (self.0.f.contains(Flags::CARRY) as u8);
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, ((value & 0x80) != 0));
+
+        io.write8(self.0, self.1, result);
+    }
+
+    #[inline]
+    fn rlc<IO: In8 + Out8>(&mut self, io: IO) {
+        let value = io.read8(self.0, self.1);
+        let result = (value << 1) | (value >> 7);
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, ((value & 0x80) != 0));
+
+        io.write8(self.0, self.1, result);
+    }
+
+    #[inline]
+    fn rr<IO: In8 + Out8>(&mut self, io: IO) {
+        let value = io.read8(self.0, self.1);
+        let result = (value >> 1) | ((self.0.f.contains(Flags::CARRY) as u8) << 7);
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, ((value & 0x01) != 0));
+
+        io.write8(self.0, self.1, result);
+    }
+
+    #[inline]
+    fn rrc<IO: In8 + Out8>(&mut self, io: IO) {
+        let value = io.read8(self.0, self.1);
+        let result = (value >> 1) | (value << 7);
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, ((value & 0x01) != 0));
+
+        io.write8(self.0, self.1, result);
+    }
+
+    #[inline]
     fn swap<IO: In8 + Out8>(&mut self, io: IO) {
         let value = io.read8(self.0, self.1);
         let result = (value >> 4) | ((value << 4) & 0xF0);
@@ -250,6 +331,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         io.write8(self.0, self.1, result);
     }
 
+    #[inline]
     fn sla<IO: In8 + Out8>(&mut self, io: IO) {
         let value = io.read8(self.0, self.1);
         let result = value << 1;
@@ -262,6 +344,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         io.write8(self.0, self.1, result);
     }
 
+    #[inline]
     fn sra<IO: In8 + Out8>(&mut self, io: IO) {
         let value = io.read8(self.0, self.1);
         let result = if (value & 0x80) != 0 {
@@ -278,6 +361,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         io.write8(self.0, self.1, result);
     }
 
+    #[inline]
     fn srl<IO: In8 + Out8>(&mut self, io: IO) {
         let value = io.read8(self.0, self.1);
         let result = value >> 1;
