@@ -16,7 +16,7 @@ struct SerialDataCapture;
 
 impl bus::Bus for SerialDataCapture {
     fn contains(&self, address: u16) -> bool {
-        0xFF02 == address
+        0xFF01 == address
     }
 
     fn read8(&self, _: u16) -> u8 {
