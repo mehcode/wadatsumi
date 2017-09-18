@@ -89,7 +89,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         let value = src.read8(self.0, self.1) as u16;
         let result = a + value;
 
-        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ZERO, (result & 0xff) == 0);
         self.0.f.set(Flags::ADD_SUBTRACT, false);
         self.0.f.set(Flags::CARRY, result > 0xFF);
         self.0
@@ -108,7 +108,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         let carry = self.0.f.contains(Flags::CARRY) as u16;
         let result = a + value + carry;
 
-        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ZERO, (result & 0xff) == 0);
         self.0.f.set(Flags::ADD_SUBTRACT, false);
         self.0.f.set(Flags::CARRY, result > 0xFF);
         self.0
