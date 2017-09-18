@@ -1,5 +1,5 @@
 use super::State;
-use super::io::{In8, Out8};
+use super::io::{In8, Out8, Out16, In16};
 use super::operands::{self, condition, Address, Condition, Immediate16, Immediate8, Register16,
                       Register8};
 
@@ -51,6 +51,18 @@ pub trait Operations {
 
     /// 8-bit decrement
     fn dec8<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
+
+    /// 16-bit increment
+    fn inc16(&mut self, Register16) -> Self::Output;
+
+    /// 16-bit decrement
+    fn dec16(&mut self, Register16) -> Self::Output;
+
+    /// 16-bit push
+    fn push16(&mut self, Register16) -> Self::Output;
+
+    /// 16-bit pop
+    fn pop16(&mut self, Register16) -> Self::Output;
 
     /// Enable interrupts
     fn ei(&mut self) -> Self::Output;
@@ -220,6 +232,30 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x2d => ops.dec8(L),
         0x35 => ops.dec8(Address::HL),
         0x3d => ops.dec8(Address::HL),
+
+        // 16-bit increment -----------------------------------------------------------------------
+        0x03 => ops.inc16(BC),
+        0x13 => ops.inc16(DE),
+        0x23 => ops.inc16(HL),
+        0x33 => ops.inc16(SP),
+
+        // 16-bit decrement 0----------------------------------------------------------------------
+        0x0b => ops.dec16(BC),
+        0x1b => ops.dec16(DE),
+        0x2b => ops.dec16(HL),
+        0x3b => ops.dec16(SP),
+
+        // 16-bit push ----------------------------------------------------------------------------
+        0xc5 => ops.push16(BC),
+        0xd5 => ops.push16(DE),
+        0xe5 => ops.push16(HL),
+        0xf5 => ops.push16(AF),
+
+        // 16-bit pop -----------------------------------------------------------------------------
+        0xc1 => ops.pop16(BC),
+        0xd1 => ops.pop16(DE),
+        0xe1 => ops.pop16(HL),
+        0xf1 => ops.pop16(AF),
 
         // Addition -------------------------------------------------------------------------------
         0xc6 => ops.add(Immediate8),

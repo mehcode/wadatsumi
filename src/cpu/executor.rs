@@ -1,5 +1,5 @@
 use super::super::bus::Bus;
-use super::io::{In8, Out16, Out8};
+use super::io::{In8, Out16, In16, Out8};
 use super::operations;
 use super::operands::{Condition, Register16};
 use super::operands::Register8::*;
@@ -179,6 +179,32 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.0.f.set(Flags::HALF_CARRY, value & 0x0F == 0x0F);
 
         io.write8(self.0, self.1, value);
+    }
+
+    #[inline]
+    fn inc16(&mut self, r: Register16) {
+        let value = r.read16(self.0, self.1).wrapping_add(1);
+
+        r.write16(self.0, self.1, value);
+    }
+
+    #[inline]
+    fn dec16(&mut self, r: Register16) {
+        let value = r.read16(self.0, self.1).wrapping_sub(1);
+
+        r.write16(self.0, self.1, value);
+    }
+
+    #[inline]
+    fn push16(&mut self, r: Register16) {
+        let value = r.read16(self.0, self.1);
+        self.0.push16(self.1, value);
+    }
+
+    #[inline]
+    fn pop16(&mut self, r: Register16) {
+        let value = self.0.pop16(self.1);
+        r.write16(self.0, self.1, value);
     }
 
     #[inline]

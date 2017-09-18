@@ -80,6 +80,22 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Decrement8(io.into_operand8(self))
     }
 
+    fn inc16(&mut self, r: Register16) -> Instruction {
+        Instruction::Increment16(r)
+    }
+
+    fn dec16(&mut self, r: Register16) -> Instruction {
+        Instruction::Decrement16(r)
+    }
+
+    fn push16(&mut self, r: Register16) -> Instruction {
+        Instruction::Push16(r)
+    }
+
+    fn pop16(&mut self, r: Register16) -> Instruction {
+        Instruction::Pop16(r)
+    }
+
     fn add<I: In8>(&mut self, src: I) -> Instruction {
         Instruction::Add(src.into_operand8(self))
     }

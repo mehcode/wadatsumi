@@ -189,6 +189,22 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; dec8(io));
     }
 
+    fn inc16(&mut self, r: Register16) -> Self::Output {
+        instr_trace!(self; inc16(r));
+    }
+
+    fn dec16(&mut self, r: Register16) -> Self::Output {
+        instr_trace!(self; dec16(r));
+    }
+
+    fn push16(&mut self, r: Register16) -> Self::Output {
+        instr_trace!(self; push16(r));
+    }
+
+    fn pop16(&mut self, r: Register16) -> Self::Output {
+        instr_trace!(self; pop16(r));
+    }
+
     fn ei(&mut self) -> Self::Output {
         instr_trace!(self; ei());
     }
