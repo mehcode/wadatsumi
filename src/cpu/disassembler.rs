@@ -100,7 +100,11 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Add(src.into_operand8(self))
     }
 
-    fn compare<I: In8>(&mut self, src: I) -> Instruction {
+    fn sub<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::Sub(src.into_operand8(self))
+    }
+
+    fn cp<I: In8>(&mut self, src: I) -> Instruction {
         Instruction::Compare(src.into_operand8(self))
     }
 
@@ -144,7 +148,19 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::DisableInterrupts
     }
 
-    fn reset(&mut self, address: u8) -> Instruction {
+    fn bit<I: In8>(&mut self, bit: u8, src: I) -> Instruction {
+        Instruction::BitTest(bit, src.into_operand8(self))
+    }
+
+    fn set<IO: In8 + Out8>(&mut self, bit: u8, io: IO) -> Instruction {
+        Instruction::BitSet(bit, io.into_operand8(self))
+    }
+
+    fn res<IO: In8 + Out8>(&mut self, bit: u8, io: IO) -> Instruction {
+        Instruction::BitReset(bit, io.into_operand8(self))
+    }
+
+    fn rst(&mut self, address: u8) -> Instruction {
         Instruction::Reset(Data8(address))
     }
 

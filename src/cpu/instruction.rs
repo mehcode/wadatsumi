@@ -139,10 +139,14 @@ pub enum Instruction {
     Push16(Register16),
     Pop16(Register16),
     Add(Operand8),
+    Sub(Operand8),
     Compare(Operand8),
     And(Operand8),
     Or(Operand8),
     Xor(Operand8),
+    BitTest(u8, Operand8),
+    BitSet(u8, Operand8),
+    BitReset(u8, Operand8),
     EnableInterrupts,
     DisableInterrupts,
     Reset(Data8),
@@ -181,6 +185,7 @@ impl fmt::Display for Instruction {
             Call(None, ref address) => unary(f, "CALL", address),
             Return(Some(ref cond)) => unary(f, "RET", cond),
             Add(ref operand) => unary(f, "ADD", operand),
+            Sub(ref operand) => unary(f, "SUB", operand),
             Compare(ref operand) => unary(f, "CP", operand),
             And(ref operand) => unary(f, "AND", operand),
             Or(ref operand) => unary(f, "OR", operand),
@@ -200,6 +205,9 @@ impl fmt::Display for Instruction {
             Call(Some(ref cond), ref address) => binary(f, "CALL", cond, address),
             Load8(ref src, ref dst) => binary(f, "LD", src, dst),
             Load16Immediate(dst, ref value) => binary(f, "LD", dst, value),
+            BitTest(bit, ref operand) => binary(f, "BIT", bit, operand),
+            BitSet(bit, ref operand) => binary(f, "SET", bit, operand),
+            BitReset(bit, ref operand) => binary(f, "RST", bit, operand),
         }
     }
 }

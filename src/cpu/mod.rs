@@ -35,7 +35,14 @@ impl Cpu {
         let initial_pc = self.state.pc;
 
         // Fetch the opcode (and increment PC)
-        let opcode = self.state.next8(bus);
+        let mut opcode = self.state.next8(bus);
+        let prefix = if opcode == 0xCB {
+            // 0xCB is an operation prefix; throw away and use a different visit
+            opcode = self.state.next8(bus);
+            0xCB
+        } else {
+            0
+        };
 
         if log_enabled!(Trace) {
             // TODO(@rust): It'd be nice to move `BusTracer::new` into
@@ -52,10 +59,17 @@ impl Cpu {
             // Wrap our executor in an `InstructionTracer`. This will access the `BusTracer`
             // for values and produce `trace!` statements.
             let visitor = tracer::InstructionTracer::new(initial_pc, pc, executor);
-            operations::visit(visitor, opcode)
+            match prefix {
+                0xcb => operations::visit_cb(visitor, opcode),
+                _ => operations::visit(visitor, opcode),
+            }
         } else {
             // Directly execute the instruction
-            operations::visit(Executor(&mut self.state, bus), opcode)
+            let visitor = Executor(&mut self.state, bus);
+            match prefix {
+                0xcb => operations::visit_cb(visitor, opcode),
+                _ => operations::visit(visitor, opcode),
+            }
         }
     }
 }

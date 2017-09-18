@@ -165,8 +165,12 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; add(src));
     }
 
-    fn compare<I: In8>(&mut self, src: I) -> Self::Output {
-        instr_trace!(self; compare(src));
+    fn sub<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; sub(src));
+    }
+
+    fn cp<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; cp(src));
     }
 
     fn and<I: In8>(&mut self, src: I) -> Self::Output {
@@ -213,8 +217,20 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; di());
     }
 
-    fn reset(&mut self, address: u8) -> Self::Output {
-        instr_trace!(self; reset(address));
+    fn bit<I: In8>(&mut self, bit: u8, src: I) -> Self::Output {
+        instr_trace!(self; bit(bit, src));
+    }
+
+    fn set<IO: In8 + Out8>(&mut self, bit: u8, io: IO) -> Self::Output {
+        instr_trace!(self; set(bit, io));
+    }
+
+    fn res<IO: In8 + Out8>(&mut self, bit: u8, io: IO) -> Self::Output {
+        instr_trace!(self; res(bit, io));
+    }
+
+    fn rst(&mut self, address: u8) -> Self::Output {
+        instr_trace!(self; rst(address));
     }
 
     fn undefined(&mut self, opcode: u8) -> Self::Output {

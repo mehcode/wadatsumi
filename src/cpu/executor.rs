@@ -1,5 +1,5 @@
 use super::super::bus::Bus;
-use super::io::{In8, Out16, In16, Out8};
+use super::io::{In16, In8, Out16, Out8};
 use super::operations;
 use super::operands::{Condition, Register16};
 use super::operands::Register8::*;
@@ -98,9 +98,30 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.0.a = result as u8;
     }
 
+    // SUB _
+    // A = A - _
+    #[inline]
+    fn sub<I: In8>(&mut self, src: I) {
+        // FIXME: Duplicate code with `compare`
+
+        let a = self.0.a as i16;
+        let value = src.read8(self.0, self.1) as i16;
+        let result = a - value;
+
+        self.0.f.set(Flags::CARRY, result < 0);
+        self.0.f.set(Flags::ZERO, (result & 0xFF) == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, true);
+        self.0.f.set(
+            Flags::HALF_CARRY,
+            ((((a as i16) & 0x0F) - ((value as i16) & 0x0F)) < 0),
+        );
+    }
+
     // CP _
     #[inline]
-    fn compare<I: In8>(&mut self, src: I) {
+    fn cp<I: In8>(&mut self, src: I) {
+        // FIXME: Duplicate code with `sub`
+
         let a = self.0.a as i16;
         let value = src.read8(self.0, self.1) as i16;
         let result = a - value;
@@ -218,7 +239,32 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     }
 
     #[inline]
-    fn reset(&mut self, address: u8) {
+    fn bit<I: In8>(&mut self, bit: u8, src: I) {
+        let value = src.read8(self.0, self.1);
+
+        self.0.f.set(Flags::ZERO, (value & (1 << bit)) == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, true);
+    }
+
+    #[inline]
+    fn set<IO: In8 + Out8>(&mut self, bit: u8, io: IO) {
+        let mut value = io.read8(self.0, self.1);
+        value |= 1 << bit;
+
+        io.write8(self.0, self.1, value);
+    }
+
+    #[inline]
+    fn res<IO: In8 + Out8>(&mut self, bit: u8, io: IO) {
+        let mut value = io.read8(self.0, self.1);
+        value &= !(1 << bit);
+
+        io.write8(self.0, self.1, value);
+    }
+
+    #[inline]
+    fn rst(&mut self, address: u8) {
         self.0.pc = address as u16;
     }
 

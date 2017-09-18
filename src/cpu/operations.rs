@@ -1,5 +1,5 @@
 use super::State;
-use super::io::{In8, Out8, Out16, In16};
+use super::io::{In16, In8, Out16, Out8};
 use super::operands::{self, condition, Address, Condition, Immediate16, Immediate8, Register16,
                       Register8};
 
@@ -34,8 +34,11 @@ pub trait Operations {
     /// Addition
     fn add<I: In8>(&mut self, I) -> Self::Output;
 
+    /// Subtraction
+    fn sub<I: In8>(&mut self, I) -> Self::Output;
+
     /// Compare
-    fn compare<I: In8>(&mut self, I) -> Self::Output;
+    fn cp<I: In8>(&mut self, I) -> Self::Output;
 
     /// Bitwise AND
     fn and<I: In8>(&mut self, I) -> Self::Output;
@@ -70,8 +73,17 @@ pub trait Operations {
     /// Disable dnterrupts
     fn di(&mut self) -> Self::Output;
 
+    /// Bit test
+    fn bit<I: In8>(&mut self, u8, I) -> Self::Output;
+
+    /// Bit set
+    fn set<IO: In8 + Out8>(&mut self, u8, IO) -> Self::Output;
+
+    /// Bit reset
+    fn res<IO: In8 + Out8>(&mut self, u8, IO) -> Self::Output;
+
     /// Reset
-    fn reset(&mut self, address: u8) -> Self::Output;
+    fn rst(&mut self, address: u8) -> Self::Output;
 
     /// Undefined operation
     fn undefined(&mut self, opcode: u8) -> Self::Output;
@@ -277,16 +289,27 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x86 => ops.add(Address::HL),
         0x87 => ops.add(A),
 
+        // Subtraction -----------------------------------------------------------------------------
+        0xd6 => ops.sub(Immediate8),
+        0x90 => ops.sub(B),
+        0x91 => ops.sub(C),
+        0x92 => ops.sub(D),
+        0x93 => ops.sub(E),
+        0x94 => ops.sub(H),
+        0x95 => ops.sub(L),
+        0x96 => ops.sub(Address::HL),
+        0x97 => ops.sub(A),
+
         // Compare --------------------------------------------------------------------------------
-        0xfe => ops.compare(Immediate8),
-        0xb8 => ops.compare(B),
-        0xb9 => ops.compare(C),
-        0xba => ops.compare(D),
-        0xbb => ops.compare(E),
-        0xbc => ops.compare(H),
-        0xbd => ops.compare(L),
-        0xbe => ops.compare(Address::HL),
-        0xbf => ops.compare(A),
+        0xfe => ops.cp(Immediate8),
+        0xb8 => ops.cp(B),
+        0xb9 => ops.cp(C),
+        0xba => ops.cp(D),
+        0xbb => ops.cp(E),
+        0xbc => ops.cp(H),
+        0xbd => ops.cp(L),
+        0xbe => ops.cp(Address::HL),
+        0xbf => ops.cp(A),
 
         // Bitwise AND ----------------------------------------------------------------------------
         0xe6 => ops.and(Immediate8),
@@ -321,19 +344,112 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xb7 => ops.or(A),
 
         // Reset ----------------------------------------------------------------------------------
-        0xc7 => ops.reset(0x00),
-        0xcf => ops.reset(0x08),
-        0xd7 => ops.reset(0x10),
-        0xdf => ops.reset(0x18),
-        0xe7 => ops.reset(0x20),
-        0xef => ops.reset(0x28),
-        0xf7 => ops.reset(0x30),
-        0xff => ops.reset(0x38),
+        0xc7 => ops.rst(0x00),
+        0xcf => ops.rst(0x08),
+        0xd7 => ops.rst(0x10),
+        0xdf => ops.rst(0x18),
+        0xe7 => ops.rst(0x20),
+        0xef => ops.rst(0x28),
+        0xf7 => ops.rst(0x30),
+        0xff => ops.rst(0x38),
 
         // Miscellaneous --------------------------------------------------------------------------
         0x00 => ops.nop(),
         0xf3 => ops.di(),
         0xfb => ops.ei(),
         _ => ops.undefined(opcode),
+    }
+}
+
+#[inline]
+pub fn visit_cb<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
+    use self::Register8::*;
+    use self::Register16::*;
+
+    match opcode {
+        // Bit ------------------------------------------------------------------------------------
+        // BIT 0, _
+        0x40 => ops.bit(0, B),
+        0x41 => ops.bit(0, C),
+        0x42 => ops.bit(0, D),
+        0x43 => ops.bit(0, E),
+        0x44 => ops.bit(0, H),
+        0x45 => ops.bit(0, L),
+        0x46 => ops.bit(0, Address::HL),
+        0x47 => ops.bit(0, A),
+
+        // BIT 1, _
+        0x48 => ops.bit(1, B),
+        0x49 => ops.bit(1, C),
+        0x4a => ops.bit(1, D),
+        0x4b => ops.bit(1, E),
+        0x4c => ops.bit(1, H),
+        0x4d => ops.bit(1, L),
+        0x4e => ops.bit(1, Address::HL),
+        0x4f => ops.bit(1, A),
+
+        // BIT 2, _
+        0x50 => ops.bit(2, B),
+        0x51 => ops.bit(2, C),
+        0x52 => ops.bit(2, D),
+        0x53 => ops.bit(2, E),
+        0x54 => ops.bit(2, H),
+        0x55 => ops.bit(2, L),
+        0x56 => ops.bit(2, Address::HL),
+        0x57 => ops.bit(2, A),
+
+        // BIT 3, _
+        0x58 => ops.bit(3, B),
+        0x59 => ops.bit(3, C),
+        0x5a => ops.bit(3, D),
+        0x5b => ops.bit(3, E),
+        0x5c => ops.bit(3, H),
+        0x5d => ops.bit(3, L),
+        0x5e => ops.bit(3, Address::HL),
+        0x5f => ops.bit(3, A),
+
+        // BIT 4, _
+        0x60 => ops.bit(4, B),
+        0x61 => ops.bit(4, C),
+        0x62 => ops.bit(4, D),
+        0x63 => ops.bit(4, E),
+        0x64 => ops.bit(4, H),
+        0x65 => ops.bit(4, L),
+        0x66 => ops.bit(4, Address::HL),
+        0x67 => ops.bit(4, A),
+
+        // BIT 5, _
+        0x68 => ops.bit(5, B),
+        0x69 => ops.bit(5, C),
+        0x6a => ops.bit(5, D),
+        0x6b => ops.bit(5, E),
+        0x6c => ops.bit(5, H),
+        0x6d => ops.bit(5, L),
+        0x6e => ops.bit(5, Address::HL),
+        0x6f => ops.bit(5, A),
+
+        // BIT 6, _
+        0x70 => ops.bit(6, B),
+        0x71 => ops.bit(6, C),
+        0x72 => ops.bit(6, D),
+        0x73 => ops.bit(6, E),
+        0x74 => ops.bit(6, H),
+        0x75 => ops.bit(6, L),
+        0x76 => ops.bit(6, Address::HL),
+        0x77 => ops.bit(6, A),
+
+        // BIT 7, _
+        0x78 => ops.bit(7, B),
+        0x79 => ops.bit(7, C),
+        0x7a => ops.bit(7, D),
+        0x7b => ops.bit(7, E),
+        0x7c => ops.bit(7, H),
+        0x7d => ops.bit(7, L),
+        0x7e => ops.bit(7, Address::HL),
+        0x7f => ops.bit(7, A),
+
+        _ => {
+            unreachable!("unknown opcode: cb {:02x}", opcode)
+        }
     }
 }
