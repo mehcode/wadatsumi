@@ -1,6 +1,6 @@
 use std::fmt;
 use super::super::bus::Bus;
-use super::operands::{Address, Register16, Register8};
+use super::operands::{Address as OperAddress, Register16, Register8};
 use super::io::{In8, Out8};
 use super::State;
 
@@ -44,13 +44,42 @@ impl fmt::Display for Data16 {
     }
 }
 
+// Address ----------------------------------------------------------------------------------------
+
+#[derive(Debug)]
+pub enum Address {
+    Direct(Data16),
+    BC,
+    DE,
+    HL,
+    ZeroPage(Data8),
+    ZeroPageC,
+    HLD,
+    HLI,
+}
+
+impl fmt::Display for Address {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Address::*;
+
+        match *self {
+            Direct(ref address) => write!(f, "{}", address),
+            ZeroPage(ref address) => write!(f, "FF00 + {}", address),
+            ZeroPageC => write!(f, "FF00 + C"),
+            HLD => write!(f, "HL-"),
+            HLI => write!(f, "HL+"),
+            _ => write!(f, "{:?}", *self),
+        }
+    }
+}
+
 // Operand8 ---------------------------------------------------------------------------------------
 
 /// Describes a valid operand for an 8-bit instruction.
 #[derive(Debug)]
 pub enum Operand8 {
     Register(Register8),
-    Immediate(u8),
+    Immediate(Data8),
     Memory(Address),
 }
 
@@ -60,8 +89,8 @@ impl fmt::Display for Operand8 {
 
         match *self {
             Register(register) => write!(f, "{:?}", register),
-            Immediate(value) => write!(f, "{:02x}", value),
-            Memory(address) => write!(f, "({})", address),
+            Immediate(ref value) => write!(f, "{}", value),
+            Memory(ref address) => write!(f, "({})", address),
         }
     }
 }

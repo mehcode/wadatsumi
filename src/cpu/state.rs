@@ -1,7 +1,7 @@
 use std::fmt;
 use std::mem;
-use super::operands::{Address, Immediate16, Register16};
-use super::io::{In16, Out16};
+use super::operands::{Address, Immediate16, Immediate8, Register16, Register8};
+use super::io::{In16, In8, Out16};
 use super::super::bus::Bus;
 
 bitflags! {
@@ -117,6 +117,18 @@ impl State {
             Address::BC => Register16::BC.read16(self, bus),
             Address::DE => Register16::DE.read16(self, bus),
             Address::HL => Register16::HL.read16(self, bus),
+
+            Address::ZeroPage => {
+                let index = Immediate8.read8(self, bus) as u16;
+
+                0xFF00 + index
+            }
+
+            Address::ZeroPageC => {
+                let index = Register8::C.read8(self, bus) as u16;
+
+                0xFF00 + index
+            }
 
             Address::HLI => {
                 let address = Register16::HL.read16(self, bus);

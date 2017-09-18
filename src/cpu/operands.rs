@@ -78,6 +78,9 @@ pub enum Register16 {
     /// May only be pushed or poped.
     AF,
 
+    /// Stack Pointer (SP)
+    SP,
+
     BC,
     DE,
     HL,
@@ -99,6 +102,7 @@ impl In16 for Register16 {
             BC => (state.b as u16) << 8 | state.c as u16,
             DE => (state.d as u16) << 8 | state.e as u16,
             HL => (state.h as u16) << 8 | state.l as u16,
+            SP => state.sp,
         }
     }
 }
@@ -127,6 +131,10 @@ impl Out16 for Register16 {
             HL => {
                 state.h = (value >> 8) as u8;
                 state.l = value as u8;
+            }
+
+            SP => {
+                state.sp = value;
             }
         }
     }
@@ -157,12 +165,18 @@ impl In16 for Immediate16 {
 /// Address
 #[derive(Debug, Clone, Copy)]
 pub enum Address {
-    /// Immediate operand used as an address.
+    /// Immediate 16-bit operand used as an address.
     Direct,
 
     BC,
     DE,
     HL,
+
+    /// Zero Page. Immediate 8-bit operand indexed into `0xFF00 ... 0xFFFF`.
+    ZeroPage,
+
+    /// Zero Page. Register C indexed into `0xFF00 ... 0xFFFF`.
+    ZeroPageC,
 
     /// HL, Decrement or (HL-). Use the address HL then decrement HL.
     HLD,
@@ -184,18 +198,6 @@ impl Out8 for Address {
     fn write8<B: Bus>(&self, state: &mut State, bus: &mut B, value: u8) {
         let address = state.indirect(bus, *self);
         bus.write8(address, value)
-    }
-}
-
-impl fmt::Display for Address {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Address::*;
-
-        match *self {
-            HLD => write!(f, "HL-"),
-            HLI => write!(f, "HL+"),
-            _ => write!(f, "{:?}", *self),
-        }
     }
 }
 

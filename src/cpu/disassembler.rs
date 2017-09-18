@@ -1,28 +1,38 @@
 use super::operations::Operations;
 use super::io::{In8, Out8};
-use super::instruction::{Condition as InstrCondition, Data16, Data8, Instruction, Operand8,
-                         SignedData8};
+use super::instruction::{Address, Condition as InstrCondition, Data16, Data8, Instruction,
+                         Operand8, SignedData8};
 use super::tracer::BusTracer;
-use super::operands::{Address, Condition, Immediate8, Register16, Register8};
+use super::operands::{Address as OperAddress, Condition, Immediate8, Register16, Register8};
 use super::super::bus::Bus;
 
 pub trait IntoCondition {
     fn into_condition(self) -> Option<InstrCondition>;
 }
 
+
 pub trait IntoOperand8 {
     fn into_operand8(self, disassembler: &mut Disassembler) -> Operand8;
 }
 
-impl IntoOperand8 for Address {
-    fn into_operand8(self, _: &mut Disassembler) -> Operand8 {
-        Operand8::Memory(self)
+impl IntoOperand8 for OperAddress {
+    fn into_operand8(self, disassembler: &mut Disassembler) -> Operand8 {
+        Operand8::Memory(match self {
+            OperAddress::Direct => Address::Direct(Data16(disassembler.next16())),
+            OperAddress::BC => Address::BC,
+            OperAddress::DE => Address::DE,
+            OperAddress::HL => Address::HL,
+            OperAddress::ZeroPage => Address::ZeroPage(Data8(disassembler.next8())),
+            OperAddress::ZeroPageC => Address::ZeroPageC,
+            OperAddress::HLD => Address::HLD,
+            OperAddress::HLI => Address::HLI,
+        })
     }
 }
 
 impl IntoOperand8 for Immediate8 {
     fn into_operand8(self, disassembler: &mut Disassembler) -> Operand8 {
-        Operand8::Immediate(disassembler.next8())
+        Operand8::Immediate(Data8(disassembler.next8()))
     }
 }
 

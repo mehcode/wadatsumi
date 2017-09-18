@@ -86,6 +86,12 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x7d => ops.load8(A, L),
         0x7e => ops.load8(A, Address::HL),
         0x7f => ops.load8(A, A),
+        0xe0 => ops.load8(Address::ZeroPage, A),
+        0xf0 => ops.load8(A, Address::ZeroPage),
+        0xe2 => ops.load8(Address::ZeroPageC, A),
+        0xf2 => ops.load8(A, Address::ZeroPageC),
+        0xea => ops.load8(Address::Direct, A),
+        0xfa => ops.load8(A, Address::Direct),
 
         // LD B, _
         0x06 => ops.load8(B, Immediate8),
@@ -164,7 +170,7 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x01 => ops.load16_immediate(BC),
         0x11 => ops.load16_immediate(DE),
         0x21 => ops.load16_immediate(HL),
-        // TOOD: 0x31 => ops.load16_immediate(SP),
+        0x31 => ops.load16_immediate(SP),
 
         // Relative Jumps -------------------------------------------------------------------------
         0x18 => ops.jr(()),
