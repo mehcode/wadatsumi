@@ -365,6 +365,7 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xa7 => ops.and(A),
 
         // Bitwise XOR ----------------------------------------------------------------------------
+        0xee => ops.xor(Immediate8),
         0xa8 => ops.xor(B),
         0xa9 => ops.xor(C),
         0xaa => ops.xor(D),
