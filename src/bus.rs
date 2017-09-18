@@ -18,3 +18,38 @@ pub trait Bus {
         self.write8(address, value as u8);
     }
 }
+
+impl<T, U> Bus for (T, U)
+where
+    T: Bus,
+    U: Bus,
+{
+    #[inline]
+    fn contains(&self, address: u16) -> bool {
+        self.0.contains(address) || self.1.contains(address)
+    }
+
+    #[inline]
+    fn read8(&self, address: u16) -> u8 {
+        if self.0.contains(address) {
+            self.0.read8(address)
+        } else if self.1.contains(address) {
+            self.1.read8(address)
+        } else {
+            warn!("unhandled read: {:04x}", address);
+
+            0
+        }
+    }
+
+    #[inline]
+    fn write8(&mut self, address: u16, value: u8) {
+        if self.0.contains(address) {
+            self.0.write8(address, value);
+        } else if self.1.contains(address) {
+            self.1.write8(address, value);
+        } else {
+            warn!("unhandled write: {:04x} <- {:02x}", address, value);
+        }
+    }
+}
