@@ -119,7 +119,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
 
         self.0.f.set(Flags::ZERO, result == 0);
         self.0.f.set(Flags::ADD_SUBTRACT, false);
-        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::HALF_CARRY, true);
         self.0.f.set(Flags::CARRY, false);
 
         self.0.a = result;
