@@ -163,7 +163,7 @@ impl In16 for Immediate16 {
 }
 
 /// Address
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Address {
     /// Immediate 16-bit operand used as an address.
     Direct,

@@ -1,9 +1,8 @@
 use super::super::bus::Bus;
 use super::io::{In16, In8, Out16, Out8};
 use super::operations;
-use super::operands::{Condition, Register16};
+use super::operands::{Condition, Address, Register16};
 use super::operands::Register8::*;
-use super::instruction::Instruction;
 use super::State;
 use super::state::Flags;
 
@@ -30,10 +29,12 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     }
 
     #[inline]
-    fn jp<C: Condition>(&mut self, cond: C) {
+    fn jp<C: Condition>(&mut self, cond: C, address: Address) {
         if cond.check(self.0) {
-            self.0.pc = self.0.next16(self.1);
-        } else {
+            let address = self.0.indirect(self.1, address);
+
+            self.0.pc = address;
+        } else if address == Address::Direct {
             self.0.pc = self.0.pc.wrapping_add(2);
         }
     }
@@ -90,10 +91,29 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
 
         self.0.f.set(Flags::ZERO, result == 0);
         self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::CARRY, result > 0xFF);
         self.0
             .f
             .set(Flags::HALF_CARRY, ((a & 0x0F) + (value & 0x0F)) > 0x0F);
+
+        self.0.a = result as u8;
+    }
+
+    // ADC _
+    // A = A + _ + CARRY
+    #[inline]
+    fn adc<I: In8>(&mut self, src: I) {
+        let a = self.0.a as u16;
+        let value = src.read8(self.0, self.1) as u16;
+        let carry = self.0.f.contains(Flags::CARRY) as u16;
+        let result = a + value + carry;
+
+        self.0.f.set(Flags::ZERO, result == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
         self.0.f.set(Flags::CARRY, result > 0xFF);
+        self.0
+            .f
+            .set(Flags::HALF_CARRY,((a & 0x0F) + (value & 0x0F) + carry) > 0x0F);
 
         self.0.a = result as u8;
     }

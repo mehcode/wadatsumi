@@ -20,7 +20,7 @@ pub trait Operations {
     fn jr<C: Condition>(&mut self, C) -> Self::Output;
 
     /// Absolute jump
-    fn jp<C: Condition>(&mut self, C) -> Self::Output;
+    fn jp<C: Condition>(&mut self, C, Address) -> Self::Output;
 
     /// Call (subroutine)
     fn call<C: Condition>(&mut self, C) -> Self::Output;
@@ -33,6 +33,9 @@ pub trait Operations {
 
     /// Addition
     fn add<I: In8>(&mut self, I) -> Self::Output;
+
+    /// Addition (with carry)
+    fn adc<I: In8>(&mut self, I) -> Self::Output;
 
     /// Subtraction
     fn sub<I: In8>(&mut self, I) -> Self::Output;
@@ -249,11 +252,12 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x38 => ops.jr(condition::CARRY),
 
         // Absolute Jumps -------------------------------------------------------------------------
-        0xc3 => ops.jp(()),
-        0xc2 => ops.jp(condition::NOT_ZERO),
-        0xca => ops.jp(condition::ZERO),
-        0xd2 => ops.jp(condition::NOT_CARRY),
-        0xda => ops.jp(condition::CARRY),
+        0xc3 => ops.jp((), Address::Direct),
+        0xc2 => ops.jp(condition::NOT_ZERO, Address::Direct),
+        0xca => ops.jp(condition::ZERO, Address::Direct),
+        0xd2 => ops.jp(condition::NOT_CARRY, Address::Direct),
+        0xda => ops.jp(condition::CARRY, Address::Direct),
+        0xe9 => ops.jp((), Address::HL),
 
         // Calls ----------------------------------------------------------------------------------
         0xcd => ops.call(()),
@@ -331,7 +335,18 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x86 => ops.add(Address::HL),
         0x87 => ops.add(A),
 
-        // Subtraction -----------------------------------------------------------------------------
+        // Addition (with carry) ------------------------------------------------------------------
+        0xce => ops.adc(Immediate8),
+        0x88 => ops.adc(B),
+        0x89 => ops.adc(C),
+        0x8a => ops.adc(D),
+        0x8b => ops.adc(E),
+        0x8c => ops.adc(H),
+        0x8d => ops.adc(L),
+        0x8e => ops.adc(Address::HL),
+        0x8f => ops.adc(A),
+
+        // Subtraction ----------------------------------------------------------------------------
         0xd6 => ops.sub(Immediate8),
         0x90 => ops.sub(B),
         0x91 => ops.sub(C),

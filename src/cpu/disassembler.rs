@@ -10,6 +10,25 @@ pub trait IntoCondition {
     fn into_condition(self) -> Option<InstrCondition>;
 }
 
+pub trait IntoAddress {
+    fn into_address(self, disassembler: &mut Disassembler) -> Address;
+}
+
+impl IntoAddress for OperAddress {
+    fn into_address(self, disassembler: &mut Disassembler) -> Address
+    {
+       match self {
+           OperAddress::Direct => Address::Direct(Data16(disassembler.next16())),
+           OperAddress::BC => Address::BC,
+           OperAddress::DE => Address::DE,
+           OperAddress::HL => Address::HL,
+           OperAddress::ZeroPage => Address::ZeroPage(Data8(disassembler.next8())),
+           OperAddress::ZeroPageC => Address::ZeroPageC,
+           OperAddress::HLD => Address::HLD,
+           OperAddress::HLI => Address::HLI,
+       }
+   }
+}
 
 pub trait IntoOperand8 {
     fn into_operand8(self, disassembler: &mut Disassembler) -> Operand8;
@@ -17,16 +36,7 @@ pub trait IntoOperand8 {
 
 impl IntoOperand8 for OperAddress {
     fn into_operand8(self, disassembler: &mut Disassembler) -> Operand8 {
-        Operand8::Memory(match self {
-            OperAddress::Direct => Address::Direct(Data16(disassembler.next16())),
-            OperAddress::BC => Address::BC,
-            OperAddress::DE => Address::DE,
-            OperAddress::HL => Address::HL,
-            OperAddress::ZeroPage => Address::ZeroPage(Data8(disassembler.next8())),
-            OperAddress::ZeroPageC => Address::ZeroPageC,
-            OperAddress::HLD => Address::HLD,
-            OperAddress::HLI => Address::HLI,
-        })
+        Operand8::Memory(self.into_address(disassembler))
     }
 }
 
@@ -100,6 +110,10 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Add(src.into_operand8(self))
     }
 
+    fn adc<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::AddWithCarry(src.into_operand8(self))
+    }
+
     fn sub<I: In8>(&mut self, src: I) -> Instruction {
         Instruction::Sub(src.into_operand8(self))
     }
@@ -124,8 +138,8 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::JumpRelative(cond.into_condition(), SignedData8(self.next8() as i8))
     }
 
-    fn jp<C: Condition>(&mut self, cond: C) -> Instruction {
-        Instruction::Jump(cond.into_condition(), Data16(self.next16()))
+    fn jp<C: Condition>(&mut self, cond: C, address: OperAddress) -> Instruction {
+        Instruction::Jump(cond.into_condition(), address.into_address(self))
     }
 
     fn call<C: Condition>(&mut self, cond: C) -> Instruction {

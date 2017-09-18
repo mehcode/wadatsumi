@@ -25,7 +25,7 @@ pub struct SignedData8(pub i8);
 impl fmt::Display for SignedData8 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.0 < 0 {
-            write!(f, "{:02x}", self.0 * -1)
+            write!(f, "-{:02x}", self.0 * -1)
         } else {
             write!(f, "{:02x}", self.0)
         }
@@ -128,7 +128,7 @@ pub enum Instruction {
     Load8(Operand8, Operand8),
     Load16Immediate(Register16, Data16),
     JumpRelative(Option<Condition>, SignedData8),
-    Jump(Option<Condition>, Data16),
+    Jump(Option<Condition>, Address),
     Call(Option<Condition>, Data16),
     Return(Option<Condition>),
     ReturnAndEnableInterrupts,
@@ -139,6 +139,7 @@ pub enum Instruction {
     Push16(Register16),
     Pop16(Register16),
     Add(Operand8),
+    AddWithCarry(Operand8),
     Sub(Operand8),
     Compare(Operand8),
     And(Operand8),
@@ -201,6 +202,7 @@ impl fmt::Display for Instruction {
             Call(None, ref address) => unary(f, "CALL", address),
             Return(Some(ref cond)) => unary(f, "RET", cond),
             Add(ref operand) => unary(f, "ADD", operand),
+            AddWithCarry(ref operand) => unary(f, "ADC", operand),
             Sub(ref operand) => unary(f, "SUB", operand),
             Compare(ref operand) => unary(f, "CP", operand),
             And(ref operand) => unary(f, "AND", operand),

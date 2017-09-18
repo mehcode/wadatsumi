@@ -8,7 +8,7 @@ use super::executor::Executor;
 use super::disassembler::Disassembler;
 use super::operations::Operations;
 use super::State;
-use super::operands::{Condition, Register16};
+use super::operands::{Condition, Address, Register16};
 use super::io::{In16, In8, Out16, Out8};
 
 pub struct BusTracer<'a, B: Bus + 'a> {
@@ -141,8 +141,8 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; load16_immediate(r));
     }
 
-    fn jp<C: Condition>(&mut self, cond: C) -> Self::Output {
-        instr_trace!(self; jp(cond));
+    fn jp<C: Condition>(&mut self, cond: C, address: Address) -> Self::Output {
+        instr_trace!(self; jp(cond, address));
     }
 
     fn jr<C: Condition>(&mut self, cond: C) -> Self::Output {
@@ -163,6 +163,10 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
 
     fn add<I: In8>(&mut self, src: I) -> Self::Output {
         instr_trace!(self; add(src));
+    }
+
+    fn adc<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; adc(src));
     }
 
     fn sub<I: In8>(&mut self, src: I) -> Self::Output {
