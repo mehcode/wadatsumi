@@ -106,12 +106,16 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Pop16(r)
     }
 
-    fn add<I: In8>(&mut self, src: I) -> Instruction {
-        Instruction::Add(src.into_operand8(self))
+    fn add16_hl(&mut self, r: Register16) -> Instruction {
+        Instruction::Add16Hl(r)
     }
 
-    fn adc<I: In8>(&mut self, src: I) -> Instruction {
-        Instruction::AddWithCarry(src.into_operand8(self))
+    fn add8<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::Add8(src.into_operand8(self))
+    }
+
+    fn adc8<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::AddWithCarry8(src.into_operand8(self))
     }
 
     fn sub<I: In8>(&mut self, src: I) -> Instruction {

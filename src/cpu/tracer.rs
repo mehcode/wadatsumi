@@ -163,12 +163,16 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; reti());
     }
 
-    fn add<I: In8>(&mut self, src: I) -> Self::Output {
-        instr_trace!(self; add(src));
+    fn add16_hl(&mut self, r: Register16) -> Self::Output {
+        instr_trace!(self; add16_hl(r));
     }
 
-    fn adc<I: In8>(&mut self, src: I) -> Self::Output {
-        instr_trace!(self; adc(src));
+    fn add8<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; add8(src));
+    }
+
+    fn adc8<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; adc8(src));
     }
 
     fn sub<I: In8>(&mut self, src: I) -> Self::Output {

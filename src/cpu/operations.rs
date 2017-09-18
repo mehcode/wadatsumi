@@ -31,11 +31,14 @@ pub trait Operations {
     /// Return (from subroutine) and enable interrupts
     fn reti(&mut self) -> Self::Output;
 
-    /// Addition
-    fn add<I: In8>(&mut self, I) -> Self::Output;
+    /// 16-bit addition (with HL)
+    fn add16_hl(&mut self, Register16) -> Self::Output;
 
-    /// Addition (with carry)
-    fn adc<I: In8>(&mut self, I) -> Self::Output;
+    /// 8-bit addition
+    fn add8<I: In8>(&mut self, I) -> Self::Output;
+
+    /// 8-bit addition (with carry)
+    fn adc8<I: In8>(&mut self, I) -> Self::Output;
 
     /// Subtraction
     fn sub<I: In8>(&mut self, I) -> Self::Output;
@@ -324,27 +327,33 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x17 => ops.rla(),
         0x1f => ops.rra(),
 
-        // Addition -------------------------------------------------------------------------------
-        0xc6 => ops.add(Immediate8),
-        0x80 => ops.add(B),
-        0x81 => ops.add(C),
-        0x82 => ops.add(D),
-        0x83 => ops.add(E),
-        0x84 => ops.add(H),
-        0x85 => ops.add(L),
-        0x86 => ops.add(Address::HL),
-        0x87 => ops.add(A),
+        // 8-bit addition -------------------------------------------------------------------------
+        0xc6 => ops.add8(Immediate8),
+        0x80 => ops.add8(B),
+        0x81 => ops.add8(C),
+        0x82 => ops.add8(D),
+        0x83 => ops.add8(E),
+        0x84 => ops.add8(H),
+        0x85 => ops.add8(L),
+        0x86 => ops.add8(Address::HL),
+        0x87 => ops.add8(A),
 
-        // Addition (with carry) ------------------------------------------------------------------
-        0xce => ops.adc(Immediate8),
-        0x88 => ops.adc(B),
-        0x89 => ops.adc(C),
-        0x8a => ops.adc(D),
-        0x8b => ops.adc(E),
-        0x8c => ops.adc(H),
-        0x8d => ops.adc(L),
-        0x8e => ops.adc(Address::HL),
-        0x8f => ops.adc(A),
+        // 8-bit addition (with carry) ------------------------------------------------------------
+        0xce => ops.adc8(Immediate8),
+        0x88 => ops.adc8(B),
+        0x89 => ops.adc8(C),
+        0x8a => ops.adc8(D),
+        0x8b => ops.adc8(E),
+        0x8c => ops.adc8(H),
+        0x8d => ops.adc8(L),
+        0x8e => ops.adc8(Address::HL),
+        0x8f => ops.adc8(A),
+
+        // 16-bit addition ------------------------------------------------------------------------
+        0x09 => ops.add16_hl(BC),
+        0x19 => ops.add16_hl(DE),
+        0x29 => ops.add16_hl(HL),
+        0x39 => ops.add16_hl(SP),
 
         // Subtraction ----------------------------------------------------------------------------
         0xd6 => ops.sub(Immediate8),

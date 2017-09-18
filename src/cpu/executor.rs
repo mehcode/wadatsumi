@@ -81,10 +81,24 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.ei();
     }
 
+    #[inline]
+    fn add16_hl(&mut self, r: Register16) {
+        let hl = Register16::HL.read16(self.0, self.1);
+        let value = r.read16(self.0, self.1);
+        let result = hl as u32 + value as u32;
+
+        self.0.f.set(Flags::HALF_CARRY, ((hl ^ value ^ ((result & 0xFFFF) as u16)) & 0x1000) != 0);
+        self.0.f.set(Flags::CARRY, result > 0xFFFF);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+
+        Register16::HL.write16(self.0, self.1, (result & 0xFFFF) as u16);
+        // TODO: Extra cycle goes here
+    }
+
     // ADD _
     // A = A + _
     #[inline]
-    fn add<I: In8>(&mut self, src: I) {
+    fn add8<I: In8>(&mut self, src: I) {
         let a = self.0.a as u16;
         let value = src.read8(self.0, self.1) as u16;
         let result = a + value;
@@ -102,7 +116,7 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     // ADC _
     // A = A + _ + CARRY
     #[inline]
-    fn adc<I: In8>(&mut self, src: I) {
+    fn adc8<I: In8>(&mut self, src: I) {
         let a = self.0.a as u16;
         let value = src.read8(self.0, self.1) as u16;
         let carry = self.0.f.contains(Flags::CARRY) as u16;
