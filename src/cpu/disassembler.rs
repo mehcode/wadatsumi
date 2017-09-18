@@ -149,35 +149,35 @@ impl<'a> Operations for Disassembler<'a> {
     }
 
     fn rla(&mut self) -> Instruction {
-        Instruction::RotateAccumulatorLeftThroughCarry
-    }
-
-    fn rlca(&mut self) -> Instruction {
         Instruction::RotateAccumulatorLeft
     }
 
-    fn rra(&mut self) -> Instruction {
-        Instruction::RotateAccumulatorRightThroughCarry
+    fn rlca(&mut self) -> Instruction {
+        Instruction::RotateAccumulatorLeftCircular
     }
 
-    fn rrca(&mut self) -> Instruction {
+    fn rra(&mut self) -> Instruction {
         Instruction::RotateAccumulatorRight
     }
 
-    fn rl<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
-        Instruction::RotateLeftThroughCarry(io.into_operand8(self))
+    fn rrca(&mut self) -> Instruction {
+        Instruction::RotateAccumulatorRightCircular
     }
 
-    fn rlc<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+    fn rl<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
         Instruction::RotateLeft(io.into_operand8(self))
     }
 
+    fn rlc<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
+        Instruction::RotateLeftCircular(io.into_operand8(self))
+    }
+
     fn rr<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
-        Instruction::RotateRightThroughCarry(io.into_operand8(self))
+        Instruction::RotateRight(io.into_operand8(self))
     }
 
     fn rrc<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
-        Instruction::RotateRight(io.into_operand8(self))
+        Instruction::RotateRightCircular(io.into_operand8(self))
     }
 
     fn swap<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {
