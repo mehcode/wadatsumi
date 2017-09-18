@@ -61,6 +61,21 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     }
 
     #[inline]
+    fn ret<C: Condition>(&mut self, cond: C) {
+        if cond.check(self.0) {
+            let address = self.0.pop16(self.1);
+
+            self.0.pc = address;
+        }
+    }
+
+    #[inline]
+    fn reti(&mut self) {
+        self.ret(());
+        self.ei();
+    }
+
+    #[inline]
     fn and<IO: In8 + Out8>(&mut self, io: IO) {
         let mut value = io.read8(self.0, self.1);
         value &= self.0.a;

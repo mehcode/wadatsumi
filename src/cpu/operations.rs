@@ -7,23 +7,29 @@ use super::operands::{self, condition, Address, Condition, Immediate16, Immediat
 pub trait Operations {
     type Output;
 
-    /// No Operation
+    /// No operation
     fn nop(&mut self) -> Self::Output;
 
-    /// 8-bit Loads
+    /// 8-bit load
     fn load8<I: In8, O: Out8>(&mut self, O, I) -> Self::Output;
 
-    /// 16-bit Immediate Load
+    /// 16-bit immediate load
     fn load16_immediate(&mut self, Register16) -> Self::Output;
 
-    /// Relative Jump
+    /// Relative jump
     fn jr<C: Condition>(&mut self, C) -> Self::Output;
 
-    /// Absolute Jump
+    /// Absolute jump
     fn jp<C: Condition>(&mut self, C) -> Self::Output;
 
-    /// Call
+    /// Call (subroutine)
     fn call<C: Condition>(&mut self, C) -> Self::Output;
+
+    /// Return (from subroutine)
+    fn ret<C: Condition>(&mut self, C) -> Self::Output;
+
+    /// Return (from subroutine) and enable interrupts
+    fn reti(&mut self) -> Self::Output;
 
     /// Bitwise AND
     fn and<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
@@ -34,22 +40,22 @@ pub trait Operations {
     /// Bitwise XOR
     fn xor<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
 
-    /// 8-bit Increment
+    /// 8-bit increment
     fn inc8<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
 
-    /// 8-bit Decrement
+    /// 8-bit decrement
     fn dec8<IO: In8 + Out8>(&mut self, IO) -> Self::Output;
 
-    /// Enable Interrupts
+    /// Enable interrupts
     fn ei(&mut self) -> Self::Output;
 
-    /// Disable Interrupts
+    /// Disable dnterrupts
     fn di(&mut self) -> Self::Output;
 
     /// Reset
     fn reset(&mut self, address: u8) -> Self::Output;
 
-    /// Undefined operation; an unmapped opcode.
+    /// Undefined operation
     fn undefined(&mut self, opcode: u8) -> Self::Output;
 }
 
@@ -154,27 +160,34 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x21 => ops.load16_immediate(HL),
         // TOOD: 0x31 => ops.load16_immediate(SP),
 
-        // Jumps and Calls ------------------------------------------------------------------------
-        // Relative Jumps
+        // Relative Jumps -------------------------------------------------------------------------
         0x18 => ops.jr(()),
         0x20 => ops.jr(condition::NOT_ZERO),
         0x28 => ops.jr(condition::ZERO),
         0x30 => ops.jr(condition::NOT_CARRY),
         0x38 => ops.jr(condition::CARRY),
 
-        // Absolute Jumps
+        // Absolute Jumps -------------------------------------------------------------------------
         0xc3 => ops.jp(()),
         0xc2 => ops.jp(condition::NOT_ZERO),
         0xca => ops.jp(condition::ZERO),
         0xd2 => ops.jp(condition::NOT_CARRY),
         0xda => ops.jp(condition::CARRY),
 
-        // Calls
+        // Calls ----------------------------------------------------------------------------------
         0xcd => ops.call(()),
         0xc4 => ops.call(condition::NOT_ZERO),
         0xcc => ops.call(condition::ZERO),
         0xd4 => ops.call(condition::NOT_CARRY),
         0xdc => ops.call(condition::CARRY),
+
+        // Returns --------------------------------------------------------------------------------
+        0xc9 => ops.ret(()),
+        0xc0 => ops.ret(condition::NOT_ZERO),
+        0xc8 => ops.ret(condition::ZERO),
+        0xd0 => ops.ret(condition::NOT_CARRY),
+        0xd8 => ops.ret(condition::CARRY),
+        0xd9 => ops.reti(),
 
         // 8-bit Increment and Decrement ----------------------------------------------------------
         // INC _

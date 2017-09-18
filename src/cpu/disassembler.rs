@@ -94,6 +94,14 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Call(cond.into_condition(), Data16(self.next16()))
     }
 
+    fn ret<C: Condition>(&mut self, cond: C) -> Instruction {
+        Instruction::Return(cond.into_condition())
+    }
+
+    fn reti(&mut self) -> Instruction {
+        Instruction::ReturnAndEnableInterrupts
+    }
+
     fn ei(&mut self) -> Instruction {
         Instruction::EnableInterrupts
     }

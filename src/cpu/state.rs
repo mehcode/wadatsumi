@@ -95,7 +95,19 @@ impl State {
         // TODO: There is a 1-cycle delay
 
         self.sp = self.sp.wrapping_sub(2);
+
         bus.write16(self.sp, value);
+    }
+
+    #[inline]
+    pub fn pop16<B: Bus>(&mut self, bus: &mut B) -> u16 {
+        // TODO: There is a 1-cycle delay
+
+        let value = bus.read16(self.sp);
+
+        self.sp = self.sp.wrapping_add(2);
+
+        value
     }
 
     #[inline]

@@ -101,6 +101,8 @@ pub enum Instruction {
     JumpRelative(Option<Condition>, SignedData8),
     Jump(Option<Condition>, Data16),
     Call(Option<Condition>, Data16),
+    Return(Option<Condition>),
+    ReturnAndEnableInterrupts,
     Increment8(Operand8),
     Decrement8(Operand8),
     And(Operand8),
@@ -123,7 +125,7 @@ fn binary<T: fmt::Display, U: fmt::Display>(
     arg0: T,
     arg1: U,
 ) -> fmt::Result {
-    write!(f, "{} {} {}", instr, arg0, arg1)
+    write!(f, "{} {}, {}", instr, arg0, arg1)
 }
 
 impl fmt::Display for Instruction {
@@ -135,11 +137,14 @@ impl fmt::Display for Instruction {
             Nop => write!(f, "NOP"),
             EnableInterrupts => write!(f, "EI"),
             DisableInterrupts => write!(f, "DI"),
+            Return(None) => write!(f, "RET"),
+            ReturnAndEnableInterrupts => write!(f, "RETI"),
 
             // Unary (1-argument)
             Jump(None, ref address) => unary(f, "JP", address),
-            JumpRelative(None, ref offset) => unary(f, "JR {}", offset),
+            JumpRelative(None, ref offset) => unary(f, "JR", offset),
             Call(None, ref address) => unary(f, "CALL", address),
+            Return(Some(ref cond)) => unary(f, "RET", cond),
             And(ref operand) => unary(f, "AND", operand),
             Or(ref operand) => unary(f, "OR", operand),
             Xor(ref operand) => unary(f, "XOR", operand),

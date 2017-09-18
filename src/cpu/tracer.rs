@@ -153,6 +153,14 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; call(cond));
     }
 
+    fn ret<C: Condition>(&mut self, cond: C) -> Self::Output {
+        instr_trace!(self; ret(cond));
+    }
+
+    fn reti(&mut self) -> Self::Output {
+        instr_trace!(self; reti());
+    }
+
     fn and<IO: In8 + Out8>(&mut self, io: IO) -> Self::Output {
         instr_trace!(self; and(io));
     }
