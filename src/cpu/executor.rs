@@ -437,6 +437,9 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
 
     #[inline]
     fn rst(&mut self, address: u8) {
+        let pc = self.0.pc;
+        self.0.push16(self.1, pc);
+
         self.0.pc = address as u16;
     }
 
