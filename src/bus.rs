@@ -1,8 +1,19 @@
 pub trait Bus {
-    fn contains(&self, address: u16) -> bool;
+    /// Returns `true` if this instance can handle the given `address`.
+    fn contains(&self, _: u16) -> bool {
+        false
+    }
 
-    fn read8(&self, address: u16) -> u8;
-    fn write8(&mut self, address: u16, value: u8);
+    /// Returns the 8-bit value corresponding to the `address`.
+    fn read8(&self, _: u16) -> u8 {
+        // Return an "unconnected" value
+        0xff
+    }
+
+    /// Writes the 8-bit value to the given `address`.
+    fn write8(&mut self, _: u16, _: u8) {
+        // Do nothing
+    }
 
     #[inline]
     fn read16(&self, address: u16) -> u16 {
@@ -19,37 +30,38 @@ pub trait Bus {
     }
 }
 
-impl<T, U> Bus for (T, U)
-where
-    T: Bus,
-    U: Bus,
-{
-    #[inline]
-    fn contains(&self, address: u16) -> bool {
-        self.0.contains(address) || self.1.contains(address)
-    }
+macro_rules! impl_bus_tuple {
+    ( $($name:ident)+) => (
+        impl<$($name: Bus),*> Bus for ($($name,)*) {
+            #[allow(non_snake_case)]
+            #[inline]
+            fn contains(&self, address: u16) -> bool {
+                let ($(ref $name,)*) = *self;
+                $(if $name.contains(address) { return true; })*
 
-    #[inline]
-    fn read8(&self, address: u16) -> u8 {
-        if self.0.contains(address) {
-            self.0.read8(address)
-        } else if self.1.contains(address) {
-            self.1.read8(address)
-        } else {
-            warn!("unhandled read: {:04x}", address);
+                false
+            }
 
-            0xff
+            #[allow(non_snake_case)]
+            fn read8(&self, address: u16) -> u8 {
+                let ($(ref $name,)*) = *self;
+                $(if $name.contains(address) { return $name.read8(address); })*
+
+                warn!("unhandled read: {:04x}", address);
+
+                0xff
+            }
+
+            #[allow(non_snake_case)]
+            fn write8(&mut self, address: u16, value: u8) {
+                let ($(ref mut $name,)*) = *self;
+                $(if $name.contains(address) { return $name.write8(address, value); })*
+
+                warn!("unhandled write: {:04x} <- {:02x}", address, value);
+            }
         }
-    }
-
-    #[inline]
-    fn write8(&mut self, address: u16, value: u8) {
-        if self.0.contains(address) {
-            self.0.write8(address, value);
-        } else if self.1.contains(address) {
-            self.1.write8(address, value);
-        } else {
-            warn!("unhandled write: {:04x} <- {:02x}", address, value);
-        }
-    }
+    );
 }
+
+impl_bus_tuple!{ A }
+impl_bus_tuple!{ A B }
