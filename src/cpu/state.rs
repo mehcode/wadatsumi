@@ -64,14 +64,14 @@ impl State {
         // TODO: Investigate how to do this properly: BIOS probably
         self.pc = 0x100;
         self.sp = 0xFFFE;
-        self.a = 0x01;
+        self.a = 0;
         self.b = 0;
         self.c = 0x13;
         self.d = 0;
         self.e = 0xd8;
         self.h = 0x01;
         self.l = 0x4d;
-        self.f.bits = 0xB0;
+        self.f.bits = 0;
     }
 
     #[inline]
