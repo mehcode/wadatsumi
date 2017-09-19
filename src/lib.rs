@@ -1,5 +1,5 @@
 #![allow(unused_extern_crates, unused_imports)]
-#![feature(range_contains, inclusive_range_syntax)]
+#![feature(range_contains, inclusive_range_syntax, box_syntax)]
 
 extern crate ansi_term;
 #[macro_use]
@@ -14,3 +14,4 @@ pub mod cartridge;
 pub mod cpu;
 pub mod bus;
 pub mod work_ram;
+pub mod high_ram;

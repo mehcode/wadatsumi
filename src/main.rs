@@ -30,7 +30,7 @@ impl bus::Bus for SerialDataCapture {
 
 fn main() {
     // TODO: Allow configuration in command line options
-    // logger::init(LogLevelFilter::Warn).unwrap();
+    // logger::init(LogLevelFilter::Trace).unwrap();
 
     // TODO: Parse arguments properly
     let argv: Vec<_> = env::args().collect();
@@ -43,9 +43,10 @@ fn main() {
 
     let cartridge = cartridge::Cartridge::from_reader(f).unwrap();
     let work_ram = work_ram::WorkRam::new();
+    let high_ram = high_ram::HighRam::new();
     let serial_data_capture = SerialDataCapture;
 
-    let mut bus = (cartridge, (work_ram, serial_data_capture));
+    let mut bus = (cartridge, (work_ram, (high_ram, serial_data_capture)));
 
     loop {
         cpu.run_next(&mut bus);
