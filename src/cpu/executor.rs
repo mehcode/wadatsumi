@@ -23,8 +23,8 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     }
 
     #[inline]
-    fn load16_immediate(&mut self, dst: Register16) {
-        let value = self.0.next16(self.1);
+    fn load16<I: In16, O: Out16>(&mut self, dst: O, src: I) {
+        let value = src.read16(self.0, self.1);
         dst.write16(self.0, self.1, value);
     }
 

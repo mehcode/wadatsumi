@@ -139,8 +139,8 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; load8(dst, src));
     }
 
-    fn load16_immediate(&mut self, r: Register16) -> Self::Output {
-        instr_trace!(self; load16_immediate(r));
+    fn load16<I: In16, O: Out16>(&mut self, dst: O, src: I) -> Self::Output {
+        instr_trace!(self; load16(dst, src));
     }
 
     fn jp<C: Condition>(&mut self, cond: C, address: Address) -> Self::Output {

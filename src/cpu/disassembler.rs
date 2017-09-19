@@ -1,9 +1,9 @@
 use super::operations::Operations;
-use super::io::{In8, Out8};
+use super::io::{In8, Out8, In16, Out16};
 use super::instruction::{Address, Condition as InstrCondition, Data16, Data8, Instruction,
-                         Operand8, SignedData8};
+                         Operand8, Operand16, SignedData8};
 use super::tracer::BusTracer;
-use super::operands::{Address as OperAddress, Condition, Immediate8, Register16, Register8};
+use super::operands::{Address as OperAddress, Condition, Immediate16, Immediate8, Register16, Register8};
 use super::super::bus::Bus;
 
 pub trait IntoCondition {
@@ -28,6 +28,28 @@ impl IntoAddress for OperAddress {
            OperAddress::HLI => Address::HLI,
        }
    }
+}
+
+pub trait IntoOperand16 {
+    fn into_operand16(self, disassembler: &mut Disassembler) -> Operand16;
+}
+
+impl IntoOperand16 for Immediate16 {
+    fn into_operand16(self, disassembler: &mut Disassembler) -> Operand16 {
+        Operand16::Immediate(Data16(disassembler.next16()))
+    }
+}
+
+impl IntoOperand16 for OperAddress {
+    fn into_operand16(self, disassembler: &mut Disassembler) -> Operand16 {
+        Operand16::Memory(self.into_address(disassembler))
+    }
+}
+
+impl IntoOperand16 for Register16 {
+    fn into_operand16(self, _: &mut Disassembler) -> Operand16 {
+        Operand16::Register(self)
+    }
 }
 
 pub trait IntoOperand8 {
@@ -78,8 +100,8 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Load8(dst.into_operand8(self), src.into_operand8(self))
     }
 
-    fn load16_immediate(&mut self, r: Register16) -> Instruction {
-        Instruction::Load16Immediate(r, Data16(self.next16()))
+    fn load16<I: In16, O: Out16>(&mut self, dst: O, src: I) -> Instruction {
+        Instruction::Load16(dst.into_operand16(self), src.into_operand16(self))
     }
 
     fn inc8<IO: In8 + Out8>(&mut self, io: IO) -> Instruction {

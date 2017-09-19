@@ -201,6 +201,14 @@ impl Out8 for Address {
     }
 }
 
+impl Out16 for Address {
+    #[inline]
+    fn write16<B: Bus>(&self, state: &mut State, bus: &mut B, value: u16) {
+        let address = state.indirect(bus, *self);
+        bus.write16(address, value)
+    }
+}
+
 /// Condition
 pub trait Condition: IntoInstrCondition + Copy + fmt::Debug {
     fn check(&self, state: &State) -> bool;

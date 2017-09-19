@@ -75,7 +75,7 @@ impl fmt::Display for Address {
 
 // Operand8 ---------------------------------------------------------------------------------------
 
-/// Describes a valid operand for an 8-bit instruction.
+/// Describes a valid operand for a 8-bit instruction.
 #[derive(Debug)]
 pub enum Operand8 {
     Register(Register8),
@@ -86,6 +86,28 @@ pub enum Operand8 {
 impl fmt::Display for Operand8 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Operand8::*;
+
+        match *self {
+            Register(register) => write!(f, "{:?}", register),
+            Immediate(ref value) => write!(f, "{}", value),
+            Memory(ref address) => write!(f, "({})", address),
+        }
+    }
+}
+
+// Operand16 ---------------------------------------------------------------------------------------
+
+/// Describes a valid operand for a 16-bit instruction.
+#[derive(Debug)]
+pub enum Operand16 {
+    Register(Register16),
+    Immediate(Data16),
+    Memory(Address),
+}
+
+impl fmt::Display for Operand16 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Operand16::*;
 
         match *self {
             Register(register) => write!(f, "{:?}", register),
@@ -126,7 +148,7 @@ pub enum Instruction {
     Undefined(Data8),
     Nop,
     Load8(Operand8, Operand8),
-    Load16Immediate(Register16, Data16),
+    Load16(Operand16, Operand16),
     JumpRelative(Option<Condition>, SignedData8),
     Jump(Option<Condition>, Address),
     Call(Option<Condition>, Data16),
@@ -231,8 +253,8 @@ impl fmt::Display for Instruction {
             Jump(Some(ref cond), ref address) => binary(f, "JP", cond, address),
             JumpRelative(Some(ref cond), ref offset) => binary(f, "JR", cond, offset),
             Call(Some(ref cond), ref address) => binary(f, "CALL", cond, address),
-            Load8(ref src, ref dst) => binary(f, "LD", src, dst),
-            Load16Immediate(dst, ref value) => binary(f, "LD", dst, value),
+            Load8(ref dst, ref src) => binary(f, "LD", dst, src),
+            Load16(ref dst, ref src) => binary(f, "LD", dst, src),
             BitTest(bit, ref operand) => binary(f, "BIT", bit, operand),
             BitSet(bit, ref operand) => binary(f, "SET", bit, operand),
             BitReset(bit, ref operand) => binary(f, "RST", bit, operand),

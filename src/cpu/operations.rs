@@ -14,7 +14,7 @@ pub trait Operations {
     fn load8<I: In8, O: Out8>(&mut self, O, I) -> Self::Output;
 
     /// 16-bit immediate load
-    fn load16_immediate(&mut self, Register16) -> Self::Output;
+    fn load16<I: In16, O: Out16>(&mut self, O, I) -> Self::Output;
 
     /// Relative jump
     fn jr<C: Condition>(&mut self, C) -> Self::Output;
@@ -241,20 +241,22 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x22 => ops.load8(Address::HLI, A),
         0x32 => ops.load8(Address::HLD, A),
 
-        // 16-bit Immediate Loads -----------------------------------------------------------------
-        0x01 => ops.load16_immediate(BC),
-        0x11 => ops.load16_immediate(DE),
-        0x21 => ops.load16_immediate(HL),
-        0x31 => ops.load16_immediate(SP),
+        // 16-bit loads ---------------------------------------------------------------------------
+        0x08 => ops.load16(Address::Direct, SP),
+        0x01 => ops.load16(BC, Immediate16),
+        0x11 => ops.load16(DE, Immediate16),
+        0x21 => ops.load16(HL, Immediate16),
+        0x31 => ops.load16(SP, Immediate16),
+        0xf9 => ops.load16(SP, HL),
 
-        // Relative Jumps -------------------------------------------------------------------------
+        // Relative jumps -------------------------------------------------------------------------
         0x18 => ops.jr(()),
         0x20 => ops.jr(condition::NOT_ZERO),
         0x28 => ops.jr(condition::ZERO),
         0x30 => ops.jr(condition::NOT_CARRY),
         0x38 => ops.jr(condition::CARRY),
 
-        // Absolute Jumps -------------------------------------------------------------------------
+        // Absolute jumps -------------------------------------------------------------------------
         0xc3 => ops.jp((), Address::Direct),
         0xc2 => ops.jp(condition::NOT_ZERO, Address::Direct),
         0xca => ops.jp(condition::ZERO, Address::Direct),
