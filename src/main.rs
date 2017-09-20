@@ -6,6 +6,7 @@ extern crate wadatsumi;
 
 mod logger;
 
+use std::time;
 use std::env;
 use std::fs;
 use log::LogLevelFilter;
@@ -19,12 +20,7 @@ impl bus::Bus for SerialDataCapture {
         0xFF01 == address
     }
 
-    fn read8(&self, _: u16) -> u8 {
-        0xff
-    }
-
     fn write8(&mut self, _: u16, value: u8) {
-        print!("{}", value as char)
     }
 }
 
@@ -47,8 +43,16 @@ fn main() {
     let serial_data_capture = SerialDataCapture;
 
     let mut bus = (cartridge, (work_ram, (high_ram, serial_data_capture)));
+    let now = time::Instant::now();
+    let instructions = 100_000_000;
 
-    loop {
+    for _ in 0..instructions {
         cpu.run_next(&mut bus);
     }
+
+    let elapsed = now.elapsed();
+    let microseconds = ((elapsed.as_secs() * 1_000_000) + (elapsed.subsec_nanos() as u64)) / 1_000;
+
+    println!("elapsed: {} µs", microseconds);
+    println!("ipµs: {}", (instructions as f64) / (microseconds as f64));
 }

@@ -41,7 +41,6 @@ impl fmt::Display for Flags {
     }
 }
 
-#[derive(Default)]
 pub struct State {
     /// Stack Pointer (SP)
     pub sp: u16,
@@ -60,6 +59,22 @@ pub struct State {
 }
 
 impl State {
+    pub fn new() -> Self {
+        // FIXME(@rust): These numbers are duplicated with `reset`
+        Self {
+            pc: 0x100,
+            sp: 0xFFFE,
+            a: 0,
+            b: 0,
+            c: 0x13,
+            d: 0,
+            e: 0xd8,
+            h: 0x01,
+            l: 0x4d,
+            f: Flags::empty(),
+        }
+    }
+
     pub fn reset(&mut self) {
         // TODO: Investigate how to do this properly: BIOS probably
         self.pc = 0x100;

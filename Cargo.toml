@@ -21,3 +21,7 @@ codegen-units = 1
 debug-assertions = false
 rpath = false
 panic = "abort"
+
+[dev-dependencies]
+criterion = { git = "https://github.com/japaric/criterion.rs" }
+criterion-macros = { git = "https://github.com/japaric/criterion.rs" }

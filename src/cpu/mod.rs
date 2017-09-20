@@ -15,14 +15,15 @@ use self::operations::Operations;
 use self::executor::Executor;
 
 /// Interpreter for the Sharp LR35902, the Nintendo® Game Boy CPU.
-#[derive(Default)]
 pub struct Cpu {
     state: State,
 }
 
 impl Cpu {
     pub fn new() -> Self {
-        Self::default()
+        Cpu {
+            state: State::new(),
+        }
     }
 
     pub fn reset(&mut self) {
