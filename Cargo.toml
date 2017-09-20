@@ -12,16 +12,18 @@ lazy_static = "0.2"
 bitflags = "1"
 ansi_term = "0.9"
 chrono = "0.4"
+time = "0.1"
 
 [profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+panic = "abort"
+
+[profile.test]
 lto = true
 opt-level = 3
 debug = false
 codegen-units = 1
 debug-assertions = false
-rpath = false
 panic = "abort"
-
-[dev-dependencies]
-criterion = { git = "https://github.com/japaric/criterion.rs" }
-criterion-macros = { git = "https://github.com/japaric/criterion.rs" }

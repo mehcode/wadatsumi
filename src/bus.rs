@@ -73,3 +73,4 @@ macro_rules! impl_bus_tuple {
 
 impl_bus_tuple!{ A }
 impl_bus_tuple!{ A B }
+impl_bus_tuple!{ A B C }
