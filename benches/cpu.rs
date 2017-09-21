@@ -60,13 +60,13 @@ fn cpu_instrs() {
     for file_name in roms {
         println!("bench {} ...", file_name);
 
-        let mut cpu = wadatsumi::cpu::Cpu::new();
+        let mut cpu = wadatsumi::Cpu::new();
 
         let file = fs::File::open(&format!(".cache/gb-test-roms-master/cpu_instrs/individual/{}.gb", file_name)).unwrap();
-        let cartridge = wadatsumi::cartridge::Cartridge::from_reader(file).unwrap();
+        let cartridge = wadatsumi::Cartridge::from_reader(file).unwrap();
 
-        let work_ram = wadatsumi::work_ram::WorkRam::new();
-        let high_ram = wadatsumi::high_ram::HighRam::new();
+        let work_ram = wadatsumi::WorkRam::new();
+        let high_ram = wadatsumi::HighRam::new();
 
         let mut bus = (cartridge, work_ram, high_ram);
         let start = precise_time_ns();
