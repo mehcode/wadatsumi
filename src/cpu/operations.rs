@@ -127,6 +127,9 @@ pub trait Operations {
     /// Reset
     fn rst(&mut self, address: u8) -> Self::Output;
 
+    /// Inverts all bits of the 8-bit register A.
+    fn cpl(&mut self) -> Self::Output;
+
     /// Undefined operation
     fn undefined(&mut self, opcode: u8) -> Self::Output;
 }
@@ -426,6 +429,7 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x00 => ops.nop(),
         0xf3 => ops.di(),
         0xfb => ops.ei(),
+        0x2f => ops.cpl(),
         _ => ops.undefined(opcode),
     }
 }

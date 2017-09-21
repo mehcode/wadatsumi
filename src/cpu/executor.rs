@@ -448,6 +448,13 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     }
 
     #[inline]
+    fn cpl(&mut self) {
+        self.0.a ^= 0xff;
+        self.0.f.set(Flags::ADD_SUBTRACT, true);
+        self.0.f.set(Flags::HALF_CARRY, true);
+    }
+
+    #[inline]
     fn undefined(&mut self, opcode: u8) {
         panic!("undefined opcode {:02x}", opcode);
     }

@@ -252,6 +252,10 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Reset(Data8(address))
     }
 
+    fn cpl(&mut self) -> Instruction {
+        Instruction::Invert
+    }
+
     fn undefined(&mut self, opcode: u8) -> Instruction {
         Instruction::Undefined(Data8(opcode))
     }
