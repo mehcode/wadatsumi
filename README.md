@@ -1,4 +1,5 @@
 # Wadatsumi
+[![Build Status](https://travis-ci.org/mehcode/wadatsumi.svg?branch=master)](https://travis-ci.org/mehcode/wadatsumi)
 > Accuracy-focused Gameboy (DMG/MGB) emulator written in Rust.
 
 ## License
