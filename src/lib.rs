@@ -15,3 +15,9 @@ pub mod cpu;
 pub mod bus;
 pub mod work_ram;
 pub mod high_ram;
+
+pub use self::cpu::Cpu;
+pub use self::bus::Bus;
+pub use self::cartridge::Cartridge;
+pub use self::high_ram::HighRam;
+pub use self::work_ram::WorkRam;
