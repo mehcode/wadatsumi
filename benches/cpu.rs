@@ -1,36 +1,70 @@
-extern crate wadatsumi;
+extern crate flate2;
+extern crate reqwest;
+extern crate tar;
 extern crate time;
+extern crate wadatsumi;
 
 use std::fs;
-use time::{Duration, precise_time_ns};
+use std::path::Path;
+use time::{precise_time_ns, Duration};
+use flate2::read::GzDecoder;
+use tar::Archive;
 
 const ITERATIONS: u64 = 250_000_000;
 
+use std::sync::{Once, ONCE_INIT};
+
+static START: Once = ONCE_INIT;
+
+// Download the test roms to .cache/ (only if we don't have them already)
+// FIXME: Duplicated code with benches/
+fn before() {
+    const URI_GB_TEST_ROMS: &str = "https://github.com/mehcode/gb-test-roms/archive/master.tar.gz";
+
+    START.call_once(|| {
+        if !Path::new(".cache/gb-test-roms-master").exists() {
+            let response = reqwest::get(URI_GB_TEST_ROMS).unwrap();
+            let mut archive = Archive::new(GzDecoder::new(response).unwrap());
+
+            fs::create_dir_all(".cache").unwrap();
+
+            archive.unpack(".cache").unwrap();
+        }
+    });
+}
+
 #[test]
 fn cpu_instrs() {
-    let benchmarks = &[
-        // "01-special.gb",
-        // "02-interrupts.gb",
-        // "03-op sp,hl.gb",
-        // "04-op r,imm.gb",
-        "05-op rp.gb",
-        "06-ld r,r.gb",
-        "07-jr,jp,call,ret,rst.gb",
-        "08-misc instrs.gb",
-        // "09-op r,r.gb",
-        "10-bit ops.gb",
-        // "11-op a,(hl).gb",
+    before();
+
+    let roms = &[
+        // "01-special",
+        // "02-interrupts",
+        // "03-op sp,hl",
+        // "04-op r,imm",
+        "05-op rp",
+        "06-ld r,r",
+        "07-jr,jp,call,ret,rst",
+        "08-misc instrs",
+        // "09-op r,r",
+        "10-bit ops",
+        // "11-op a,(hl)",
     ];
 
-    println!("\nrunning {} benchmark{}\n", benchmarks.len(), if benchmarks.len() == 1 { ' ' } else { 's' });
+    println!(
+        "\nrunning {} benchmark{}\n",
+        roms.len(),
+        if roms.len() == 1 { ' ' } else { 's' }
+    );
 
-    for benchmark in benchmarks {
-        println!("bench {} ...", benchmark);
+    for file_name in roms {
+        println!("bench {} ...", file_name);
 
         let mut cpu = wadatsumi::cpu::Cpu::new();
-        let f = fs::File::open(&format!("/home/mehcode/Workspace/github.com/retrio/gb-test-roms/cpu_instrs/individual/{}", benchmark)).unwrap();
 
-        let cartridge = wadatsumi::cartridge::Cartridge::from_reader(f).unwrap();
+        let file = fs::File::open(&format!(".cache/gb-test-roms-master/cpu_instrs/individual/{}.gb", file_name)).unwrap();
+        let cartridge = wadatsumi::cartridge::Cartridge::from_reader(file).unwrap();
+
         let work_ram = wadatsumi::work_ram::WorkRam::new();
         let high_ram = wadatsumi::high_ram::HighRam::new();
 
@@ -41,30 +75,14 @@ fn cpu_instrs() {
             cpu.run_next(&mut bus);
         }
 
-        let elapsed = Duration::nanoseconds((precise_time_ns() - start) as i64).num_microseconds().unwrap();
+        let elapsed = Duration::nanoseconds((precise_time_ns() - start) as i64)
+            .num_microseconds()
+            .unwrap();
 
         println!(" > elapsed: {}μs", elapsed);
-        println!(" > instructions/μs: {}", (ITERATIONS as f64) / (elapsed as f64));
-        println!("");
+        println!(
+            " > instructions/μs: {}\n",
+            (ITERATIONS as f64) / (elapsed as f64)
+        );
     }
 }
-
-// /*
-//
-// running 1 test
-// Gnuplot not found, disabling plotting
-// Benchmarking fib5
-// > Warming up for 3.0000 s
-// > Collecting 100 samples in estimated 5.0001 s
-// > Performing linear regression
-//   >  slope [23.231 ns 23.393 ns]
-//   >    R^2  0.9717595 0.9717867
-// > Estimating the statistics of the sample
-//   >   mean [23.170 ns 23.306 ns]
-//   > median [23.038 ns 23.261 ns]
-//   >    MAD [245.17 ps 522.79 ps]
-//   >     SD [314.85 ps 375.77 ps]
-//
-// test fib5 ... ok
-//
-//  */
