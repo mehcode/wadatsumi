@@ -179,6 +179,10 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; sub(src));
     }
 
+    fn sbc<I: In8>(&mut self, src: I) -> Self::Output {
+        instr_trace!(self; sbc(src));
+    }
+
     fn cp<I: In8>(&mut self, src: I) -> Self::Output {
         instr_trace!(self; cp(src));
     }

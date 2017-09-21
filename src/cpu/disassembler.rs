@@ -144,6 +144,10 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::Sub(src.into_operand8(self))
     }
 
+    fn sbc<I: In8>(&mut self, src: I) -> Instruction {
+        Instruction::SubWithCarry(src.into_operand8(self))
+    }
+
     fn cp<I: In8>(&mut self, src: I) -> Instruction {
         Instruction::Compare(src.into_operand8(self))
     }

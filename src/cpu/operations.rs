@@ -43,6 +43,9 @@ pub trait Operations {
     /// Subtraction
     fn sub<I: In8>(&mut self, I) -> Self::Output;
 
+    /// Subtraction (with carry)
+    fn sbc<I: In8>(&mut self, I) -> Self::Output;
+
     /// Compare
     fn cp<I: In8>(&mut self, I) -> Self::Output;
 
@@ -376,6 +379,17 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x95 => ops.sub(L),
         0x96 => ops.sub(Address::HL),
         0x97 => ops.sub(A),
+
+        // Subtraction (with carry) -------------------------------------------------------------
+        0xde => ops.sbc(Immediate8),
+        0x98 => ops.sbc(B),
+        0x99 => ops.sbc(C),
+        0x9a => ops.sbc(D),
+        0x9b => ops.sbc(E),
+        0x9c => ops.sbc(H),
+        0x9d => ops.sbc(L),
+        0x9e => ops.sbc(Address::HL),
+        0x9f => ops.sbc(A),
 
         // Compare --------------------------------------------------------------------------------
         0xfe => ops.cp(Immediate8),

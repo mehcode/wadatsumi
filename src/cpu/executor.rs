@@ -98,8 +98,6 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         // TODO: Extra cycle goes here
     }
 
-    // ADD _
-    // A = A + _
     #[inline]
     fn add8<I: In8>(&mut self, src: I) {
         let a = self.0.a as u16;
@@ -116,8 +114,6 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.0.a = result as u8;
     }
 
-    // ADC _
-    // A = A + _ + CARRY
     #[inline]
     fn adc8<I: In8>(&mut self, src: I) {
         let a = self.0.a as u16;
@@ -136,8 +132,6 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.0.a = result as u8;
     }
 
-    // SUB _
-    // A = A - _
     #[inline]
     fn sub<I: In8>(&mut self, src: I) {
         // FIXME: Duplicate code with `compare`
@@ -157,7 +151,21 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.0.a = result as u8;
     }
 
-    // CP _
+    #[inline]
+    fn sbc<I: In8>(&mut self, src: I) {
+        let a = self.0.a as i16;
+        let value = src.read8(self.0, self.1) as i16;
+        let carry = self.0.f.contains(Flags::CARRY) as i16;
+        let result = a- value- carry;
+
+        self.0.f.set(Flags::CARRY, result < 0);
+        self.0.f.set(Flags::ZERO, (result & 0xFF) == 0);
+        self.0.f.set(Flags::ADD_SUBTRACT, true);
+        self.0.f.set(Flags::HALF_CARRY, ((((a as i16) & 0x0F) - ((value as i16) & 0x0F) - (carry as i16)) < 0));
+
+        self.0.a = (result & 0xFF) as u8;
+    }
+
     #[inline]
     fn cp<I: In8>(&mut self, src: I) {
         // FIXME: Duplicate code with `sub`
@@ -175,8 +183,6 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         );
     }
 
-    // AND _
-    // A = A & _
     #[inline]
     fn and<I: In8>(&mut self, src: I) {
         let value = src.read8(self.0, self.1);
@@ -190,8 +196,6 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.0.a = result;
     }
 
-    // OR _
-    // A = A | _
     #[inline]
     fn or<I: In8>(&mut self, src: I) {
         let value = src.read8(self.0, self.1);
@@ -205,8 +209,6 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.0.a = result;
     }
 
-    // XOR _
-    // A = A ^ _
     #[inline]
     fn xor<I: In8>(&mut self, src: I) {
         let value = src.read8(self.0, self.1);
