@@ -1,9 +1,10 @@
 use super::operations::Operations;
-use super::io::{In8, Out8, In16, Out16};
+use super::io::{In16, In8, Out16, Out8};
 use super::instruction::{Address, Condition as InstrCondition, Data16, Data8, Instruction,
-                         Operand8, Operand16, SignedData8};
+                         Operand16, Operand8, SignedData8};
 use super::tracer::BusTracer;
-use super::operands::{Address as OperAddress, Condition, Immediate16, Immediate8, Register16, Register8};
+use super::operands::{Address as OperAddress, Condition, Immediate16, Immediate8, Register16,
+                      Register8};
 use super::super::bus::Bus;
 
 pub trait IntoCondition {
@@ -15,19 +16,18 @@ pub trait IntoAddress {
 }
 
 impl IntoAddress for OperAddress {
-    fn into_address(self, disassembler: &mut Disassembler) -> Address
-    {
-       match self {
-           OperAddress::Direct => Address::Direct(Data16(disassembler.next16())),
-           OperAddress::BC => Address::BC,
-           OperAddress::DE => Address::DE,
-           OperAddress::HL => Address::HL,
-           OperAddress::ZeroPage => Address::ZeroPage(Data8(disassembler.next8())),
-           OperAddress::ZeroPageC => Address::ZeroPageC,
-           OperAddress::HLD => Address::HLD,
-           OperAddress::HLI => Address::HLI,
-       }
-   }
+    fn into_address(self, disassembler: &mut Disassembler) -> Address {
+        match self {
+            OperAddress::Direct => Address::Direct(Data16(disassembler.next16())),
+            OperAddress::BC => Address::BC,
+            OperAddress::DE => Address::DE,
+            OperAddress::HL => Address::HL,
+            OperAddress::ZeroPage => Address::ZeroPage(Data8(disassembler.next8())),
+            OperAddress::ZeroPageC => Address::ZeroPageC,
+            OperAddress::HLD => Address::HLD,
+            OperAddress::HLI => Address::HLI,
+        }
+    }
 }
 
 pub trait IntoOperand16 {

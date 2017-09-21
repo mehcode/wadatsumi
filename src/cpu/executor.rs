@@ -1,7 +1,7 @@
 use super::super::bus::Bus;
 use super::io::{In16, In8, Out16, Out8};
 use super::operations;
-use super::operands::{Condition, Address, Register16};
+use super::operands::{Address, Condition, Register16};
 use super::operands::Register8::*;
 use super::State;
 use super::state::Flags;
@@ -87,7 +87,10 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         let value = r.read16(self.0, self.1);
         let result = hl as u32 + value as u32;
 
-        self.0.f.set(Flags::HALF_CARRY, ((hl ^ value ^ ((result & 0xFFFF) as u16)) & 0x1000) != 0);
+        self.0.f.set(
+            Flags::HALF_CARRY,
+            ((hl ^ value ^ ((result & 0xFFFF) as u16)) & 0x1000) != 0,
+        );
         self.0.f.set(Flags::CARRY, result > 0xFFFF);
         self.0.f.set(Flags::ADD_SUBTRACT, false);
 
@@ -125,9 +128,10 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.0.f.set(Flags::ZERO, (result & 0xff) == 0);
         self.0.f.set(Flags::ADD_SUBTRACT, false);
         self.0.f.set(Flags::CARRY, result > 0xFF);
-        self.0
-            .f
-            .set(Flags::HALF_CARRY,((a & 0x0F) + (value & 0x0F) + carry) > 0x0F);
+        self.0.f.set(
+            Flags::HALF_CARRY,
+            ((a & 0x0F) + (value & 0x0F) + carry) > 0x0F,
+        );
 
         self.0.a = result as u8;
     }

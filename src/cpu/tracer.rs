@@ -8,7 +8,7 @@ use super::executor::Executor;
 use super::disassembler::Disassembler;
 use super::operations::Operations;
 use super::State;
-use super::operands::{Condition, Address, Register16};
+use super::operands::{Address, Condition, Register16};
 use super::io::{In16, In8, Out16, Out8};
 
 pub struct BusTracer<'a, B: Bus + 'a> {

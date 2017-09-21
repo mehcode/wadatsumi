@@ -759,8 +759,6 @@ pub fn visit_cb<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xbe => ops.res(7, Address::HL),
         0xbf => ops.res(7, A),
 
-        _ => {
-            unreachable!("unknown opcode: cb {:02x}", opcode)
-        }
+        _ => unreachable!("unknown opcode: cb {:02x}", opcode),
     }
 }

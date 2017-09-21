@@ -6,9 +6,7 @@ pub struct HighRam {
 
 impl HighRam {
     pub fn new() -> Self {
-        Self {
-            ram: box [0; 127],
-        }
+        Self { ram: box [0; 127] }
     }
 }
 

@@ -1,6 +1,6 @@
 use super::super::bus::Bus;
 use super::State;
-use super::disassembler::{IntoOperand8, IntoOperand16};
+use super::disassembler::{IntoOperand16, IntoOperand8};
 use super::instruction::Operand8;
 
 pub trait In8: IntoOperand8 + Copy {
