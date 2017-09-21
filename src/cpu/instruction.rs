@@ -149,6 +149,7 @@ pub enum Instruction {
     Nop,
     Load8(Operand8, Operand8),
     Load16(Operand16, Operand16),
+    Load16HlSp(SignedData8),
     JumpRelative(Option<Condition>, SignedData8),
     Jump(Option<Condition>, Address),
     Call(Option<Condition>, Data16),
@@ -161,6 +162,7 @@ pub enum Instruction {
     Push16(Register16),
     Pop16(Register16),
     Add16Hl(Register16),
+    Add16Sp(SignedData8),
     Add8(Operand8),
     AddWithCarry8(Operand8),
     Sub(Operand8),
@@ -187,6 +189,7 @@ pub enum Instruction {
     InvertA,
     InvertCarry,
     SetCarry,
+    DecimalAdjustAccumulator,
     EnableInterrupts,
     DisableInterrupts,
     Reset(Data8),
@@ -225,6 +228,7 @@ impl fmt::Display for Instruction {
             InvertA => write!(f, "CPL"),
             InvertCarry => write!(f, "CCF"),
             SetCarry => write!(f, "SCF"),
+            DecimalAdjustAccumulator => write!(f, "DAA"),
 
             // Unary (1-argument)
             Jump(None, ref address) => unary(f, "JP", address),
@@ -233,6 +237,7 @@ impl fmt::Display for Instruction {
             Return(Some(ref cond)) => unary(f, "RET", cond),
             Add8(ref operand) => unary(f, "ADD", operand),
             AddWithCarry8(ref operand) => unary(f, "ADC", operand),
+            Add16Sp(ref data) => unary(f, "ADD SP, ", data),
             Add16Hl(ref register) => unary(f, "ADD HL, ", register),
             Sub(ref operand) => unary(f, "SUB", operand),
             SubWithCarry(ref operand) => unary(f, "SBC", operand),
@@ -255,6 +260,7 @@ impl fmt::Display for Instruction {
             ShiftRightA(ref operand) => unary(f, "SRA", operand),
             ByteSwap(ref operand) => unary(f, "SWAP", operand),
             Reset(ref address) => unary(f, "RST", address),
+            Load16HlSp(ref data) => unary(f, "LD HL, SP + ", data),
             Undefined(ref opcode) => unary(f, "UNDEF", opcode),
 
             // Binary (2-argument)

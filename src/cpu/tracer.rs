@@ -307,6 +307,18 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; scf());
     }
 
+    fn daa(&mut self) -> Self::Output {
+        instr_trace!(self; daa());
+    }
+
+    fn add16_sp_e(&mut self) -> Self::Output {
+        instr_trace!(self; add16_sp_e());
+    }
+
+    fn load16_hl_sp_e(&mut self) -> Self::Output {
+        instr_trace!(self; load16_hl_sp_e());
+    }
+
     fn undefined(&mut self, opcode: u8) -> Self::Output {
         instr_trace!(self; undefined(opcode));
     }

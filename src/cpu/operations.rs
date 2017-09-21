@@ -139,6 +139,15 @@ pub trait Operations {
     /// Sets the carry flag.
     fn scf(&mut self) -> Self::Output;
 
+    /// Decimal Adjust Accumulator (DAA)
+    fn daa(&mut self) -> Self::Output;
+
+    /// Add an immediate, signed 8-bit value to SP and store in SP.
+    fn add16_sp_e(&mut self) -> Self::Output;
+
+    /// Add an immediate, signed 8-bit value to SP and store in HL.
+    fn load16_hl_sp_e(&mut self) -> Self::Output;
+
     /// Undefined operation
     fn undefined(&mut self, opcode: u8) -> Self::Output;
 }
@@ -452,6 +461,9 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0x2f => ops.cpl(),
         0x37 => ops.scf(),
         0x3f => ops.ccf(),
+        0xe8 => ops.add16_sp_e(),
+        0xf8 => ops.load16_hl_sp_e(),
+        0x27 => ops.daa(),
         _ => ops.undefined(opcode),
     }
 }

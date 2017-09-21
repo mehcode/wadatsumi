@@ -8,6 +8,24 @@ use super::state::Flags;
 
 pub struct Executor<'a, B: Bus + 'a>(pub &'a mut State, pub &'a mut B);
 
+impl<'a, B: Bus> Executor<'a, B> {
+    #[inline]
+    fn add16_sp_e(&mut self) -> u16 {
+        let sp = Register16::SP.read16(self.0, self.1);
+        let value = ((self.0.next8(self.1)) as i8) as i32;
+        let result = ((sp as i32) + value) as u16;
+
+        self.0.f.set(Flags::CARRY, (result & 0xFF) < (sp & 0xFF));
+        self.0.f.set(Flags::HALF_CARRY, (result & 0xF) < (sp & 0xF));
+        self.0.f.set(Flags::ZERO, false);
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+
+        // TODO: extra cycle goes here
+
+        result
+    }
+}
+
 impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     type Output = ();
 
@@ -96,6 +114,20 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
 
         Register16::HL.write16(self.0, self.1, (result & 0xFFFF) as u16);
         // TODO: Extra cycle goes here
+    }
+
+    #[inline]
+    fn add16_sp_e(&mut self) {
+        let result = self.add16_sp_e();
+
+        Register16::SP.write16(self.0, self.1, result);
+    }
+
+    #[inline]
+    fn load16_hl_sp_e(&mut self) {
+        let result = self.add16_sp_e();
+
+        Register16::HL.write16(self.0, self.1, result);
     }
 
     #[inline]
@@ -468,6 +500,52 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
         self.0.f.set(Flags::ADD_SUBTRACT, false);
         self.0.f.set(Flags::HALF_CARRY, false);
         self.0.f.set(Flags::CARRY, true);
+    }
+
+    fn daa(&mut self) {
+        // When this instruction is executed, the A register is BCD corrected
+        // using the contents of the flags. The exact process is the following:
+        // if the least significant four bits of A contain a non-BCD digit (i. e.
+        // it is greater than 9) or the H flag is set, then $06 is added to the
+        // register. Then the four most significant bits are checked. If this
+        // more significant digit also happens to be greater than 9 or the C
+        // flag is set, then $60 is added.
+        //
+        // If the N flag is set, subtract instead of add.
+        //
+        // If the lower 4 bits form a number greater than 9 or H is set,
+        // add $06 to the accumulator
+
+        let mut r = self.0.a as u16;
+        let mut correction = if self.0.f.contains(Flags::CARRY) {
+            0x60u16
+        } else {
+            0x00u16
+        };
+
+        if self.0.f.contains(Flags::HALF_CARRY) || ((!self.0.f.contains(Flags::ADD_SUBTRACT)) && ((r & 0x0F) > 9)) {
+            correction |= 0x06;
+        }
+
+        if self.0.f.contains(Flags::CARRY) || ((!self.0.f.contains(Flags::ADD_SUBTRACT)) && (r > 0x99)) {
+            correction |= 0x60;
+        }
+
+        if self.0.f.contains(Flags::ADD_SUBTRACT) {
+            r = r.wrapping_sub(correction);
+        } else {
+            r = r.wrapping_add(correction);
+        }
+
+        if ((correction << 2) & 0x100) != 0 {
+            self.0.f.set(Flags::CARRY, true);
+        }
+
+        // Half-carry is always unset (unlike a Z-80)
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::ZERO, (r & 0xFF) == 0);
+
+        self.0.a = (r & 0xFF) as u8;
     }
 
     #[inline]

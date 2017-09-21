@@ -268,6 +268,18 @@ impl<'a> Operations for Disassembler<'a> {
         Instruction::SetCarry
     }
 
+    fn daa(&mut self) -> Instruction {
+        Instruction::DecimalAdjustAccumulator
+    }
+
+    fn add16_sp_e(&mut self) -> Instruction {
+        Instruction::Add16Sp(SignedData8(self.next8() as i8))
+    }
+
+    fn load16_hl_sp_e(&mut self) -> Instruction {
+        Instruction::Load16HlSp(SignedData8(self.next8() as i8))
+    }
+
     fn undefined(&mut self, opcode: u8) -> Instruction {
         Instruction::Undefined(Data8(opcode))
     }
