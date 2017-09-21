@@ -455,6 +455,20 @@ impl<'a, B: Bus> operations::Operations for Executor<'a, B> {
     }
 
     #[inline]
+    fn ccf(&mut self) {
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.toggle(Flags::CARRY);
+    }
+
+    #[inline]
+    fn scf(&mut self) {
+        self.0.f.set(Flags::ADD_SUBTRACT, false);
+        self.0.f.set(Flags::HALF_CARRY, false);
+        self.0.f.set(Flags::CARRY, true);
+    }
+
+    #[inline]
     fn undefined(&mut self, opcode: u8) {
         panic!("undefined opcode {:02x}", opcode);
     }

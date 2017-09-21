@@ -183,7 +183,9 @@ pub enum Instruction {
     BitTest(u8, Operand8),
     BitSet(u8, Operand8),
     BitReset(u8, Operand8),
-    Invert,
+    InvertA,
+    InvertCarry,
+    SetCarry,
     EnableInterrupts,
     DisableInterrupts,
     Reset(Data8),
@@ -219,7 +221,9 @@ impl fmt::Display for Instruction {
             RotateAccumulatorLeft => write!(f, "RLA"),
             RotateAccumulatorRightCircular => write!(f, "RRCA"),
             RotateAccumulatorRight => write!(f, "RRA"),
-            Invert => write!(f, "CPL"),
+            InvertA => write!(f, "CPL"),
+            InvertCarry => write!(f, "CCF"),
+            SetCarry => write!(f, "SCF"),
 
             // Unary (1-argument)
             Jump(None, ref address) => unary(f, "JP", address),

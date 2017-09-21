@@ -130,6 +130,12 @@ pub trait Operations {
     /// Inverts all bits of the 8-bit register A.
     fn cpl(&mut self) -> Self::Output;
 
+    /// Inverts the carry flag.
+    fn ccf(&mut self) -> Self::Output;
+
+    /// Sets the carry flag.
+    fn scf(&mut self) -> Self::Output;
+
     /// Undefined operation
     fn undefined(&mut self, opcode: u8) -> Self::Output;
 }
@@ -430,6 +436,8 @@ pub fn visit<O: Operations>(mut ops: O, opcode: u8) -> O::Output {
         0xf3 => ops.di(),
         0xfb => ops.ei(),
         0x2f => ops.cpl(),
+        0x37 => ops.scf(),
+        0x3f => ops.ccf(),
         _ => ops.undefined(opcode),
     }
 }

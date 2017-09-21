@@ -253,7 +253,15 @@ impl<'a> Operations for Disassembler<'a> {
     }
 
     fn cpl(&mut self) -> Instruction {
-        Instruction::Invert
+        Instruction::InvertA
+    }
+
+    fn ccf(&mut self) -> Instruction {
+        Instruction::InvertCarry
+    }
+
+    fn scf(&mut self) -> Instruction {
+        Instruction::SetCarry
     }
 
     fn undefined(&mut self, opcode: u8) -> Instruction {

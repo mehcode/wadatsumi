@@ -295,6 +295,14 @@ impl<'a, B: Bus> Operations for InstructionTracer<'a, B> {
         instr_trace!(self; cpl());
     }
 
+    fn ccf(&mut self) -> Self::Output {
+        instr_trace!(self; ccf());
+    }
+
+    fn scf(&mut self) -> Self::Output {
+        instr_trace!(self; scf());
+    }
+
     fn undefined(&mut self, opcode: u8) -> Self::Output {
         instr_trace!(self; undefined(opcode));
     }
