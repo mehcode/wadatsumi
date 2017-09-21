@@ -1,11 +1,11 @@
-mod operands;
-mod state;
-mod operations;
-mod io;
-mod executor;
-mod instruction;
-mod tracer;
-mod disassembler;
+pub mod operands;
+pub mod state;
+pub mod operations;
+pub mod io;
+pub mod executor;
+pub mod instruction;
+pub mod tracer;
+pub mod disassembler;
 
 pub use self::state::State;
 

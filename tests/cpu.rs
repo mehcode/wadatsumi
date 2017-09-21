@@ -12,7 +12,6 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 use tar::Archive;
 use std::sync::{Once, ONCE_INIT};
-use wadatsumi::{Cpu, Bus};
 
 static START: Once = ONCE_INIT;
 
@@ -37,7 +36,7 @@ fn before() {
 #[derive(Default)]
 struct SerialDataCapture(Rc<RefCell<String>>);
 
-impl Bus for SerialDataCapture {
+impl wadatsumi::bus::Bus for SerialDataCapture {
     fn contains(&self, address: u16) -> bool {
         0xFF01 == address
     }
@@ -48,10 +47,10 @@ impl Bus for SerialDataCapture {
 }
 
 // Setup a barebones emulator to run a test _just_ the CPU with
-fn before_each(filename: &str) -> (Cpu, impl Bus, Rc<RefCell<String>>) {
+fn before_each(filename: &str) -> (wadatsumi::cpu::Cpu, impl wadatsumi::Bus, Rc<RefCell<String>>) {
     let file = fs::File::open(&format!(".cache/gb-test-roms-master/cpu_instrs/individual/{}.gb", filename)).unwrap();
 
-    let cpu = Cpu::new();
+    let cpu = wadatsumi::cpu::Cpu::new();
 
     let cartridge = wadatsumi::Cartridge::from_reader(file).unwrap();
     let work_ram = wadatsumi::WorkRam::new();
