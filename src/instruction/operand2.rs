@@ -1,6 +1,7 @@
 use super::{Register, Shift};
 use bitintr::Bextr;
 use std::fmt::{self, Display, Formatter};
+use crate::state::State;
 
 // todo: better name than Operand2?
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
@@ -10,6 +11,18 @@ pub enum Operand2 {
 }
 
 impl Operand2 {
+    pub fn value(self, state: &State) -> u32 {
+        match self {
+            Operand2::Immediate { rotate, value } => {
+                (value as u32).rotate_right((rotate as u32) * 2)
+            }
+
+            Operand2::Register { shift, m } => {
+                shift.apply(state, *state.r(m))
+            }
+        }
+    }
+
     pub fn decode(code: u32, immediate: bool) -> Self {
         if immediate {
             Operand2::Immediate {

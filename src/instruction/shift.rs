@@ -7,6 +7,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 use unchecked_unwrap::UncheckedUnwrap;
+use crate::state::State;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, FromPrimitive)]
 #[repr(u8)]
@@ -31,6 +32,19 @@ impl ShiftType {
 }
 
 impl Shift {
+    pub fn apply(self, state: &State, value: u32) -> u32 {
+        match self {
+            Shift::Immediate { amount: 0, .. } => {
+                // No shift
+                value
+            }
+
+            _ => {
+                unimplemented!("unhandled")
+            }
+        }
+    }
+
     #[inline]
     pub fn decode(code: u32) -> Self {
         let type_ = ShiftType::decode(code.bextr(1, 2));
