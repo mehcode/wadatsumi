@@ -1,0 +1,8 @@
+# IDEA
+.idea/
+
+# Rust
+target/
+
+# Binaries
+*.gba
