@@ -54,7 +54,7 @@ impl Cpu {
 
         if let Some(ix) = self.instruction_pipeline[index] {
             // todo: -8 isn't good enough for THUMB
-            println!("execute [0x{:x}] [{:b}] {}", self.state.r15 - 8, self.opcode_pipeline[index].unwrap_or(0), ix);
+            println!("execute [0x{:x}] {}", self.state.r15 - 8, ix);
 
             execute(ix, &mut self.state, mem);
         }

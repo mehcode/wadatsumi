@@ -16,7 +16,9 @@ use self::state::State;
 use self::memory::Memory;
 
 fn main() -> Result<(), Error> {
-    let mut rom = fs::read("./hello_world.gba")?;
+    pretty_env_logger::try_init_timed()?;
+
+    let mut rom = fs::read("./suite.gba")?;
     let mut mem = Memory::new(rom);
     let mut cpu = Cpu::default();
 

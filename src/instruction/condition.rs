@@ -2,6 +2,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::fmt::{self, Display, Formatter};
 use unchecked_unwrap::UncheckedUnwrap;
+use bitintr::Bextr;
 
 /// A condition that must pass before an instruction can be executed.
 /// ARM instructions require this property but can use `AL` or `Always` to nop out of
@@ -30,6 +31,16 @@ impl Condition {
     #[inline]
     pub fn decode(code: u32) -> Self {
         unsafe { Condition::from_u32(code).unchecked_unwrap() }
+    }
+
+    #[inline]
+    pub fn check(&self, status: u32) -> bool {
+        match self {
+            Condition::Always => true,
+            Condition::Equal => status.bextr(31, 1) == 1,
+
+            _ => unimplemented!("unhandled condition check {:?}", self),
+        }
     }
 }
 

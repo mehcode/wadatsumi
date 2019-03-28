@@ -33,14 +33,31 @@ impl ShiftType {
 
 impl Shift {
     pub fn apply(self, state: &State, value: u32) -> u32 {
-        match self {
-            Shift::Immediate { amount: 0, .. } => {
-                // No shift
-                value
+        let (amount, type_) = match self {
+            Shift::Immediate { amount, type_ } => {
+                (amount as u32, type_)
             }
 
-            _ => {
-                unimplemented!("unhandled")
+            Shift::Register { s, type_ } => {
+                (*state.r(s), type_)
+            }
+        };
+
+        match type_ {
+            ShiftType::LogicalLeft => {
+                value << amount
+            }
+
+            ShiftType::ArithmeticRight => {
+                (( value as i32 ) >> amount) as u32
+            }
+
+            ShiftType::LogicalRight => {
+                value >> amount
+            }
+
+            ShiftType::RotateRight => {
+                value.rotate_right(amount)
             }
         }
     }

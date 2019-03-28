@@ -40,6 +40,10 @@ impl Memory {
         match address {
             0x02000000..=0x0203FFFF => self.work_ram_1[(address - 0x02000000) as usize],
             0x03000000..=0x03007FFF => self.work_ram_2[(address - 0x03000000) as usize],
+
+            // Mirror of 0x03_FF_FF_xx
+            0x03FFFF00..=0x03FFFFFF => self.work_ram_2[((address - 0x03FFFF00) + 0x7F00) as usize],
+
             0x08000000..=0x0DFFFFFF => self.rom[(address - 0x08000000) as usize],
 
             _ => {
@@ -52,6 +56,10 @@ impl Memory {
         *(match address {
             0x02000000..=0x0203FFFF => &mut self.work_ram_1[(address - 0x02000000) as usize],
             0x03000000..=0x03007FFF => &mut self.work_ram_2[(address - 0x03000000) as usize],
+
+            // Mirror of 0x03_FF_FF_xx
+            0x03FFFF00..=0x03FFFFFF => &mut self.work_ram_2[((address - 0x03FFFF00) + 0x7F00) as usize],
+
             0x08000000..=0x0DFFFFFF => &mut self.rom[(address - 0x08000000) as usize],
 
             _ => {
@@ -67,10 +75,16 @@ impl Memory {
         let c = self.read_u8(address + 2) as u32;
         let d = self.read_u8(address + 3) as u32;
 
-        a | (b << 8) | (c << 16) | (d << 24)
+        let value = a | (b << 8) | (c << 16) | (d << 24);
+
+        log::trace!("read [0x{:x}] -> 0x{:08x} (u32)", address, value);
+
+        value
     }
 
     pub fn write_u32(&mut self, address: u32, value: u32) {
+        log::trace!("write [0x{:x}] <- 0x{:08x} (u32)", address, value);
+
         self.write_u8(address, value as u8);
         self.write_u8(address + 1, (value >> 8) as u8);
         self.write_u8(address + 2, (value >> 16) as u8);

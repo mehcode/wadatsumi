@@ -8,11 +8,17 @@ pub fn execute(ix: Instruction, state: &mut State, mem: &mut Memory) {
         Instruction::Branch {
             cond, link, offset,
         } => {
-            // todo: condition
             // todo: link
 
-            state.r15 = state.r15.wrapping_add(offset);
-            state.needs_pipeline_flush = true;
+            if cond.check(state.cpsr) {
+                state.r15 = state.r15.wrapping_add(offset);
+                state.needs_pipeline_flush = true;
+            }
+        }
+
+        Instruction::BranchExchange { cond, n } => {
+            // todo: condition
+            unimplemented!("bx {} = 0x{:x}", n, *state.r(n));
         }
 
         Instruction::DataProcessing {
@@ -27,6 +33,14 @@ pub fn execute(ix: Instruction, state: &mut State, mem: &mut Memory) {
             // todo: set condition
 
             match op {
+                DataProcessingOperation::Add => {
+                    *state.r_mut(d) = state.r(n).wrapping_add(o.value(state));
+                }
+
+                DataProcessingOperation::Subtract => {
+                    *state.r_mut(d) = state.r(n).wrapping_sub(o.value(state));
+                }
+
                 DataProcessingOperation::Move => {
                     *state.r_mut(d) = o.value(state);
                 },
@@ -37,8 +51,6 @@ pub fn execute(ix: Instruction, state: &mut State, mem: &mut Memory) {
 
                 _ => unimplemented!("execute data processing operation: {:?}", op)
             }
-
-            println!("{} = {:x}", d, *state.r(d));
         }
 
         Instruction::StatusTransferFrom {
