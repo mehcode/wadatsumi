@@ -48,6 +48,18 @@ impl Memory {
         }
     }
 
+    pub fn write_u8(&mut self, address: u32, value: u8) {
+        *(match address {
+            0x02000000..=0x0203FFFF => &mut self.work_ram_1[(address - 0x02000000) as usize],
+            0x03000000..=0x03007FFF => &mut self.work_ram_2[(address - 0x03000000) as usize],
+            0x08000000..=0x0DFFFFFF => &mut self.rom[(address - 0x08000000) as usize],
+
+            _ => {
+                unimplemented!("write to unhandled address 0x{:x}", address)
+            }
+        }) = value;
+    }
+
     pub fn read_u32(&self, address: u32) -> u32 {
         // todo: if we are in a 32-bit data bus, maybe we can read the whole 32-bits at once
         let a = self.read_u8(address) as u32;
@@ -56,5 +68,12 @@ impl Memory {
         let d = self.read_u8(address + 3) as u32;
 
         a | (b << 8) | (c << 16) | (d << 24)
+    }
+
+    pub fn write_u32(&mut self, address: u32, value: u32) {
+        self.write_u8(address, value as u8);
+        self.write_u8(address + 1, (value >> 8) as u8);
+        self.write_u8(address + 2, (value >> 16) as u8);
+        self.write_u8(address + 3, (value >> 24) as u8);
     }
 }

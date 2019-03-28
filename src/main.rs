@@ -16,7 +16,7 @@ use self::state::State;
 use self::memory::Memory;
 
 fn main() -> Result<(), Error> {
-    let mut rom = fs::read("./Advance Wars (USA).gba")?;
+    let mut rom = fs::read("./hello_world.gba")?;
     let mut mem = Memory::new(rom);
     let mut cpu = Cpu::default();
 
