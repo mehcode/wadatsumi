@@ -1,4 +1,4 @@
 unstable_features = true
-required_version = "1.0.3"
+required_version = "1.2.0"
 version = "Two"
 merge_imports = true
