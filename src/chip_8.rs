@@ -19,13 +19,13 @@ pub struct Chip8 {
 
     /// CHIP-8 has 16 8-bit (1 byte) general-purpose variable registers called
     /// `V0` through `VF`.
-    v: [u8; 0xf],
+    v: [u8; 0x10],
 }
 
 impl Chip8 {
     pub fn new() -> Self {
         Self {
-            v: [0; 0xf],
+            v: [0; 0x10],
             pc: ENTRY_POINT,
             rom: Vec::new(),
             // do the dance to get a heap-allocated fixed-size array
@@ -66,8 +66,30 @@ impl Chip8 {
                 // TODO: clear screen
             }
 
-            Instruction::Load { x, kk } => {
+            Instruction::LoadRegister { x, kk } => {
                 self.v[x as usize] = kk;
+            }
+
+            Instruction::AddValue { x, kk } => {
+                self.v[x as usize] += kk;
+            }
+
+            Instruction::SkipIfEqualToValue { x, kk } => {
+                if self.v[x as usize] == kk {
+                    self.pc += 2;
+                }
+            }
+
+            Instruction::SkipIfNotEqualToValue { x, kk } => {
+                if self.v[x as usize] != kk {
+                    self.pc += 2;
+                }
+            }
+
+            Instruction::SkipIfEqualToRegister { x, y } => {
+                if self.v[x as usize] == self.v[y as usize] {
+                    self.pc += 2;
+                }
             }
 
             _ => todo!("unimplemented instruction {:?}", instr),

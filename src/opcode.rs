@@ -2,8 +2,8 @@ use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Opcode {
-    pub hi: u8,
-    pub lo: u8,
+    hi: u8,
+    lo: u8,
 }
 
 impl Opcode {
@@ -19,6 +19,17 @@ impl Opcode {
     /// Get the 4 nibbles of this opcode as 4 separate `u8` values.
     pub fn digits(self) -> (u8, u8, u8, u8) {
         (self.hi >> 4, self.hi & 0xf, self.lo >> 4, self.lo & 0xf)
+    }
+
+    /// Gets the 12-bit value, starting from the second nibble of the hi-byte, commonly
+    /// referred to as `nnn`.
+    pub fn nnn(self) -> u16 {
+        (self.lo as u16) | (self.hi as u16) << 8
+    }
+
+    /// Get the second byte, commonly referred to as `kk`.
+    pub fn kk(self) -> u8 {
+        self.lo
     }
 }
 
