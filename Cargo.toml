@@ -1,0 +1,15 @@
+[package]
+name = "wadatsumi"
+version = "0.0.1"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
+unused = { level = "warn", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

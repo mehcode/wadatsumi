@@ -1,0 +1,6 @@
+inlineHeader = "Copyright (C) {{props['inceptionYear']}} {{props['copyrightOwner']}}\nSPDX-License-Identifier: AGPL-3.0-or-later"
+includes = ["src/**/*"]
+
+[properties]
+inceptionYear = 2026
+copyrightOwner = "Ryan Leckey <leckey.ryan@gmail.com>"
