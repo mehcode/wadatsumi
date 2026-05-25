@@ -3,3 +3,4 @@ imports_granularity = "Module"
 edition = "2024"
 style_edition = "2024"
 unstable_features = true
+use_small_heuristics = "Max"

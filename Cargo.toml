@@ -5,10 +5,12 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 
 [dependencies]
+bitflags = "2.11.1"
+thiserror = "2.0.18"
 
 [lints.rust]
 unsafe_code = "forbid"
-unused = { level = "warn", priority = -1 }
+unused = { level = "allow", priority = -1 }
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
