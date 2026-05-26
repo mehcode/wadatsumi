@@ -63,7 +63,7 @@ impl<B: Bus> Cpu<B> {
 
     /// Reads the `/RESET` vector at `$fffc` and `$fffd` and sets the PC to the result.
     /// Call once after the [`Pak`] is loaded.
-    pub fn reset(&mut self, bus: &mut impl Bus) {
+    pub fn reset(&mut self, bus: &mut B) {
         let lo = u16::from(bus.read(0xfffc));
         let hi = u16::from(bus.read(0xfffd));
 

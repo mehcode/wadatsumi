@@ -43,6 +43,8 @@ pub trait Operation {
         Self: Sized;
 }
 
+/// Branches to a relative offset when status flag `FLAG` equals `EXPECTED` (`BCC`, `BCS`, `BEQ`, `BNE`, `BMI`, `BPL`, `BVC`, `BVS`).
+/// Takes 2 cycles if not taken, 3 if taken same-page, or 4 if the branch crosses a page boundary.
 pub struct BRANCH<const FLAG: u8, const EXPECTED: bool>;
 
 impl<const FLAG: u8, const EXPECTED: bool> Operation for BRANCH<FLAG, EXPECTED> {
@@ -93,6 +95,15 @@ impl<const FLAG: u8, const EXPECTED: bool> Operation for BRANCH<FLAG, EXPECTED> 
         Poll::Ready(())
     }
 }
+
+pub type BCC = BRANCH<{ CpuStatus::C.bits() }, false>;
+pub type BCS = BRANCH<{ CpuStatus::C.bits() }, true>;
+pub type BEQ = BRANCH<{ CpuStatus::Z.bits() }, true>;
+pub type BNE = BRANCH<{ CpuStatus::Z.bits() }, false>;
+pub type BMI = BRANCH<{ CpuStatus::N.bits() }, true>;
+pub type BPL = BRANCH<{ CpuStatus::N.bits() }, false>;
+pub type BVC = BRANCH<{ CpuStatus::V.bits() }, false>;
+pub type BVS = BRANCH<{ CpuStatus::V.bits() }, true>;
 
 /// Loads a byte from the effective address into the register (`LDA`, `LDX`, `LDY`).
 /// Updates `Z` and `N`.

@@ -3,11 +3,13 @@
 
 use crate::bus::Bus;
 use crate::cpu::addressing::{
-    Absolute, AbsoluteX, AbsoluteY, AddressingMode, Immediate, IndirectX, IndirectY, ZeroPage,
-    ZeroPageX, ZeroPageY,
+    Absolute, AbsoluteX, AbsoluteY, AddressingMode, Immediate, IndirectX, IndirectY, Relative,
+    ZeroPage, ZeroPageX, ZeroPageY,
 };
 use crate::cpu::instruction::{Instruction, execute};
-use crate::cpu::operation::{LDA, LDX, LDY, Operation, STA, STX, STY};
+use crate::cpu::operation::{
+    BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, LDA, LDX, LDY, Operation, STA, STX, STY,
+};
 use crate::cpu::state::Register;
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
@@ -59,6 +61,16 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<STY, ZeroPage>(0x84);
         table.insert::<STY, ZeroPageX>(0x94);
         table.insert::<STY, Absolute>(0x8c);
+
+        // Conditional Branches
+        table.insert::<BPL, Relative>(0x10);
+        table.insert::<BMI, Relative>(0x30);
+        table.insert::<BVC, Relative>(0x50);
+        table.insert::<BVS, Relative>(0x70);
+        table.insert::<BCC, Relative>(0x90);
+        table.insert::<BCS, Relative>(0xb0);
+        table.insert::<BNE, Relative>(0xd0);
+        table.insert::<BEQ, Relative>(0xf0);
 
         table
     }
