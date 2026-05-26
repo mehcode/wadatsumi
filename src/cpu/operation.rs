@@ -105,6 +105,23 @@ pub type BPL = BRANCH<{ CpuStatus::N.bits() }, false>;
 pub type BVC = BRANCH<{ CpuStatus::V.bits() }, false>;
 pub type BVS = BRANCH<{ CpuStatus::V.bits() }, true>;
 
+/// Clears status flag `FLAG` unconditionally (`CLC`, `CLI`, `CLD`, `CLV`).
+pub struct CLEAR<const FLAG: u8>;
+
+impl<const FLAG: u8> Operation for CLEAR<FLAG> {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        cpu.state.p.remove(CpuStatus::from_bits_truncate(FLAG));
+
+        Poll::Ready(())
+    }
+}
+
+pub type CLC = CLEAR<{ CpuStatus::C.bits() }>;
+pub type CLI = CLEAR<{ CpuStatus::I.bits() }>;
+pub type CLD = CLEAR<{ CpuStatus::D.bits() }>;
+pub type CLV = CLEAR<{ CpuStatus::V.bits() }>;
+
 /// Unconditional jump; sets the program counter to the resolved effective address.
 pub struct JMP;
 
@@ -168,6 +185,7 @@ impl Operation for JSR {
     }
 }
 
+/// No operation; idles for one additional cycle after the opcode fetch.
 pub struct NOP;
 
 impl Operation for NOP {
@@ -198,6 +216,7 @@ pub type LDA = LOAD<{ A }>;
 pub type LDX = LOAD<{ X }>;
 pub type LDY = LOAD<{ Y }>;
 
+/// Pushes the accumulator onto the stack. 3 cycles.
 pub struct PHA;
 
 impl Operation for PHA {
@@ -215,6 +234,7 @@ impl Operation for PHA {
     }
 }
 
+/// Pushes the processor status register onto the stack with `U` and `B` always set. 3 cycles.
 pub struct PHP;
 
 impl Operation for PHP {
@@ -232,6 +252,7 @@ impl Operation for PHP {
     }
 }
 
+/// Pulls the accumulator from the stack; updates `Z` and `N`. 4 cycles.
 pub struct PLA;
 
 impl Operation for PLA {
@@ -259,6 +280,7 @@ impl Operation for PLA {
     }
 }
 
+/// Pulls the processor status register from the stack. 4 cycles.
 pub struct PLP;
 
 impl Operation for PLP {
@@ -325,6 +347,22 @@ impl Operation for RTS {
         }
     }
 }
+
+/// Sets status flag `FLAG` unconditionally (`SEC`, `SEI`, `SED`).
+pub struct SET<const FLAG: u8>;
+
+impl<const FLAG: u8> Operation for SET<FLAG> {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        cpu.state.p.insert(CpuStatus::from_bits_truncate(FLAG));
+
+        Poll::Ready(())
+    }
+}
+
+pub type SEC = SET<{ CpuStatus::C.bits() }>;
+pub type SEI = SET<{ CpuStatus::I.bits() }>;
+pub type SED = SET<{ CpuStatus::D.bits() }>;
 
 /// Stores the contents of the register into memory,
 /// at the effective address (`STA`, `STX`, `STY`).

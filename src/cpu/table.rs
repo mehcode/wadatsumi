@@ -8,8 +8,8 @@ use crate::cpu::addressing::{
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, JMP, JSR, LDA, LDX, LDY, NOP, Operation, PHA, PHP, PLA,
-    PLP, RTS, STA, STX, STY,
+    BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, JMP, JSR, LDA, LDX, LDY, NOP,
+    Operation, PHA, PHP, PLA, PLP, RTS, SEC, SED, SEI, STA, STX, STY,
 };
 use crate::cpu::state::Register;
 
@@ -84,6 +84,15 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<BCS, Relative>(0xb0);
         table.insert::<BNE, Relative>(0xd0);
         table.insert::<BEQ, Relative>(0xf0);
+
+        // CPU Control
+        table.insert::<CLC, Implied>(0x18);
+        table.insert::<CLI, Implied>(0x58);
+        table.insert::<CLD, Implied>(0xd8);
+        table.insert::<CLV, Implied>(0xb8);
+        table.insert::<SEC, Implied>(0x38);
+        table.insert::<SEI, Implied>(0x78);
+        table.insert::<SED, Implied>(0xf8);
 
         // No Operation
         table.insert::<NOP, Implied>(0xea);
