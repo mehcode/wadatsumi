@@ -110,6 +110,7 @@ impl CpuState {
     }
 
     /// Reads the value of register `R`.
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub const fn get<const R: Register>(&self) -> u8 {
         match R {
             Register::A => self.a,

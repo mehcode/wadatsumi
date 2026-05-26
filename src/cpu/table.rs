@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::bus::Bus;
-use crate::cpu::addressing::{AddressingMode, Immediate, ZeroPage};
+use crate::cpu::addressing::{
+    Absolute, AbsoluteX, AbsoluteY, AddressingMode, Immediate, IndirectX, IndirectY, ZeroPage,
+    ZeroPageX, ZeroPageY,
+};
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{LDA, LDX, LDY, Operation, STA, STX, STY};
 use crate::cpu::state::Register;
@@ -25,37 +28,37 @@ impl<B: Bus> InstructionTable<B> {
         // Load Register from Memory [LDA, LDX, LDY]
         table.insert::<LDA, Immediate>(0xa9);
         table.insert::<LDA, ZeroPage>(0xa5);
-        // table.insert::<LDA, ZeroPageX>(0xb5);
-        // table.insert::<LDA, Absolute>(0xad);
-        // table.insert::<LDA, AbsoluteX>(0xbd);
-        // table.insert::<LDA, AbsoluteY>(0xb9);
-        // table.insert::<LDA, IndirectX>(0xa1);
-        // table.insert::<LDA, IndirectY>(0xb1);
+        table.insert::<LDA, ZeroPageX>(0xb5);
+        table.insert::<LDA, Absolute>(0xad);
+        table.insert::<LDA, AbsoluteX>(0xbd);
+        table.insert::<LDA, AbsoluteY>(0xb9);
+        table.insert::<LDA, IndirectX>(0xa1);
+        table.insert::<LDA, IndirectY>(0xb1);
         table.insert::<LDX, Immediate>(0xa2);
         table.insert::<LDX, ZeroPage>(0xa6);
-        // table.insert::<LDX, ZeroPageY>(0xb6);
-        // table.insert::<LDX, Absolute>(0xae);
-        // table.insert::<LDX, AbsoluteY>(0xbe);
+        table.insert::<LDX, ZeroPageY>(0xb6);
+        table.insert::<LDX, Absolute>(0xae);
+        table.insert::<LDX, AbsoluteY>(0xbe);
         table.insert::<LDY, Immediate>(0xa0);
         table.insert::<LDY, ZeroPage>(0xa4);
-        // table.insert::<LDY, ZeroPageX>(0xb4);
-        // table.insert::<LDY, Absolute>(0xac);
-        // table.insert::<LDY, AbsoluteX>(0xbc);
+        table.insert::<LDY, ZeroPageX>(0xb4);
+        table.insert::<LDY, Absolute>(0xac);
+        table.insert::<LDY, AbsoluteX>(0xbc);
 
         // Store Register in Memory [STA, STX, STY]
         table.insert::<STA, ZeroPage>(0x85);
-        // table.insert::<STA, ZeroPageX>(0x95);
-        // table.insert::<STA, Absolute>(0x8d);
-        // table.insert::<STA, AbsoluteX>(0x9d);
-        // table.insert::<STA, AbsoluteY>(0x99);
-        // table.insert::<STA, IndirectX>(0x81);
-        // table.insert::<STA, IndirectY>(0x91);
-        // table.insert::<STX, ZeroPage>(0x86);
-        // table.insert::<STX, ZeroPageY>(0x96);
-        // table.insert::<STX, Absolute>(0x8e);
-        // table.insert::<STY, ZeroPage>(0x84);
-        // table.insert::<STY, ZeroPageX>(0x94);
-        // table.insert::<STY, Absolute>(0x8c);
+        table.insert::<STA, ZeroPageX>(0x95);
+        table.insert::<STA, Absolute>(0x8d);
+        table.insert::<STA, AbsoluteX>(0x9d);
+        table.insert::<STA, AbsoluteY>(0x99);
+        table.insert::<STA, IndirectX>(0x81);
+        table.insert::<STA, IndirectY>(0x91);
+        table.insert::<STX, ZeroPage>(0x86);
+        table.insert::<STX, ZeroPageY>(0x96);
+        table.insert::<STX, Absolute>(0x8e);
+        table.insert::<STY, ZeroPage>(0x84);
+        table.insert::<STY, ZeroPageX>(0x94);
+        table.insert::<STY, Absolute>(0x8c);
 
         table
     }

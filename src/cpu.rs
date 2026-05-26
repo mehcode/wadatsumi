@@ -30,7 +30,7 @@ pub struct Cpu<B: Bus> {
 
     /// Scratch register used during indirect addressing to hold the zero-page pointer
     /// byte before it is expanded into a full 16-bit address.
-    ptr: u16,
+    ptr: u8,
 
     /// Effective address being assembled across addressing cycles. Holds the final
     /// target address once addressing is complete.
@@ -39,13 +39,26 @@ pub struct Cpu<B: Bus> {
     /// Single-byte data latch used to pass a value between the read and write cycles
     /// of a read-modify-write instruction.
     data: u8,
+
+    /// Set to `true` once the in-flight instruction's addressing mode has resolved and any
+    /// operand prefetch has been committed to `cpu.data`; prevents `execute` from re-running
+    /// address resolution and the framework bus read on subsequent execution cycles.
+    executing: bool,
 }
 
 impl<B: Bus> Cpu<B> {
     const TABLE: InstructionTable<B> = InstructionTable::new();
 
     pub fn new() -> Self {
-        Self { state: CpuState::new(), instruction: None, cycle: 0, address: 0, ptr: 0, data: 0 }
+        Self {
+            state: CpuState::new(),
+            instruction: None,
+            cycle: 0,
+            address: 0,
+            ptr: 0,
+            data: 0,
+            executing: false,
+        }
     }
 
     /// Reads the `/RESET` vector at `$fffc` and `$fffd` and sets the PC to the result.
@@ -78,8 +91,9 @@ impl<B: Bus> Cpu<B> {
         self.cycle += 1;
 
         // Execute one cycle of the in-flight instruction; clear it when the handler signals done.
-        if instruction(self, bus) {
+        if instruction(self, bus).is_ready() {
             self.instruction = None;
+            self.executing = false;
         }
 
         Ok(())
