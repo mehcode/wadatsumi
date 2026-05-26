@@ -11,8 +11,8 @@ mod bus;
 
 /// The top-level NES system, tying together the CPU, WRAM, PPU and APU.
 pub struct System {
-    cpu: Cpu<SystemBus>,
-    bus: SystemBus,
+    pub cpu: Cpu<SystemBus>,
+    pub bus: SystemBus,
 }
 
 impl Default for System {

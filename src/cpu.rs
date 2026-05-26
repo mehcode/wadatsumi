@@ -18,7 +18,7 @@ mod table;
 pub struct Cpu<B: Bus> {
     /// Architectural register state (A, X, Y, S, P, PC). Separated so it can be
     /// snapshotted or inspected independently of micro-architecture scratch.
-    state: CpuState,
+    pub state: CpuState,
 
     /// Which micro-operation cycle the current instruction is on. Zero means the
     /// CPU is idle and will fetch the next opcode on the next tick.
@@ -105,5 +105,11 @@ impl<B: Bus> Cpu<B> {
         self.state.pc = self.state.pc.wrapping_add(1);
 
         value
+    }
+
+    /// Writes `value` to `$0100 + SP`, then decrements SP.
+    fn stack_push(&mut self, bus: &mut B, value: u8) {
+        bus.write(self.state.stack_address(), value);
+        self.state.sp = self.state.sp.wrapping_sub(1);
     }
 }

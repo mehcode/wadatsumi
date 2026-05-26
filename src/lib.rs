@@ -9,5 +9,6 @@ mod error;
 mod pak;
 mod system;
 
+pub use bus::Bus;
 pub use error::{Error, Result};
 pub use system::System;
