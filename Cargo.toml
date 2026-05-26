@@ -6,6 +6,7 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 bitflags = "2.11.1"
+bytes = "1.11.1"
 thiserror = "2.0.18"
 
 [lints.rust]
