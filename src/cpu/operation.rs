@@ -105,6 +105,69 @@ pub type BPL = BRANCH<{ CpuStatus::N.bits() }, false>;
 pub type BVC = BRANCH<{ CpuStatus::V.bits() }, false>;
 pub type BVS = BRANCH<{ CpuStatus::V.bits() }, true>;
 
+/// Unconditional jump; sets the program counter to the resolved effective address.
+pub struct JMP;
+
+impl Operation for JMP {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        cpu.state.pc = cpu.address;
+
+        Poll::Ready(())
+    }
+}
+
+/// Calls a subroutine at a 16-bit absolute address (`JSR nnnn`).
+///
+/// Pushes the address of the ADH operand byte (the last byte of this instruction) so that
+/// `RTS` can pull and increment by one to resume at the following instruction. 6 cycles.
+///
+/// Uses `Implied` addressing: ADL is pre-read into `cpu.data` with PC left pointing at ADH.
+pub struct JSR;
+
+impl Operation for JSR {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        match cpu.cycle {
+            1 => {
+                // ADL was pre-read into cpu.data by Implied's spurious read without advancing PC.
+                // Nudge PC to ADH so it is correctly positioned for the push and final fetch.
+                cpu.state.pc = cpu.state.pc.wrapping_add(1);
+
+                Poll::Pending
+            }
+
+            2 => {
+                // Internal: spurious read from the current stack top (hardware pipeline artifact).
+                let _ = bus.read(cpu.state.stack_address());
+
+                Poll::Pending
+            }
+
+            3 => {
+                // Push PCH. PC points at ADH, the last byte of this instruction, which is the
+                // correct return address for RTS to pull and increment.
+                cpu.stack_push(bus, (cpu.state.pc >> 8) as u8);
+
+                Poll::Pending
+            }
+
+            4 => {
+                cpu.stack_push(bus, cpu.state.pc as u8);
+
+                Poll::Pending
+            }
+
+            _ => {
+                // Fetch ADH and assemble the full target address; ADL is waiting in cpu.data.
+                cpu.state.pc = u16::from(cpu.fetch(bus)) << 8 | u16::from(cpu.data);
+
+                Poll::Ready(())
+            }
+        }
+    }
+}
+
 /// Loads a byte from the effective address into the register (`LDA`, `LDX`, `LDY`).
 /// Updates `Z` and `N`.
 pub struct LOAD<const R: Register>;
@@ -124,6 +187,54 @@ impl<const R: Register> Operation for LOAD<R> {
 pub type LDA = LOAD<{ A }>;
 pub type LDX = LOAD<{ X }>;
 pub type LDY = LOAD<{ Y }>;
+
+/// Returns from a subroutine; pulls the return address from the stack and increments it by one.
+///
+/// Uses `Implied` addressing: the spurious PC read (hardware cycle 2) is handled there.
+/// The address on the stack is JSR's ADH byte (last byte of the JSR instruction), so
+/// incrementing by 1 lands on the byte immediately following the full JSR instruction.
+pub struct RTS;
+
+impl Operation for RTS {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        match cpu.cycle {
+            // Implied already performed the spurious fetch (hardware cycle 2); just advance.
+            1 => Poll::Pending,
+
+            // Hardware cycle 3: dummy read at current stack top, then increment S.
+            2 => {
+                let _ = bus.read(cpu.state.stack_address());
+                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+
+                Poll::Pending
+            }
+
+            // Hardware cycle 4: pull PCL from stack, increment S.
+            3 => {
+                cpu.data = bus.read(cpu.state.stack_address());
+                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+
+                Poll::Pending
+            }
+
+            // Hardware cycle 5: pull PCH from stack, assemble PC.
+            4 => {
+                let pch = u16::from(bus.read(cpu.state.stack_address()));
+                cpu.state.pc = (pch << 8) | u16::from(cpu.data);
+
+                Poll::Pending
+            }
+
+            // Hardware cycle 6: increment PC to point past JSR's last operand byte.
+            _ => {
+                cpu.state.pc = cpu.state.pc.wrapping_add(1);
+
+                Poll::Ready(())
+            }
+        }
+    }
+}
 
 /// Stores the contents of the register into memory,
 /// at the effective address (`STA`, `STX`, `STY`).

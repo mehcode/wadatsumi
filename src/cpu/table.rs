@@ -3,12 +3,12 @@
 
 use crate::bus::Bus;
 use crate::cpu::addressing::{
-    Absolute, AbsoluteX, AbsoluteY, AddressingMode, Immediate, IndirectX, IndirectY, Relative,
-    ZeroPage, ZeroPageX, ZeroPageY,
+    Absolute, AbsoluteX, AbsoluteY, AddressingMode, Immediate, Implied, Indirect, IndirectX,
+    IndirectY, Relative, ZeroPage, ZeroPageX, ZeroPageY,
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, LDA, LDX, LDY, Operation, STA, STX, STY,
+    BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, JMP, JSR, LDA, LDX, LDY, Operation, RTS, STA, STX, STY,
 };
 use crate::cpu::state::Register;
 
@@ -61,6 +61,12 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<STY, ZeroPage>(0x84);
         table.insert::<STY, ZeroPageX>(0x94);
         table.insert::<STY, Absolute>(0x8c);
+
+        // Jumps, Calls, Returns
+        table.insert::<JMP, Absolute>(0x4c);
+        table.insert::<JMP, Indirect>(0x6c);
+        table.insert::<JSR, Implied>(0x20);
+        table.insert::<RTS, Implied>(0x60);
 
         // Conditional Branches
         table.insert::<BPL, Relative>(0x10);

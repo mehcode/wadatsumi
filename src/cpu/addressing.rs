@@ -30,17 +30,16 @@ pub trait AddressingMode {
         Self: Sized;
 }
 
-/// The instruction has no explicit operand; any registers or flags it acts on are implied by the
-/// opcode itself (e.g. `CLC`, `TAX`). The 6502 still performs a spurious read of the next byte
-/// as part of its fetch pipeline, which is discarded before execution begins.
+/// The instruction operand is implied by the opcode itself; there is no explicit address
+/// or data byte (e.g. `CLC`, `TAX`). The 6502 reads the next byte as a pipeline side-effect
+/// without advancing PC; that byte is returned so operations may use it if needed.
 pub struct Implied;
 
 impl AddressingMode for Implied {
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
-        let _ = bus.read(cpu.state.pc); // spurious read, result is discarded
-
-        Poll::Ready(None)
+        // Spurious read surfaced in case the operation wants it (e.g. JSR uses it as ADL).
+        Poll::Ready(Some(bus.read(cpu.state.pc)))
     }
 }
 
