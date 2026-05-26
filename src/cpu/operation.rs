@@ -168,6 +168,16 @@ impl Operation for JSR {
     }
 }
 
+pub struct NOP;
+
+impl Operation for NOP {
+    #[inline]
+    fn apply<B: Bus>(_: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        // Do nothing
+        Poll::Ready(())
+    }
+}
+
 /// Loads a byte from the effective address into the register (`LDA`, `LDX`, `LDY`).
 /// Updates `Z` and `N`.
 pub struct LOAD<const R: Register>;
@@ -187,6 +197,86 @@ impl<const R: Register> Operation for LOAD<R> {
 pub type LDA = LOAD<{ A }>;
 pub type LDX = LOAD<{ X }>;
 pub type LDY = LOAD<{ Y }>;
+
+pub struct PHA;
+
+impl Operation for PHA {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        match cpu.cycle {
+            1 => Poll::Pending,
+
+            _ => {
+                cpu.stack_push(bus, cpu.state.a);
+
+                Poll::Ready(())
+            }
+        }
+    }
+}
+
+pub struct PHP;
+
+impl Operation for PHP {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        match cpu.cycle {
+            1 => Poll::Pending,
+
+            _ => {
+                cpu.stack_push(bus, cpu.state.p.bits() | CpuStatus::U | CpuStatus::B);
+
+                Poll::Ready(())
+            }
+        }
+    }
+}
+
+pub struct PLA;
+
+impl Operation for PLA {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        match cpu.cycle {
+            1 => Poll::Pending,
+
+            2 => {
+                let _ = bus.read(cpu.state.stack_address());
+                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+
+                Poll::Pending
+            }
+
+            _ => {
+                let value = bus.read(cpu.state.stack_address());
+
+                cpu.state.a = value;
+                cpu.state.p.update_zn(value);
+
+                Poll::Ready(())
+            }
+        }
+    }
+}
+
+pub struct PLP;
+
+impl Operation for PLP {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        match cpu.cycle {
+            1 | 2 => PLA::apply(cpu, bus),
+
+            _ => {
+                let value = bus.read(cpu.state.stack_address());
+
+                cpu.state.p = CpuStatus::from_bits_truncate(value);
+
+                Poll::Ready(())
+            }
+        }
+    }
+}
 
 /// Returns from a subroutine; pulls the return address from the stack and increments it by one.
 ///

@@ -34,10 +34,6 @@ bitflags! {
         /// Ignored in the NES 2A03.
         const D = 0b0000_1000;
 
-        /// Break.
-        /// Set by the BRK instruction; distinguishes software from hardware interrupts on the stack.
-        const B = 0b0001_0000;
-
         /// Overflow.
         /// Set if the last operation produced a signed overflow.
         const V = 0b0100_0000;
@@ -93,22 +89,31 @@ impl CpuState {
             // decrementing S from 0xFF to 0xFD.
             sp: 0xFD,
 
-            // I is set by the reset sequence; B reflects the physical pin state on power-on.
-            p: CpuStatus::I | CpuStatus::B,
+            // I is set by the reset sequence.
+            p: CpuStatus::I,
         }
     }
 
     /// Writes `value` to register `R`.
     #[inline]
-    pub const fn set<const R: Register>(&mut self, value: u8) {
-        let target = match R {
-            Register::A => &mut self.a,
-            Register::X => &mut self.x,
-            Register::Y => &mut self.y,
-            Register::SP => &mut self.sp,
-        };
+    pub fn set<const R: Register>(&mut self, value: u8) {
+        match R {
+            Register::A => {
+                self.a = value;
+            }
 
-        *target = value;
+            Register::X => {
+                self.x = value;
+            }
+
+            Register::Y => {
+                self.y = value;
+            }
+
+            Register::SP => {
+                self.sp = value;
+            }
+        }
     }
 
     /// Reads the value of register `R`.
@@ -133,6 +138,11 @@ impl CpuStatus {
     /// Bit 5 is unused and hardwired on the physical chip.
     /// Must be OR'd into P whenever it is pushed to the stack or exposed on the bus.
     pub const U: u8 = 0b0010_0000;
+
+    /// Bit 4 is not stored in the CPU, it has no physical register counterpart.
+    /// OR'd into P only when pushing to the stack: set by `PHP`/`BRK`, clear for `IRQ`/`NMI`.
+    /// This lets an interrupt handler distinguish software from hardware interrupts by inspecting the stack byte.
+    pub const B: u8 = 0b0001_0000;
 
     /// Sets or clears Z based on whether `result` is zero.
     pub fn update_z(&mut self, result: u8) {
