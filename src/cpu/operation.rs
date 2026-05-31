@@ -161,6 +161,30 @@ pub type CLI = CLEAR<{ CpuStatus::I.bits() }>;
 pub type CLD = CLEAR<{ CpuStatus::D.bits() }>;
 pub type CLV = CLEAR<{ CpuStatus::V.bits() }>;
 
+/// Subtracts the byte at the effective address from register `R` without storing the result (`CMP`, `CPX`, `CPY`).
+/// Sets `C` if the register is greater than or equal to the operand (no borrow), clears it otherwise.
+/// Updates `Z` and `N` from the difference.
+pub struct COMPARE<const R: Register>;
+
+impl<const R: Register> Operation for COMPARE<R> {
+    const MODE: OperationMode = OperationMode::Read;
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        let value = cpu.state.get::<R>();
+        let result = value.wrapping_sub(cpu.data);
+
+        cpu.state.p.set(CpuStatus::C, result >= cpu.data);
+        cpu.state.p.update_zn(result);
+
+        Poll::Ready(())
+    }
+}
+
+pub type CMP = COMPARE<{ A }>;
+pub type CPX = COMPARE<{ X }>;
+pub type CPY = COMPARE<{ Y }>;
+
 /// Decrements a byte in memory by one using the read-modify-write pipeline (`DEC`).
 /// Reads the value, performs a spurious write with the original byte, then writes the decremented result.
 /// Updates `Z` and `N`.

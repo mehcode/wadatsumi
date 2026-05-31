@@ -8,9 +8,9 @@ use crate::cpu::addressing::{
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    AND, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, DEC, DEX, DEY, EOR, INC,
-    INX, INY, JMP, JSR, LDA, LDX, LDY, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RTS, SEC, SED, SEI,
-    STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    AND, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC, DEX,
+    DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RTS,
+    SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 use crate::cpu::state::Register;
 
@@ -107,6 +107,22 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<ORA, AbsoluteY>(0x19);
         table.insert::<ORA, IndirectX>(0x01);
         table.insert::<ORA, IndirectY>(0x11);
+
+        // Compare
+        table.insert::<CMP, Immediate>(0xc9);
+        table.insert::<CMP, ZeroPage>(0xc5);
+        table.insert::<CMP, ZeroPageX>(0xd5);
+        table.insert::<CMP, Absolute>(0xcd);
+        table.insert::<CMP, AbsoluteX>(0xdd);
+        table.insert::<CMP, AbsoluteY>(0xd9);
+        table.insert::<CMP, IndirectX>(0xc1);
+        table.insert::<CMP, IndirectY>(0xd1);
+        table.insert::<CPX, Immediate>(0xe0);
+        table.insert::<CPX, ZeroPage>(0xe4);
+        table.insert::<CPX, Absolute>(0xec);
+        table.insert::<CPY, Immediate>(0xc0);
+        table.insert::<CPY, ZeroPage>(0xc4);
+        table.insert::<CPY, Absolute>(0xcc);
 
         // Bit Test
         table.insert::<BIT, ZeroPage>(0x24);
