@@ -8,7 +8,7 @@ use std::task::Poll;
 use crate::bus::Bus;
 use crate::cpu::Cpu;
 use crate::cpu::state::CpuStatus;
-use crate::cpu::state::Register::{self, A, X, Y};
+use crate::cpu::state::Register::{self, A, SP, X, Y};
 
 #[derive(Debug, Clone, Copy)]
 pub enum OperationMode {
@@ -384,3 +384,27 @@ impl<const R: Register> Operation for STORE<R> {
 pub type STA = STORE<{ A }>;
 pub type STX = STORE<{ X }>;
 pub type STY = STORE<{ Y }>;
+
+pub struct TRANSFER<const SRC: Register, const DST: Register>;
+
+impl<const SRC: Register, const DST: Register> Operation for TRANSFER<SRC, DST> {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        let value = cpu.state.get::<SRC>();
+
+        cpu.state.set::<DST>(value);
+
+        if matches!(DST, A | X | Y) {
+            cpu.state.p.update_zn(value);
+        }
+
+        Poll::Ready(())
+    }
+}
+
+pub type TAX = TRANSFER<{ A }, { X }>;
+pub type TAY = TRANSFER<{ A }, { Y }>;
+pub type TSX = TRANSFER<{ SP }, { X }>;
+pub type TXA = TRANSFER<{ X }, { A }>;
+pub type TYA = TRANSFER<{ Y }, { A }>;
+pub type TXS = TRANSFER<{ X }, { SP }>;

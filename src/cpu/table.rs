@@ -9,7 +9,7 @@ use crate::cpu::addressing::{
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
     BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, JMP, JSR, LDA, LDX, LDY, NOP,
-    Operation, PHA, PHP, PLA, PLP, RTS, SEC, SED, SEI, STA, STX, STY,
+    Operation, PHA, PHP, PLA, PLP, RTS, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 use crate::cpu::state::Register;
 
@@ -27,6 +27,14 @@ impl<B: Bus> InstructionTable<B> {
         use Register::*;
 
         let mut table = Self { instructions: [None; 256] };
+
+        // Register to Register Transfer [TAX, TAY, TSX, TXA, TYA, TXS]
+        table.insert::<TAY, Implied>(0xa8);
+        table.insert::<TAX, Implied>(0xaa);
+        table.insert::<TSX, Implied>(0xba);
+        table.insert::<TXA, Implied>(0x8a);
+        table.insert::<TYA, Implied>(0x98);
+        table.insert::<TXS, Implied>(0x9a);
 
         // Load Register from Memory [LDA, LDX, LDY]
         table.insert::<LDA, Immediate>(0xa9);
