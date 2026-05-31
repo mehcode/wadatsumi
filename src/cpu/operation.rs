@@ -174,7 +174,7 @@ impl<const R: Register> Operation for COMPARE<R> {
         let value = cpu.state.get::<R>();
         let result = value.wrapping_sub(cpu.data);
 
-        cpu.state.p.set(CpuStatus::C, result >= cpu.data);
+        cpu.state.p.set(CpuStatus::C, value >= cpu.data);
         cpu.state.p.update_zn(result);
 
         Poll::Ready(())
