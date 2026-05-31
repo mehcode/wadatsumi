@@ -4,7 +4,7 @@
 #![feature(min_adt_const_params)]
 
 mod bus;
-mod cpu;
+pub mod cpu;
 mod error;
 mod pak;
 mod system;

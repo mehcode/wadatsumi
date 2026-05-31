@@ -52,7 +52,7 @@ impl<const FLAG: u8, const EXPECTED: bool> Operation for BRANCH<FLAG, EXPECTED> 
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
         let flag: CpuStatus = CpuStatus::from_bits_truncate(FLAG);
 
-        match cpu.cycle {
+        match cpu.t {
             // Not-taken branches retire here (2 cycles total).
             1 => {
                 let offset = i8::from_ne_bytes([cpu.data]);
@@ -145,7 +145,7 @@ pub struct JSR;
 impl Operation for JSR {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        match cpu.cycle {
+        match cpu.t {
             1 => {
                 // ADL was pre-read into cpu.data by Implied's spurious read without advancing PC.
                 // Nudge PC to ADH so it is correctly positioned for the push and final fetch.
@@ -222,7 +222,7 @@ pub struct PHA;
 impl Operation for PHA {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        match cpu.cycle {
+        match cpu.t {
             1 => Poll::Pending,
 
             _ => {
@@ -240,7 +240,7 @@ pub struct PHP;
 impl Operation for PHP {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        match cpu.cycle {
+        match cpu.t {
             1 => Poll::Pending,
 
             _ => {
@@ -258,7 +258,7 @@ pub struct PLA;
 impl Operation for PLA {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        match cpu.cycle {
+        match cpu.t {
             1 => Poll::Pending,
 
             2 => {
@@ -286,7 +286,7 @@ pub struct PLP;
 impl Operation for PLP {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        match cpu.cycle {
+        match cpu.t {
             1 | 2 => PLA::apply(cpu, bus),
 
             _ => {
@@ -310,7 +310,7 @@ pub struct RTS;
 impl Operation for RTS {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        match cpu.cycle {
+        match cpu.t {
             // Implied already performed the spurious fetch (hardware cycle 2); just advance.
             1 => Poll::Pending,
 

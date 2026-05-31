@@ -4,7 +4,6 @@
 use crate::Error;
 use crate::bus::Bus;
 use crate::cpu::instruction::Instruction;
-use crate::cpu::state::CpuState;
 use crate::cpu::table::InstructionTable;
 
 mod addressing;
@@ -13,6 +12,8 @@ mod operation;
 mod state;
 mod table;
 
+pub use state::{CpuState, CpuStatus};
+
 /// The 2A03 NES CPU core.
 /// Driven one clock cycle at a time via [`Cpu::tick`].
 pub struct Cpu<B: Bus> {
@@ -20,9 +21,9 @@ pub struct Cpu<B: Bus> {
     /// snapshotted or inspected independently of micro-architecture scratch.
     pub state: CpuState,
 
-    /// Which micro-operation cycle the current instruction is on. Zero means the
-    /// CPU is idle and will fetch the next opcode on the next tick.
-    cycle: u8,
+    /// The current T-state of the in-flight instruction: 0 during the opcode fetch cycle,
+    /// incrementing by one each subsequent clock cycle until the instruction completes.
+    t: u8,
 
     /// The instruction fetched at cycle 0, held for the duration of execution.
     /// None when `cycle == 0`.
@@ -53,7 +54,7 @@ impl<B: Bus> Cpu<B> {
         Self {
             state: CpuState::new(),
             instruction: None,
-            cycle: 0,
+            t: 0,
             address: 0,
             ptr: 0,
             data: 0,
@@ -73,12 +74,10 @@ impl<B: Bus> Cpu<B> {
     /// Advances the CPU by one clock cycle.
     pub fn tick(&mut self, bus: &mut B) -> crate::Result<()> {
         let Some(instruction) = self.instruction else {
-            // Decode. No instruction is in-flight, so consume this cycle reading the opcode at
-            // PC and resolving its handler. `cycle` is reset to 0 so addressing modes see a clean
-            // counter starting from 1 on their first post-fetch cycle.
+            // T0. Opcode fetch. T advances to 1 so the first execution T-state enters at T1.
             let opcode = self.fetch(bus);
 
-            self.cycle = 0;
+            self.t += 1;
             self.instruction = Some(Self::TABLE.get(opcode).ok_or_else(|| {
                 Error::UnknownOpcode { opcode, pc: self.state.pc.wrapping_sub(1) }
             })?);
@@ -86,17 +85,22 @@ impl<B: Bus> Cpu<B> {
             return Ok(());
         };
 
-        // Increment before calling so addressing modes see the correct cycle index (1 = first
-        // post-fetch cycle, matching the `match cpu.cycle` arms in each AddressingMode impl).
-        self.cycle += 1;
-
-        // Execute one cycle of the in-flight instruction; clear it when the handler signals done.
+        // Execute one T-state of the in-flight instruction; clear it when the handler signals done.
         if instruction(self, bus).is_ready() {
             self.instruction = None;
             self.executing = false;
+            self.t = 0;
+        } else {
+            self.t += 1;
         }
 
         Ok(())
+    }
+
+    /// Returns the current T-state; 0 (T0) indicates the SYNC cycle where the next
+    /// opcode will be fetched.
+    pub const fn t(&self) -> u8 {
+        self.t
     }
 
     /// Reads the byte at PC, and advances PC.
