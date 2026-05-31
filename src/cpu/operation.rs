@@ -336,6 +336,7 @@ impl Operation for JMP {
 pub struct JSR;
 
 impl Operation for JSR {
+    #[allow(clippy::cast_possible_truncation)]
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {
@@ -435,6 +436,7 @@ impl Operation for ORA {
 pub struct PHA;
 
 impl Operation for PHA {
+    #[allow(clippy::single_match_else)]
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {
@@ -455,6 +457,7 @@ impl Operation for PHA {
 pub struct PHP;
 
 impl Operation for PHP {
+    #[allow(clippy::single_match_else)]
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {

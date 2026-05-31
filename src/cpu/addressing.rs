@@ -116,6 +116,7 @@ pub type ZeroPageY = ZeroPageIndexed<{ Y }>;
 pub struct Absolute;
 
 impl AddressingMode for Absolute {
+    #[allow(clippy::single_match_else)]
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {

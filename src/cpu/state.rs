@@ -75,10 +75,17 @@ pub struct CpuState {
     pub p: CpuStatus,
 }
 
+impl Default for CpuState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[allow(clippy::trivially_copy_pass_by_ref)]
 impl CpuState {
     /// Returns the CPU register state at power-on.
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             a: 0,
             x: 0,
@@ -95,7 +102,7 @@ impl CpuState {
     }
 
     /// Writes `value` to register `R`.
-    #[inline]
+    #[inline(always)]
     pub fn set<const R: Register>(&mut self, value: u8) {
         match R {
             Register::A => {
@@ -117,7 +124,8 @@ impl CpuState {
     }
 
     /// Reads the value of register `R`.
-    #[inline]
+    #[inline(always)]
+    #[must_use]
     pub const fn get<const R: Register>(&self) -> u8 {
         match R {
             Register::A => self.a,
@@ -128,7 +136,8 @@ impl CpuState {
     }
 
     /// Returns the full 16-bit address of the current stack top: `$0100 | SP`.
-    #[inline]
+    #[inline(always)]
+    #[must_use]
     pub const fn stack_address(&self) -> u16 {
         0x0100 | self.sp as u16
     }

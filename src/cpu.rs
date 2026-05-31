@@ -48,10 +48,17 @@ pub struct Cpu<B: Bus> {
     executing: u8,
 }
 
+impl<B: Bus> Default for Cpu<B> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<B: Bus> Cpu<B> {
     const TABLE: InstructionTable<B> = InstructionTable::new();
 
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             state: CpuState::new(),
             instruction: None,
@@ -73,6 +80,11 @@ impl<B: Bus> Cpu<B> {
     }
 
     /// Advances the CPU by one clock cycle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::UnknownOpcode`] if the opcode fetched at the current PC has no
+    /// handler in the instruction table.
     pub fn tick(&mut self, bus: &mut B) -> crate::Result<()> {
         let Some(instruction) = self.instruction else {
             // T0. Opcode fetch. T advances to 1 so the first execution T-state enters at T1.
@@ -100,6 +112,7 @@ impl<B: Bus> Cpu<B> {
 
     /// Returns the current T-state; 0 (T0) indicates the SYNC cycle where the next
     /// opcode will be fetched.
+    #[must_use]
     pub const fn t(&self) -> u8 {
         self.t
     }

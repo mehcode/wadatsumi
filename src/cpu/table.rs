@@ -24,6 +24,8 @@ pub struct InstructionTable<B: Bus> {
 
 impl<B: Bus> InstructionTable<B> {
     /// Builds the table with every implemented opcode wired to its handler.
+    #[allow(clippy::too_many_lines)]
+    #[must_use]
     pub const fn new() -> Self {
         use Register::*;
 

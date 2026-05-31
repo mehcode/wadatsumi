@@ -35,8 +35,8 @@ impl Debug for Error {
 
             Self::UnknownOpcode { opcode, pc } => f
                 .debug_struct("UnknownOpcode")
-                .field("opcode", &format_args!("{:02X}", opcode))
-                .field("pc", &format_args!("{:04X}", pc))
+                .field("opcode", &format_args!("{opcode:02X}"))
+                .field("pc", &format_args!("{pc:04X}"))
                 .finish(),
         }
     }
