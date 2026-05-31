@@ -41,10 +41,11 @@ pub struct Cpu<B: Bus> {
     /// of a read-modify-write instruction.
     data: u8,
 
-    /// Set to `true` once the in-flight instruction's addressing mode has resolved and any
-    /// operand prefetch has been committed to `cpu.data`; prevents `execute` from re-running
-    /// address resolution and the framework bus read on subsequent execution cycles.
-    executing: bool,
+    /// The t-state at which the in-flight instruction's addressing mode resolved and execution
+    /// began; prevents `execute` from re-running address resolution on subsequent cycles.
+    /// Zero means no instruction is currently in the execution phase.
+    /// `cpu.t - cpu.executing` gives the operation-relative cycle index inside `apply`.
+    executing: u8,
 }
 
 impl<B: Bus> Cpu<B> {
@@ -58,7 +59,7 @@ impl<B: Bus> Cpu<B> {
             address: 0,
             ptr: 0,
             data: 0,
-            executing: false,
+            executing: 0,
         }
     }
 
@@ -88,7 +89,7 @@ impl<B: Bus> Cpu<B> {
         // Execute one T-state of the in-flight instruction; clear it when the handler signals done.
         if instruction(self, bus).is_ready() {
             self.instruction = None;
-            self.executing = false;
+            self.executing = 0;
             self.t = 0;
         } else {
             self.t += 1;

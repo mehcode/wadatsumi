@@ -10,6 +10,8 @@ use crate::cpu::Cpu;
 use crate::cpu::state::CpuStatus;
 use crate::cpu::state::Register::{self, A, SP, X, Y};
 
+/// Classifies how an operation accesses memory, driving the addressing-mode pipeline.
+/// The addressing mode uses this to issue the correct read or write cycles before handing off to `apply`.
 #[derive(Debug, Clone, Copy)]
 pub enum OperationMode {
     Implicit,
@@ -106,6 +108,8 @@ pub type BVC = BRANCH<{ CpuStatus::V.bits() }, false>;
 pub type BVS = BRANCH<{ CpuStatus::V.bits() }, true>;
 
 /// Clears status flag `FLAG` unconditionally (`CLC`, `CLI`, `CLD`, `CLV`).
+/// Executes in a single implicit cycle after the opcode fetch.
+/// No memory access occurs and no other flags are affected.
 pub struct CLEAR<const FLAG: u8>;
 
 impl<const FLAG: u8> Operation for CLEAR<FLAG> {
@@ -122,7 +126,119 @@ pub type CLI = CLEAR<{ CpuStatus::I.bits() }>;
 pub type CLD = CLEAR<{ CpuStatus::D.bits() }>;
 pub type CLV = CLEAR<{ CpuStatus::V.bits() }>;
 
+/// Decrements a byte in memory by one using the read-modify-write pipeline (`DEC`).
+/// Reads the value, performs a spurious write with the original byte, then writes the decremented result.
+/// Updates `Z` and `N`.
+pub struct DEC;
+
+impl Operation for DEC {
+    const MODE: OperationMode = OperationMode::ReadModifyWrite;
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        match cpu.t - cpu.executing {
+            0 => {
+                cpu.data = bus.read(cpu.address);
+
+                Poll::Pending
+            }
+
+            1 => {
+                bus.write(cpu.address, cpu.data);
+
+                cpu.data = cpu.data.wrapping_sub(1);
+
+                Poll::Pending
+            }
+
+            _ => {
+                bus.write(cpu.address, cpu.data);
+
+                cpu.state.p.update_zn(cpu.data);
+
+                Poll::Ready(())
+            }
+        }
+    }
+}
+
+/// Decrements register `R` by one in a single implicit cycle (`DEX`, `DEY`).
+/// Updates `Z` and `N` to reflect the new value.
+pub struct DECREMENT<const R: Register>;
+
+impl<const R: Register> Operation for DECREMENT<R> {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        let value = cpu.state.get::<R>().wrapping_sub(1);
+
+        cpu.state.set::<R>(value);
+        cpu.state.p.update_zn(value);
+
+        Poll::Ready(())
+    }
+}
+
+pub type DEX = DECREMENT<{ X }>;
+pub type DEY = DECREMENT<{ Y }>;
+
+/// Increments a byte in memory by one using the read-modify-write pipeline (`INC`).
+/// Reads the value, performs a spurious write with the original byte, then writes the incremented result.
+/// Updates `Z` and `N`.
+pub struct INC;
+
+impl Operation for INC {
+    const MODE: OperationMode = OperationMode::ReadModifyWrite;
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        match cpu.t - cpu.executing {
+            0 => {
+                cpu.data = bus.read(cpu.address);
+
+                Poll::Pending
+            }
+
+            1 => {
+                bus.write(cpu.address, cpu.data);
+
+                cpu.data = cpu.data.wrapping_add(1);
+
+                Poll::Pending
+            }
+
+            _ => {
+                bus.write(cpu.address, cpu.data);
+
+                cpu.state.p.update_zn(cpu.data);
+
+                Poll::Ready(())
+            }
+        }
+    }
+}
+
+/// Increments register `R` by one in a single implicit cycle (`INX`, `INY`).
+/// Updates `Z` and `N` to reflect the new value.
+pub struct INCREMENT<const R: Register>;
+
+impl<const R: Register> Operation for INCREMENT<R> {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        let value = cpu.state.get::<R>().wrapping_add(1);
+
+        cpu.state.set::<R>(value);
+        cpu.state.p.update_zn(value);
+
+        Poll::Ready(())
+    }
+}
+
+pub type INX = INCREMENT<{ X }>;
+pub type INY = INCREMENT<{ Y }>;
+
 /// Unconditional jump; sets the program counter to the resolved effective address.
+/// Executes in a single step once the addressing mode has fully resolved `cpu.address`.
+/// No flags are modified.
 pub struct JMP;
 
 impl Operation for JMP {
@@ -186,6 +302,8 @@ impl Operation for JSR {
 }
 
 /// No operation; idles for one additional cycle after the opcode fetch.
+/// All registers and flags are left unchanged.
+/// Commonly used for cycle-padding or dead-code patching.
 pub struct NOP;
 
 impl Operation for NOP {
@@ -217,6 +335,8 @@ pub type LDX = LOAD<{ X }>;
 pub type LDY = LOAD<{ Y }>;
 
 /// Pushes the accumulator onto the stack. 3 cycles.
+/// Cycle 1 is a spurious read at PC; cycle 2 writes `A` to the stack pointer address and decrements `S`.
+/// No flags are modified.
 pub struct PHA;
 
 impl Operation for PHA {
@@ -235,6 +355,8 @@ impl Operation for PHA {
 }
 
 /// Pushes the processor status register onto the stack with `U` and `B` always set. 3 cycles.
+/// Cycle 1 is a spurious read at PC; cycle 2 writes `P | U | B` to the stack.
+/// The live `P` register is not modified.
 pub struct PHP;
 
 impl Operation for PHP {
@@ -252,7 +374,9 @@ impl Operation for PHP {
     }
 }
 
-/// Pulls the accumulator from the stack; updates `Z` and `N`. 4 cycles.
+/// Pulls the accumulator from the stack. 4 cycles.
+/// Cycles 1–2 are a spurious read and a stack-pointer increment; cycle 3 reads the new stack top into `A`.
+/// Updates `Z` and `N`.
 pub struct PLA;
 
 impl Operation for PLA {
@@ -281,6 +405,8 @@ impl Operation for PLA {
 }
 
 /// Pulls the processor status register from the stack. 4 cycles.
+/// Mirrors `PLA` timing but loads the pulled byte directly into `P` rather than `A`.
+/// The `U` and `B` bits reflect whatever was stored on the stack.
 pub struct PLP;
 
 impl Operation for PLP {
@@ -349,6 +475,8 @@ impl Operation for RTS {
 }
 
 /// Sets status flag `FLAG` unconditionally (`SEC`, `SEI`, `SED`).
+/// Executes in a single implicit cycle after the opcode fetch.
+/// No memory access occurs and no other flags are affected.
 pub struct SET<const FLAG: u8>;
 
 impl<const FLAG: u8> Operation for SET<FLAG> {
@@ -364,8 +492,9 @@ pub type SEC = SET<{ CpuStatus::C.bits() }>;
 pub type SEI = SET<{ CpuStatus::I.bits() }>;
 pub type SED = SET<{ CpuStatus::D.bits() }>;
 
-/// Stores the contents of the register into memory,
-/// at the effective address (`STA`, `STX`, `STY`).
+/// Stores register `R` into memory at the effective address (`STA`, `STX`, `STY`).
+/// Writes in a single step once the addressing mode resolves.
+/// No flags are modified.
 pub struct STORE<const R: Register>;
 
 impl<const R: Register> Operation for STORE<R> {
@@ -385,6 +514,9 @@ pub type STA = STORE<{ A }>;
 pub type STX = STORE<{ X }>;
 pub type STY = STORE<{ Y }>;
 
+/// Copies register `SRC` into register `DST` in a single implicit cycle (`TAX`, `TAY`, `TSX`, `TXA`, `TYA`, `TXS`).
+/// Updates `Z` and `N` when the destination is `A`, `X`, or `Y`.
+/// `TXS` is the sole exception and leaves all flags unchanged.
 pub struct TRANSFER<const SRC: Register, const DST: Register>;
 
 impl<const SRC: Register, const DST: Register> Operation for TRANSFER<SRC, DST> {

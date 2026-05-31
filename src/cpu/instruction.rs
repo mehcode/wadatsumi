@@ -17,14 +17,16 @@ pub type Instruction<B> = fn(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()>;
 
 /// Monomorphic handler for a specific `(Operation, AddressingMode)` pair.
 pub fn execute<B: Bus, O: Operation, A: AddressingMode>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-    if !cpu.executing {
+    if cpu.executing == 0 {
         // Advance address resolution by one cycle; returns Poll::Pending immediately if the
         // effective address isn't ready yet (e.g. mid-fetch or page-cross penalty still pending).
         let Poll::Ready(prefetched) = A::resolve::<O, _>(cpu, bus) else {
             return Poll::Pending;
         };
 
-        cpu.executing = true;
+        // Record the t-state at which execution begins; operations use `cpu.t - cpu.executing`
+        // as an addressing-mode-agnostic cycle index inside their `apply` implementations.
+        cpu.executing = cpu.t;
 
         // Addressing modes that happen to read the operand as a side-effect of their final timing
         // cycle return it as Some(byte), avoiding a redundant bus access. Otherwise, read operations

@@ -8,8 +8,9 @@ use crate::cpu::addressing::{
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, JMP, JSR, LDA, LDX, LDY, NOP,
-    Operation, PHA, PHP, PLA, PLP, RTS, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, DEC, DEX, DEY, INC, INX, INY, JMP,
+    JSR, LDA, LDX, LDY, NOP, Operation, PHA, PHP, PLA, PLP, RTS, SEC, SED, SEI, STA, STX, STY, TAX,
+    TAY, TSX, TXA, TXS, TYA,
 };
 use crate::cpu::state::Register;
 
@@ -76,6 +77,22 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<PHP, Implied>(0x08);
         table.insert::<PLA, Implied>(0x68);
         table.insert::<PLP, Implied>(0x28);
+
+        // Increment by one
+        table.insert::<INC, ZeroPage>(0xe6);
+        table.insert::<INC, ZeroPageX>(0xf6);
+        table.insert::<INC, Absolute>(0xee);
+        table.insert::<INC, AbsoluteX>(0xfe);
+        table.insert::<INX, Implied>(0xe8);
+        table.insert::<INY, Implied>(0xc8);
+
+        // Decrement by one
+        table.insert::<DEC, ZeroPage>(0xc6);
+        table.insert::<DEC, ZeroPageX>(0xd6);
+        table.insert::<DEC, Absolute>(0xce);
+        table.insert::<DEC, AbsoluteX>(0xde);
+        table.insert::<DEX, Implied>(0xca);
+        table.insert::<DEY, Implied>(0x88);
 
         // Jumps, Calls, Returns
         table.insert::<JMP, Absolute>(0x4c);
