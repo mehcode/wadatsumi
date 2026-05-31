@@ -45,6 +45,41 @@ pub trait Operation {
         Self: Sized;
 }
 
+/// Bitwise AND of the accumulator with a byte from the effective address (`AND`).
+/// Stores the result in `A`. Updates `Z` and `N`.
+pub struct AND;
+
+impl Operation for AND {
+    const MODE: OperationMode = OperationMode::Read;
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let result = cpu.state.a & cpu.data;
+
+        cpu.state.a = result;
+        cpu.state.p.update_zn(result);
+
+        Poll::Ready(())
+    }
+}
+
+/// Tests bits in memory against the accumulator (`BIT`).
+/// Sets `Z` from `A & data`, copies bit 7 of `data` to `N`, and bit 6 of `data` to `V`. `A` is not modified.
+pub struct BIT;
+
+impl Operation for BIT {
+    const MODE: OperationMode = OperationMode::Read;
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        cpu.state.p.update_z(cpu.state.a & cpu.data);
+        cpu.state.p.set(CpuStatus::N, cpu.data & 0x80 != 0);
+        cpu.state.p.set(CpuStatus::V, cpu.data & 0x40 != 0);
+
+        Poll::Ready(())
+    }
+}
+
 /// Branches to a relative offset when status flag `FLAG` equals `EXPECTED` (`BCC`, `BCS`, `BEQ`, `BNE`, `BMI`, `BPL`, `BVC`, `BVS`).
 /// Takes 2 cycles if not taken, 3 if taken same-page, or 4 if the branch crosses a page boundary.
 pub struct BRANCH<const FLAG: u8, const EXPECTED: bool>;
@@ -181,6 +216,24 @@ impl<const R: Register> Operation for DECREMENT<R> {
 pub type DEX = DECREMENT<{ X }>;
 pub type DEY = DECREMENT<{ Y }>;
 
+/// Bitwise exclusive OR of the accumulator with a byte from the effective address (`EOR`).
+/// Stores the result in `A`. Updates `Z` and `N`.
+pub struct EOR;
+
+impl Operation for EOR {
+    const MODE: OperationMode = OperationMode::Read;
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let result = cpu.state.a ^ cpu.data;
+
+        cpu.state.a = result;
+        cpu.state.p.update_zn(result);
+
+        Poll::Ready(())
+    }
+}
+
 /// Increments a byte in memory by one using the read-modify-write pipeline (`INC`).
 /// Reads the value, performs a spurious write with the original byte, then writes the incremented result.
 /// Updates `Z` and `N`.
@@ -301,19 +354,6 @@ impl Operation for JSR {
     }
 }
 
-/// No operation; idles for one additional cycle after the opcode fetch.
-/// All registers and flags are left unchanged.
-/// Commonly used for cycle-padding or dead-code patching.
-pub struct NOP;
-
-impl Operation for NOP {
-    #[inline]
-    fn apply<B: Bus>(_: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        // Do nothing
-        Poll::Ready(())
-    }
-}
-
 /// Loads a byte from the effective address into the register (`LDA`, `LDX`, `LDY`).
 /// Updates `Z` and `N`.
 pub struct LOAD<const R: Register>;
@@ -333,6 +373,37 @@ impl<const R: Register> Operation for LOAD<R> {
 pub type LDA = LOAD<{ A }>;
 pub type LDX = LOAD<{ X }>;
 pub type LDY = LOAD<{ Y }>;
+
+/// No operation; idles for one additional cycle after the opcode fetch.
+/// All registers and flags are left unchanged.
+/// Commonly used for cycle-padding or dead-code patching.
+pub struct NOP;
+
+impl Operation for NOP {
+    #[inline]
+    fn apply<B: Bus>(_: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        // Do nothing
+        Poll::Ready(())
+    }
+}
+
+/// Bitwise OR of the accumulator with a byte from the effective address (`ORA`).
+/// Stores the result in `A`. Updates `Z` and `N`.
+pub struct ORA;
+
+impl Operation for ORA {
+    const MODE: OperationMode = OperationMode::Read;
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let result = cpu.state.a | cpu.data;
+
+        cpu.state.a = result;
+        cpu.state.p.update_zn(result);
+
+        Poll::Ready(())
+    }
+}
 
 /// Pushes the accumulator onto the stack. 3 cycles.
 /// Cycle 1 is a spurious read at PC; cycle 2 writes `A` to the stack pointer address and decrements `S`.

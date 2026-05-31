@@ -8,9 +8,9 @@ use crate::cpu::addressing::{
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, DEC, DEX, DEY, INC, INX, INY, JMP,
-    JSR, LDA, LDX, LDY, NOP, Operation, PHA, PHP, PLA, PLP, RTS, SEC, SED, SEI, STA, STX, STY, TAX,
-    TAY, TSX, TXA, TXS, TYA,
+    AND, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, DEC, DEX, DEY, EOR, INC,
+    INX, INY, JMP, JSR, LDA, LDX, LDY, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RTS, SEC, SED, SEI,
+    STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 use crate::cpu::state::Register;
 
@@ -77,6 +77,40 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<PHP, Implied>(0x08);
         table.insert::<PLA, Implied>(0x68);
         table.insert::<PLP, Implied>(0x28);
+
+        // Logical AND memory with accumulator
+        table.insert::<AND, Immediate>(0x29);
+        table.insert::<AND, ZeroPage>(0x25);
+        table.insert::<AND, ZeroPageX>(0x35);
+        table.insert::<AND, Absolute>(0x2d);
+        table.insert::<AND, AbsoluteX>(0x3d);
+        table.insert::<AND, AbsoluteY>(0x39);
+        table.insert::<AND, IndirectX>(0x21);
+        table.insert::<AND, IndirectY>(0x31);
+
+        // Exclusive OR memory with accumulator
+        table.insert::<EOR, Immediate>(0x49);
+        table.insert::<EOR, ZeroPage>(0x45);
+        table.insert::<EOR, ZeroPageX>(0x45);
+        table.insert::<EOR, Absolute>(0x4d);
+        table.insert::<EOR, AbsoluteX>(0x5d);
+        table.insert::<EOR, AbsoluteY>(0x59);
+        table.insert::<EOR, IndirectX>(0x41);
+        table.insert::<EOR, IndirectY>(0x51);
+
+        // Logical OR memory with accumulator
+        table.insert::<ORA, Immediate>(0x09);
+        table.insert::<ORA, ZeroPage>(0x05);
+        table.insert::<ORA, ZeroPageX>(0x15);
+        table.insert::<ORA, Absolute>(0x0d);
+        table.insert::<ORA, AbsoluteX>(0x1d);
+        table.insert::<ORA, AbsoluteY>(0x19);
+        table.insert::<ORA, IndirectX>(0x01);
+        table.insert::<ORA, IndirectY>(0x11);
+
+        // Bit Test
+        table.insert::<BIT, ZeroPage>(0x24);
+        table.insert::<BIT, Absolute>(0x2c);
 
         // Increment by one
         table.insert::<INC, ZeroPage>(0xe6);
