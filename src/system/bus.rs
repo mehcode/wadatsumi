@@ -19,7 +19,7 @@ impl SystemBus {
 
 impl Bus for SystemBus {
     #[allow(clippy::match_same_arms)]
-    fn read(&mut self, address: u16) -> u8 {
+    fn peek(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x1fff => self.wram[(address & 0x7ff) as usize],
 
@@ -38,15 +38,17 @@ impl Bus for SystemBus {
                 0
             }
 
-            0x6000..=0x7fff => {
-                // TODO: Pak SRAM (?)
-                0
-            }
+            0x6000..=0x7fff => self.pak.as_ref().map_or(0, |pak| pak.read_sram(address)),
 
-            // Pak PRG-ROM
-            // Delegates to the Pak's mapper
-            0x8000..=0xffff => self.pak.as_mut().map_or(0, |pak| pak.read_prg(address)),
+            0x8000..=0xffff => self.pak.as_ref().map_or(0, |pak| pak.read_prg(address)),
         }
+    }
+
+    #[allow(clippy::match_same_arms)]
+    fn read(&mut self, address: u16) -> u8 {
+        // Once PPU/APU registers are implemented, handle their side effects here
+        // before falling through to peek.
+        self.peek(address)
     }
 
     #[allow(clippy::match_same_arms)]
@@ -69,7 +71,9 @@ impl Bus for SystemBus {
             }
 
             0x6000..=0x7fff => {
-                // TODO: Pak SRAM (?)
+                if let Some(pak) = self.pak.as_mut() {
+                    pak.write_sram(address, value);
+                }
             }
 
             0x8000..=0xffff => {

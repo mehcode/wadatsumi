@@ -15,5 +15,14 @@ pub use nrom::Nrom;
 /// so that the mapper itself is pure logic with no data duplication.
 pub trait Mapper {
     /// Read one byte from PRG-ROM/RAM at the given CPU address.
-    fn read_prg(&mut self, prg: &[u8], address: u16) -> u8;
+    fn read_prg(&self, prg: &[u8], address: u16) -> u8;
+
+    /// How many bytes of SRAM this cartridge board provides; `Pak` allocates this on open.
+    fn sram_size(&self) -> usize;
+
+    /// Read one byte from SRAM at the given CPU address (`$6000–$7FFF`).
+    fn read_sram(&self, sram: &[u8], address: u16) -> u8;
+
+    /// Write one byte to SRAM at the given CPU address (`$6000–$7FFF`).
+    fn write_sram(&self, sram: &mut [u8], address: u16, value: u8);
 }

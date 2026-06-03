@@ -50,6 +50,7 @@ pub enum Mirroring {
 pub struct Pak {
     prg: Bytes,
     chr: Bytes,
+    sram: Option<Box<[u8]>>,
     mapper: Box<dyn Mapper>,
 
     /// Nametable mirroring arrangement, set by the cartridge hardware.
@@ -126,7 +127,13 @@ impl Pak {
             _ => return Err(Error::UnsupportedMapper(mapper_num)),
         };
 
-        Ok(Self { prg, chr, mapper, mirroring })
+        let sram = if mapper.sram_size() > 0 {
+            Some(vec![0; mapper.sram_size()].into_boxed_slice())
+        } else {
+            None
+        };
+
+        Ok(Self { prg, chr, sram, mapper, mirroring })
     }
 
     /// Read one byte from PRG-ROM at the given CPU bus address.
@@ -134,7 +141,23 @@ impl Pak {
     /// Delegates to the mapper, which translates the address according to the
     /// cartridge's bank-switching state. The valid range is mapper-dependent
     /// but is typically $8000-$FFFF.
-    pub fn read_prg(&mut self, address: u16) -> u8 {
+    pub fn read_prg(&self, address: u16) -> u8 {
         self.mapper.read_prg(&self.prg, address)
+    }
+
+    /// Read one byte from SRAM at the given CPU bus address (`$6000–$7FFF`).
+    ///
+    /// Returns `0` if this cartridge has no SRAM.
+    pub fn read_sram(&self, address: u16) -> u8 {
+        self.sram.as_deref().map_or(0, |sram| self.mapper.read_sram(sram, address))
+    }
+
+    /// Write one byte to SRAM at the given CPU bus address (`$6000–$7FFF`).
+    ///
+    /// Does nothing if this cartridge has no SRAM.
+    pub fn write_sram(&mut self, address: u16, value: u8) {
+        if let Some(sram) = self.sram.as_deref_mut() {
+            self.mapper.write_sram(sram, address, value);
+        }
     }
 }

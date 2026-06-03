@@ -6,8 +6,10 @@
 /// Allows the CPU to read and write memory-mapped addresses without knowing
 /// the underlying hardware topology.
 pub trait Bus {
-    /// Reads one byte from `address`.
-    /// Takes `&mut self` because some memory-mapped registers have read side-effects.
+    /// Reads one byte from `address`, without triggering hardware side-effects.
+    fn peek(&self, address: u16) -> u8;
+
+    /// Reads one byte from `address`, with hardware side-effects.
     fn read(&mut self, address: u16) -> u8;
 
     /// Writes `value` to `address`.
