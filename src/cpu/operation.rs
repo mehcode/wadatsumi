@@ -19,10 +19,10 @@ mod transfer;
 
 pub use arithmetic::{ADC, CMP, CPX, CPY, DEC, DEX, DEY, INC, INX, INY, SBC};
 pub use flow::{BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, JMP, JSR, RTI, RTS};
-pub use logical::{ANC, ALR, AND, ASL, BIT, EOR, LSR, ORA, RLA, ROL, ROR, SLO};
+pub use logical::{ALR, ANC, AND, ASL, BIT, EOR, LSR, ORA, RLA, ROL, ROR, SLO};
 pub use stack::{PHA, PHP, PLA, PLP};
 pub use system::{CLC, CLD, CLI, CLV, NOP, SEC, SED, SEI};
-pub use transfer::{LDA, LDX, LDY, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA};
+pub use transfer::{LAX, LDA, LDX, LDY, SAX, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA};
 
 /// Classifies how an operation accesses memory, driving the addressing-mode pipeline.
 /// The addressing mode uses this to issue the correct read or write cycles before handing off to `apply`.
@@ -63,6 +63,7 @@ pub enum Register {
 impl Register {
     /// Reads the value of this register.
     #[inline(always)]
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     #[must_use]
     pub const fn get(self, cpu: &CpuState) -> u8 {
         match self {

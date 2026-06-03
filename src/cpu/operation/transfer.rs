@@ -13,6 +13,24 @@ use crate::cpu::Cpu;
 use crate::cpu::operation::Register::{self, A, SP, X, Y};
 use crate::cpu::operation::{MemoryAccess, Operation};
 
+/// Loads a byte from the effective address into both `A` and `X` (`LAX`).
+/// Updates `Z` and `N`.
+pub struct LAX;
+
+impl Operation for LAX {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        cpu.state.a = cpu.data;
+        cpu.state.x = cpu.data;
+
+        cpu.state.p.update_zn(cpu.data);
+
+        Poll::Ready(())
+    }
+}
+
 /// Loads a byte from the effective address into the register (`LDA`, `LDX`, `LDY`).
 /// Updates `Z` and `N`.
 pub struct LOAD<const R: Register>;
@@ -32,6 +50,21 @@ impl<const R: Register> Operation for LOAD<R> {
 pub type LDA = LOAD<{ A }>;
 pub type LDX = LOAD<{ X }>;
 pub type LDY = LOAD<{ Y }>;
+
+pub struct SAX;
+
+impl Operation for SAX {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = cpu.state.a & cpu.state.x;
+
+        bus.write(cpu.address, value);
+
+        Poll::Ready(())
+    }
+}
 
 /// Stores register `R` into memory at the effective address (`STA`, `STX`, `STY`).
 /// Writes in a single step once the addressing mode resolves.
