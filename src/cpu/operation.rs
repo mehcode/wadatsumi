@@ -3,12 +3,12 @@
 
 #![allow(clippy::upper_case_acronyms)]
 
+use std::marker::ConstParamTy;
 use std::task::Poll;
 
 use crate::bus::Bus;
-use crate::cpu::Cpu;
 use crate::cpu::state::CpuStatus;
-use crate::cpu::state::Register::{self, A, SP, X, Y};
+use crate::cpu::{Cpu, CpuState};
 
 mod arithmetic;
 mod flow;
@@ -49,4 +49,48 @@ pub trait Operation {
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()>
     where
         Self: Sized;
+}
+
+#[derive(Debug, Clone, Copy, ConstParamTy, PartialEq, Eq)]
+pub enum Register {
+    A,
+    X,
+    Y,
+    SP,
+}
+
+impl Register {
+    /// Reads the value of this register.
+    #[inline(always)]
+    #[must_use]
+    pub const fn get(self, cpu: &CpuState) -> u8 {
+        match self {
+            Self::A => cpu.a,
+            Self::X => cpu.x,
+            Self::Y => cpu.y,
+            Self::SP => cpu.sp,
+        }
+    }
+
+    /// Writes `value` to this register.
+    #[inline(always)]
+    pub const fn set(self, cpu: &mut CpuState, value: u8) {
+        match self {
+            Self::A => {
+                cpu.a = value;
+            }
+
+            Self::X => {
+                cpu.x = value;
+            }
+
+            Self::Y => {
+                cpu.y = value;
+            }
+
+            Self::SP => {
+                cpu.sp = value;
+            }
+        }
+    }
 }

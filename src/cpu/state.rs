@@ -3,14 +3,6 @@
 
 use std::marker::ConstParamTy;
 
-#[derive(Debug, Clone, Copy, ConstParamTy, PartialEq, Eq)]
-pub enum Register {
-    A,
-    X,
-    Y,
-    SP,
-}
-
 /// Processor status register (P) flags for the 6502 CPU.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ConstParamTy)]
 pub struct CpuStatus(pub u8);
@@ -154,40 +146,6 @@ impl CpuState {
 
             // I is set by the reset sequence.
             p: CpuStatus::I,
-        }
-    }
-
-    /// Writes `value` to register `R`.
-    #[inline(always)]
-    pub fn set<const R: Register>(&mut self, value: u8) {
-        match R {
-            Register::A => {
-                self.a = value;
-            }
-
-            Register::X => {
-                self.x = value;
-            }
-
-            Register::Y => {
-                self.y = value;
-            }
-
-            Register::SP => {
-                self.sp = value;
-            }
-        }
-    }
-
-    /// Reads the value of register `R`.
-    #[inline(always)]
-    #[must_use]
-    pub const fn get<const R: Register>(&self) -> u8 {
-        match R {
-            Register::A => self.a,
-            Register::X => self.x,
-            Register::Y => self.y,
-            Register::SP => self.sp,
         }
     }
 

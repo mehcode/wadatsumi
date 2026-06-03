@@ -5,8 +5,8 @@ use std::task::Poll;
 
 use crate::bus::Bus;
 use crate::cpu::Cpu;
+use crate::cpu::operation::Register::{self, X, Y};
 use crate::cpu::operation::{MemoryAccess, Operation};
-use crate::cpu::state::Register::{self, X, Y};
 
 /// Determines how an instruction locates its operand.
 ///
@@ -96,7 +96,7 @@ impl<const R: Register> AddressingMode for ZeroPageIndexed<R> {
                 let _ = bus.read(cpu.address);
 
                 // Wrap the indexed offset within page zero; no carry into the high byte.
-                let offset = cpu.state.get::<R>();
+                let offset = R.get(&cpu.state);
                 cpu.address = u16::from((cpu.address as u8).wrapping_add(offset));
 
                 Poll::Pending
@@ -148,7 +148,7 @@ impl<const R: Register> AddressingMode for AbsoluteIndexed<R> {
             1 | 2 => Absolute::resolve::<O, _>(cpu, bus),
 
             3 => {
-                let index = cpu.state.get::<R>();
+                let index = R.get(&cpu.state);
                 let address = cpu.address.wrapping_add(u16::from(index));
                 let page_crossed = cpu.address >> 8 != address >> 8;
 

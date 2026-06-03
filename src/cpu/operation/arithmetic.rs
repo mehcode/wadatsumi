@@ -8,8 +8,8 @@
 use std::task::Poll;
 
 use crate::Bus;
+use crate::cpu::operation::Register::{self, A, X, Y};
 use crate::cpu::operation::{MemoryAccess, Operation};
-use crate::cpu::state::Register::{self, A, X, Y};
 use crate::cpu::{Cpu, CpuStatus};
 
 /// Adds the accumulator, a byte from the effective address, and the carry flag (`ADC`).
@@ -49,7 +49,7 @@ impl<const R: Register> Operation for COMPARE<R> {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        let value = cpu.state.get::<R>();
+        let value = R.get(&cpu.state);
         let result = value.wrapping_sub(cpu.data);
 
         cpu.state.p.set(CpuStatus::C, value >= cpu.data);
@@ -90,9 +90,9 @@ pub struct DECREMENT<const R: Register>;
 impl<const R: Register> Operation for DECREMENT<R> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        let value = cpu.state.get::<R>().wrapping_sub(1);
+        let value = R.get(&cpu.state).wrapping_sub(1);
 
-        cpu.state.set::<R>(value);
+        R.set(&mut cpu.state, value);
 
         cpu.state.p.update_zn(value);
 
@@ -130,9 +130,9 @@ pub struct INCREMENT<const R: Register>;
 impl<const R: Register> Operation for INCREMENT<R> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        let value = cpu.state.get::<R>().wrapping_add(1);
+        let value = R.get(&cpu.state).wrapping_add(1);
 
-        cpu.state.set::<R>(value);
+        R.set(&mut cpu.state, value);
 
         cpu.state.p.update_zn(value);
 

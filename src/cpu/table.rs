@@ -10,9 +10,8 @@ use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
     ADC, AND, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC,
     DEX, DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, NOP, ORA, Operation, PHA, PHP, PLA, PLP,
-    RTI, RTS, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    RTI, RTS, Register, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
-use crate::cpu::state::Register;
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
 ///

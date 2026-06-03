@@ -10,8 +10,8 @@ use std::task::Poll;
 
 use crate::Bus;
 use crate::cpu::Cpu;
+use crate::cpu::operation::Register::{self, A, SP, X, Y};
 use crate::cpu::operation::{MemoryAccess, Operation};
-use crate::cpu::state::Register::{self, A, SP, X, Y};
 
 /// Loads a byte from the effective address into the register (`LDA`, `LDX`, `LDY`).
 /// Updates `Z` and `N`.
@@ -22,7 +22,7 @@ impl<const R: Register> Operation for LOAD<R> {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        cpu.state.set::<R>(cpu.data);
+        R.set(&mut cpu.state, cpu.data);
         cpu.state.p.update_zn(cpu.data);
 
         Poll::Ready(())
@@ -43,7 +43,7 @@ impl<const R: Register> Operation for STORE<R> {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.state.get::<R>();
+        let value = R.get(&cpu.state);
 
         bus.write(cpu.address, value);
 
@@ -63,9 +63,9 @@ pub struct TRANSFER<const SRC: Register, const DST: Register>;
 impl<const SRC: Register, const DST: Register> Operation for TRANSFER<SRC, DST> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        let value = cpu.state.get::<SRC>();
+        let value = SRC.get(&cpu.state);
 
-        cpu.state.set::<DST>(value);
+        DST.set(&mut cpu.state, value);
 
         if matches!(DST, A | X | Y) {
             cpu.state.p.update_zn(value);
