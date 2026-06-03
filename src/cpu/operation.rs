@@ -19,7 +19,7 @@ mod transfer;
 
 pub use arithmetic::{ADC, CMP, CPX, CPY, DEC, DEX, DEY, INC, INX, INY, SBC};
 pub use flow::{BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, JMP, JSR, RTI, RTS};
-pub use logical::{AND, BIT, EOR, ORA};
+pub use logical::{AND, ASL, BIT, EOR, LSR, ORA, ROL, ROR};
 pub use stack::{PHA, PHP, PLA, PLP};
 pub use system::{CLC, CLD, CLI, CLV, NOP, SEC, SED, SEI};
 pub use transfer::{LDA, LDX, LDY, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA};

@@ -8,8 +8,27 @@
 use std::task::Poll;
 
 use crate::Bus;
-use crate::cpu::operation::{MemoryAccess, Operation};
+use crate::cpu::operation::{MemoryAccess, Operand, Operation, Register};
 use crate::cpu::{Cpu, CpuStatus};
+
+pub struct ASL<const O: Operand>;
+
+impl<const O: Operand> Operation for ASL<O> {
+    const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = O.read(cpu);
+        let result = value << 1;
+
+        O.write(cpu, bus, result);
+
+        cpu.state.p.update_zn(result);
+        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
+
+        Poll::Ready(())
+    }
+}
 
 /// Bitwise AND of the accumulator with a byte from the effective address (`AND`).
 /// Stores the result in `A`. Updates `Z` and `N`.
@@ -64,6 +83,25 @@ impl Operation for EOR {
     }
 }
 
+pub struct LSR<const O: Operand>;
+
+impl<const O: Operand> Operation for LSR<O> {
+    const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = O.read(cpu);
+        let result = value >> 1;
+
+        O.write(cpu, bus, result);
+
+        cpu.state.p.update_zn(result);
+        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
+
+        Poll::Ready(())
+    }
+}
+
 /// Bitwise OR of the accumulator with a byte from the effective address (`ORA`).
 /// Stores the result in `A`. Updates `Z` and `N`.
 pub struct ORA;
@@ -77,6 +115,44 @@ impl Operation for ORA {
 
         cpu.state.a = result;
         cpu.state.p.update_zn(result);
+
+        Poll::Ready(())
+    }
+}
+
+pub struct ROL<const O: Operand>;
+
+impl<const O: Operand> Operation for ROL<O> {
+    const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = O.read(cpu);
+        let result = (value << 1) | u8::from(cpu.state.p.contains(CpuStatus::C));
+
+        O.write(cpu, bus, result);
+
+        cpu.state.p.update_zn(result);
+        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
+
+        Poll::Ready(())
+    }
+}
+
+pub struct ROR<const O: Operand>;
+
+impl<const O: Operand> Operation for ROR<O> {
+    const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = O.read(cpu);
+        let result = (value >> 1) | (u8::from(cpu.state.p.contains(CpuStatus::C)) << 7);
+
+        O.write(cpu, bus, result);
+
+        cpu.state.p.update_zn(result);
+        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
 
         Poll::Ready(())
     }

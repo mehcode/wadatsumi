@@ -8,9 +8,9 @@ use crate::cpu::addressing::{
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    ADC, AND, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC,
-    DEX, DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, NOP, ORA, Operation, PHA, PHP, PLA, PLP,
-    RTI, RTS, Register, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    ADC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY,
+    DEC, DEX, DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, LSR, NOP, ORA, Operation, PHA, PHP,
+    PLA, PLP, ROL, ROR, RTI, RTS, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
@@ -26,7 +26,8 @@ impl<B: Bus> InstructionTable<B> {
     #[allow(clippy::too_many_lines)]
     #[must_use]
     pub const fn new() -> Self {
-        use Register::*;
+        use crate::cpu::operation::Operand::{Memory, Register};
+        use crate::cpu::operation::Register::A;
 
         let mut table = Self { instructions: [None; 256] };
 
@@ -164,6 +165,34 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<DEC, AbsoluteX>(0xde);
         table.insert::<DEX, Implied>(0xca);
         table.insert::<DEY, Implied>(0x88);
+
+        // Arithmetic Shift Left
+        table.insert::<ASL<{ Register(A) }>, Implied>(0x0a);
+        table.insert::<ASL<{ Memory }>, ZeroPage>(0x06);
+        table.insert::<ASL<{ Memory }>, ZeroPageX>(0x16);
+        table.insert::<ASL<{ Memory }>, Absolute>(0x0e);
+        table.insert::<ASL<{ Memory }>, AbsoluteX>(0x1e);
+
+        // Shift Right Logical
+        table.insert::<LSR<{ Register(A) }>, Implied>(0x4a);
+        table.insert::<LSR<{ Memory }>, ZeroPage>(0x46);
+        table.insert::<LSR<{ Memory }>, ZeroPageX>(0x56);
+        table.insert::<LSR<{ Memory }>, Absolute>(0x4e);
+        table.insert::<LSR<{ Memory }>, AbsoluteX>(0x5e);
+
+        // Rotate Left through Carry
+        table.insert::<ROL<{ Register(A) }>, Implied>(0x2a);
+        table.insert::<ROL<{ Memory }>, ZeroPage>(0x26);
+        table.insert::<ROL<{ Memory }>, ZeroPageX>(0x36);
+        table.insert::<ROL<{ Memory }>, Absolute>(0x2e);
+        table.insert::<ROL<{ Memory }>, AbsoluteX>(0x3e);
+
+        // Rotate Right through Carry
+        table.insert::<ROR<{ Register(A) }>, Implied>(0x6a);
+        table.insert::<ROR<{ Memory }>, ZeroPage>(0x66);
+        table.insert::<ROR<{ Memory }>, ZeroPageX>(0x76);
+        table.insert::<ROR<{ Memory }>, Absolute>(0x6e);
+        table.insert::<ROR<{ Memory }>, AbsoluteX>(0x7e);
 
         // Jumps, Calls, Returns
         table.insert::<JMP, Absolute>(0x4c);
