@@ -8,9 +8,10 @@ use crate::cpu::addressing::{
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    ADC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY,
-    DEC, DEX, DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, LSR, NOP, ORA, Operation, PHA, PHP,
-    PLA, PLP, ROL, ROR, RTI, RTS, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    ADC, ALR, ANC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV,
+    CMP, CPX, CPY, DEC, DEX, DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, LSR, NOP, ORA,
+    Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RTI, RTS, SBC, SEC, SED, SEI, SLO, STA, STX,
+    STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
@@ -74,13 +75,13 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<STY, ZeroPageX>(0x94);
         table.insert::<STY, Absolute>(0x8c);
 
-        // Push, Pull
+        // Push, Pull [PHA, PHP, PLA, PLP]
         table.insert::<PHA, Implied>(0x48);
         table.insert::<PHP, Implied>(0x08);
         table.insert::<PLA, Implied>(0x68);
         table.insert::<PLP, Implied>(0x28);
 
-        // Add memory to accumulator with carry
+        // Add memory to accumulator with carry [ADC]
         table.insert::<ADC, Immediate>(0x69);
         table.insert::<ADC, ZeroPage>(0x65);
         table.insert::<ADC, ZeroPageX>(0x75);
@@ -90,7 +91,7 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<ADC, IndirectX>(0x61);
         table.insert::<ADC, IndirectY>(0x71);
 
-        // Subtract memory from accumulator with borrow
+        // Subtract memory from accumulator with borrow [SBC]
         table.insert::<SBC, Immediate>(0xe9);
         table.insert::<SBC, ZeroPage>(0xe5);
         table.insert::<SBC, ZeroPageX>(0xf5);
@@ -100,7 +101,7 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<SBC, IndirectX>(0xe1);
         table.insert::<SBC, IndirectY>(0xf1);
 
-        // Logical AND memory with accumulator
+        // Logical AND memory with accumulator [AND]
         table.insert::<AND, Immediate>(0x29);
         table.insert::<AND, ZeroPage>(0x25);
         table.insert::<AND, ZeroPageX>(0x35);
@@ -110,7 +111,7 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<AND, IndirectX>(0x21);
         table.insert::<AND, IndirectY>(0x31);
 
-        // Exclusive OR memory with accumulator
+        // Exclusive OR memory with accumulator [EOR]
         table.insert::<EOR, Immediate>(0x49);
         table.insert::<EOR, ZeroPage>(0x45);
         table.insert::<EOR, ZeroPageX>(0x55);
@@ -120,7 +121,7 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<EOR, IndirectX>(0x41);
         table.insert::<EOR, IndirectY>(0x51);
 
-        // Logical OR memory with accumulator
+        // Logical OR memory with accumulator [ORA]
         table.insert::<ORA, Immediate>(0x09);
         table.insert::<ORA, ZeroPage>(0x05);
         table.insert::<ORA, ZeroPageX>(0x15);
@@ -130,7 +131,7 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<ORA, IndirectX>(0x01);
         table.insert::<ORA, IndirectY>(0x11);
 
-        // Compare
+        // Compare [CMP, CPX, CPY]
         table.insert::<CMP, Immediate>(0xc9);
         table.insert::<CMP, ZeroPage>(0xc5);
         table.insert::<CMP, ZeroPageX>(0xd5);
@@ -146,11 +147,11 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<CPY, ZeroPage>(0xc4);
         table.insert::<CPY, Absolute>(0xcc);
 
-        // Bit Test
+        // Bit Test [BIT]
         table.insert::<BIT, ZeroPage>(0x24);
         table.insert::<BIT, Absolute>(0x2c);
 
-        // Increment by one
+        // Increment by one [INC, INX, INY]
         table.insert::<INC, ZeroPage>(0xe6);
         table.insert::<INC, ZeroPageX>(0xf6);
         table.insert::<INC, Absolute>(0xee);
@@ -158,7 +159,7 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<INX, Implied>(0xe8);
         table.insert::<INY, Implied>(0xc8);
 
-        // Decrement by one
+        // Decrement by one [DEC, DEX, DEY]
         table.insert::<DEC, ZeroPage>(0xc6);
         table.insert::<DEC, ZeroPageX>(0xd6);
         table.insert::<DEC, Absolute>(0xce);
@@ -166,42 +167,42 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<DEX, Implied>(0xca);
         table.insert::<DEY, Implied>(0x88);
 
-        // Arithmetic Shift Left
+        // Arithmetic Shift Left [ASL]
         table.insert::<ASL<{ Register(A) }>, Implied>(0x0a);
         table.insert::<ASL<{ Memory }>, ZeroPage>(0x06);
         table.insert::<ASL<{ Memory }>, ZeroPageX>(0x16);
         table.insert::<ASL<{ Memory }>, Absolute>(0x0e);
         table.insert::<ASL<{ Memory }>, AbsoluteX>(0x1e);
 
-        // Shift Right Logical
+        // Shift Right Logical [LSR]
         table.insert::<LSR<{ Register(A) }>, Implied>(0x4a);
         table.insert::<LSR<{ Memory }>, ZeroPage>(0x46);
         table.insert::<LSR<{ Memory }>, ZeroPageX>(0x56);
         table.insert::<LSR<{ Memory }>, Absolute>(0x4e);
         table.insert::<LSR<{ Memory }>, AbsoluteX>(0x5e);
 
-        // Rotate Left through Carry
+        // Rotate Left through Carry [ROL]
         table.insert::<ROL<{ Register(A) }>, Implied>(0x2a);
         table.insert::<ROL<{ Memory }>, ZeroPage>(0x26);
         table.insert::<ROL<{ Memory }>, ZeroPageX>(0x36);
         table.insert::<ROL<{ Memory }>, Absolute>(0x2e);
         table.insert::<ROL<{ Memory }>, AbsoluteX>(0x3e);
 
-        // Rotate Right through Carry
+        // Rotate Right through Carry [ROR]
         table.insert::<ROR<{ Register(A) }>, Implied>(0x6a);
         table.insert::<ROR<{ Memory }>, ZeroPage>(0x66);
         table.insert::<ROR<{ Memory }>, ZeroPageX>(0x76);
         table.insert::<ROR<{ Memory }>, Absolute>(0x6e);
         table.insert::<ROR<{ Memory }>, AbsoluteX>(0x7e);
 
-        // Jumps, Calls, Returns
+        // Jumps, Calls, Returns [JMP, JSR, RTS, RTI]
         table.insert::<JMP, Absolute>(0x4c);
         table.insert::<JMP, Indirect>(0x6c);
         table.insert::<JSR, Implied>(0x20);
         table.insert::<RTS, Implied>(0x60);
         table.insert::<RTI, Implied>(0x40);
 
-        // Conditional Branches
+        // Conditional Branches [BPL, BMI, BVC, BVS, BCC, BCS, BNE, BEQ]
         table.insert::<BPL, Relative>(0x10);
         table.insert::<BMI, Relative>(0x30);
         table.insert::<BVC, Relative>(0x50);
@@ -211,7 +212,7 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<BNE, Relative>(0xd0);
         table.insert::<BEQ, Relative>(0xf0);
 
-        // CPU Control
+        // CPU Control [CLC, CLD, CLI, CLV, SEC, SED, SEI]
         table.insert::<CLC, Implied>(0x18);
         table.insert::<CLI, Implied>(0x58);
         table.insert::<CLD, Implied>(0xd8);
@@ -220,13 +221,41 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<SEI, Implied>(0x78);
         table.insert::<SED, Implied>(0xf8);
 
-        // No Operation
+        // No Operation [NOP]
+        table.insert::<NOP, Implied>(0xea);
+
+        // Subtract memory from accumulator with borrow (unofficial) [SBC]
+        table.insert::<SBC, Immediate>(0xeb);
+
+        // AND accumulator with carry (unofficial) [ANC]
+        table.insert::<ANC, Immediate>(0x0b);
+        table.insert::<ANC, Immediate>(0x2b);
+
+        // ASL operand + ORA operand (unofficial) [SLO]
+        table.insert::<SLO, IndirectX>(0x03);
+        table.insert::<SLO, ZeroPage>(0x07);
+        table.insert::<SLO, Absolute>(0x0f);
+        table.insert::<SLO, IndirectY>(0x13);
+        table.insert::<SLO, ZeroPageX>(0x17);
+        table.insert::<SLO, AbsoluteX>(0x1f);
+
+        // AND immediate + LSR accumulator (unofficial) [ALR]
+        table.insert::<ALR, Immediate>(0x4b);
+
+        // ROL operand + AND accumulator (unofficial) [RLA]
+        table.insert::<RLA, IndirectX>(0x23);
+        table.insert::<RLA, ZeroPage>(0x27);
+        table.insert::<RLA, Absolute>(0x2f);
+        table.insert::<RLA, IndirectY>(0x33);
+        table.insert::<RLA, ZeroPageX>(0x37);
+        table.insert::<RLA, AbsoluteX>(0x3f);
+
+        // No Operation (unofficial) [NOP]
         table.insert::<NOP, Implied>(0x1a);
         table.insert::<NOP, Implied>(0x3a);
         table.insert::<NOP, Implied>(0x5a);
         table.insert::<NOP, Implied>(0x7a);
         table.insert::<NOP, Implied>(0xda);
-        table.insert::<NOP, Implied>(0xea);
         table.insert::<NOP, Implied>(0xfa);
         table.insert::<NOP, Immediate>(0x80);
         table.insert::<NOP, Immediate>(0x82);

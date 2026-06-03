@@ -11,24 +11,40 @@ use crate::Bus;
 use crate::cpu::operation::{MemoryAccess, Operand, Operation, Register};
 use crate::cpu::{Cpu, CpuStatus};
 
-/// Shifts operand `O` one bit left, filling bit 0 with zero (`ASL`).
-/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
-/// For register operands, executes in a single implicit cycle.
-/// Sets `C` to the original bit 7. Updates `Z` and `N`.
-pub struct ASL<const O: Operand>;
+/// AND accumulator with immediate byte, then LSR the accumulator (`ALR`).
+/// Sets `C` from bit 0 before the shift. Stores the result in `A`. Updates `Z`, `N`, and `C`.
+pub struct ALR;
 
-impl<const O: Operand> Operation for ASL<O> {
-    const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
+impl Operation for ALR {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        let value = O.read(cpu);
-        let result = value << 1;
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        let value = cpu.state.a & cpu.data;
+        let result = value >> 1;
 
-        O.write(cpu, bus, result);
-
+        cpu.state.a = result;
+        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
         cpu.state.p.update_zn(result);
-        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
+
+        Poll::Ready(())
+    }
+}
+
+/// AND accumulator with immediate byte, then copy bit 7 of result to carry (`ANC`).
+/// Stores the result in `A`. Updates `Z`, `N`, and `C`.
+pub struct ANC;
+
+impl Operation for ANC {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        let result = cpu.state.a & cpu.data;
+
+        cpu.state.a = result;
+        cpu.state.p.update_zn(result);
+        cpu.state.p.set(CpuStatus::C, result & 0x80 != 0);
 
         Poll::Ready(())
     }
@@ -47,6 +63,29 @@ impl Operation for AND {
 
         cpu.state.a = result;
         cpu.state.p.update_zn(result);
+
+        Poll::Ready(())
+    }
+}
+
+/// Shifts operand `O` one bit left, filling bit 0 with zero (`ASL`).
+/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
+/// For register operands, executes in a single implicit cycle.
+/// Sets `C` to the original bit 7. Updates `Z` and `N`.
+pub struct ASL<const O: Operand>;
+
+impl<const O: Operand> Operation for ASL<O> {
+    const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = O.read(cpu);
+        let result = value << 1;
+
+        O.write(cpu, bus, result);
+
+        cpu.state.p.update_zn(result);
+        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
 
         Poll::Ready(())
     }
@@ -169,6 +208,50 @@ impl<const O: Operand> Operation for ROR<O> {
 
         cpu.state.p.update_zn(result);
         cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
+
+        Poll::Ready(())
+    }
+}
+
+/// Shift memory left one bit, then OR the result into the accumulator (`SLO`).
+/// Uses the read-modify-write pipeline. Sets `C` to the original bit 7. Updates `Z` and `N` from `A`.
+pub struct SLO;
+
+impl Operation for SLO {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = cpu.data;
+        let shifted = value << 1;
+
+        bus.write(cpu.address, shifted);
+
+        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
+        cpu.state.a |= shifted;
+        cpu.state.p.update_zn(cpu.state.a);
+
+        Poll::Ready(())
+    }
+}
+
+/// Rotate memory left through carry, then AND the result into the accumulator (`RLA`).
+/// Uses the read-modify-write pipeline. Sets `C` from original bit 7. Updates `Z` and `N` from `A`.
+pub struct RLA;
+
+impl Operation for RLA {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = cpu.data;
+        let rotated = (value << 1) | u8::from(cpu.state.p.contains(CpuStatus::C));
+
+        bus.write(cpu.address, rotated);
+
+        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
+        cpu.state.a &= rotated;
+        cpu.state.p.update_zn(cpu.state.a);
 
         Poll::Ready(())
     }
