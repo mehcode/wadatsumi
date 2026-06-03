@@ -112,7 +112,7 @@ impl<B: Bus> InstructionTable<B> {
         // Exclusive OR memory with accumulator
         table.insert::<EOR, Immediate>(0x49);
         table.insert::<EOR, ZeroPage>(0x45);
-        table.insert::<EOR, ZeroPageX>(0x45);
+        table.insert::<EOR, ZeroPageX>(0x55);
         table.insert::<EOR, Absolute>(0x4d);
         table.insert::<EOR, AbsoluteX>(0x5d);
         table.insert::<EOR, AbsoluteY>(0x59);
