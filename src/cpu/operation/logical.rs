@@ -8,7 +8,7 @@
 use std::task::Poll;
 
 use crate::Bus;
-use crate::cpu::operation::{MemoryAccess, Operand, Operation, Register};
+use crate::cpu::operation::{ADC, MemoryAccess, Operand, Operation, Register};
 use crate::cpu::{Cpu, CpuStatus};
 
 /// AND accumulator with immediate byte, then LSR the accumulator (`ALR`).
@@ -213,6 +213,51 @@ impl<const O: Operand> Operation for ROR<O> {
     }
 }
 
+/// Rotate memory left through carry, then AND the result into the accumulator (`RLA`).
+/// Uses the read-modify-write pipeline. Sets `C` from original bit 7. Updates `Z` and `N` from `A`.
+pub struct RLA;
+
+impl Operation for RLA {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = cpu.data;
+        let rotated = (value << 1) | u8::from(cpu.state.p.contains(CpuStatus::C));
+
+        bus.write(cpu.address, rotated);
+
+        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
+        cpu.state.a &= rotated;
+        cpu.state.p.update_zn(cpu.state.a);
+
+        Poll::Ready(())
+    }
+}
+
+/// Rotate memory right through carry, then add the result to the accumulator (`RRA`).
+/// Uses the read-modify-write pipeline. Bit 7 is filled with old `C`; sets `C` from bit 0,
+/// then that new `C` feeds into the ADC. Updates `Z`, `N`, `C`, and `V`.
+pub struct RRA;
+
+impl Operation for RRA {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = cpu.data;
+
+        cpu.data = (value >> 1) | (u8::from(cpu.state.p.contains(CpuStatus::C)) << 7);
+
+        bus.write(cpu.address, cpu.data);
+
+        // The ROR carry-out (bit 0 of original) becomes the carry-in for ADC.
+        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
+
+        ADC::apply(cpu, bus)
+    }
+}
+
 /// Shift memory left one bit, then OR the result into the accumulator (`SLO`).
 /// Uses the read-modify-write pipeline. Sets `C` to the original bit 7. Updates `Z` and `N` from `A`.
 pub struct SLO;
@@ -235,22 +280,22 @@ impl Operation for SLO {
     }
 }
 
-/// Rotate memory left through carry, then AND the result into the accumulator (`RLA`).
-/// Uses the read-modify-write pipeline. Sets `C` from original bit 7. Updates `Z` and `N` from `A`.
-pub struct RLA;
+/// Shift memory right one bit, then EOR the result into the accumulator (`SRE`).
+/// Uses the read-modify-write pipeline. Sets `C` to the original bit 0. Updates `Z` and `N` from `A`.
+pub struct SRE;
 
-impl Operation for RLA {
+impl Operation for SRE {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data;
-        let rotated = (value << 1) | u8::from(cpu.state.p.contains(CpuStatus::C));
+        let shifted = value >> 1;
 
-        bus.write(cpu.address, rotated);
+        bus.write(cpu.address, shifted);
 
-        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
-        cpu.state.a &= rotated;
+        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
+        cpu.state.a ^= shifted;
         cpu.state.p.update_zn(cpu.state.a);
 
         Poll::Ready(())

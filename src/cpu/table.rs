@@ -10,8 +10,8 @@ use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
     ADC, ALR, ANC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP,
     CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAX, LDA, LDX, LDY, LSR, NOP,
-    ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RTI, RTS, SAX, SBC, SEC, SED, SEI, SLO, STA,
-    STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC, SEC, SED, SEI, SLO,
+    SRE, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
@@ -254,6 +254,15 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<SLO, IndirectX>(0x03);
         table.insert::<SLO, IndirectY>(0x13);
 
+        // LSR operand + EOR accumulator (unofficial) [SRE]
+        table.insert::<SRE, ZeroPage>(0x47);
+        table.insert::<SRE, ZeroPageX>(0x57);
+        table.insert::<SRE, Absolute>(0x4f);
+        table.insert::<SRE, AbsoluteX>(0x5f);
+        table.insert::<SRE, AbsoluteY>(0x5b);
+        table.insert::<SRE, IndirectX>(0x43);
+        table.insert::<SRE, IndirectY>(0x53);
+
         // AND immediate + LSR accumulator (unofficial) [ALR]
         table.insert::<ALR, Immediate>(0x4b);
 
@@ -265,6 +274,15 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<RLA, AbsoluteY>(0x3b);
         table.insert::<RLA, IndirectX>(0x23);
         table.insert::<RLA, IndirectY>(0x33);
+
+        // ROR operand + ADC operand (unofficial) [RRA]
+        table.insert::<RRA, ZeroPage>(0x67);
+        table.insert::<RRA, ZeroPageX>(0x77);
+        table.insert::<RRA, Absolute>(0x6f);
+        table.insert::<RRA, AbsoluteX>(0x7f);
+        table.insert::<RRA, AbsoluteY>(0x7b);
+        table.insert::<RRA, IndirectX>(0x63);
+        table.insert::<RRA, IndirectY>(0x73);
 
         // DEC memory + CMP accumulator (unofficial) [DCP]
         table.insert::<DCP, IndirectX>(0xc3);
