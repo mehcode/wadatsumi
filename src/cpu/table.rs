@@ -10,7 +10,7 @@ use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
     ADC, AND, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC,
     DEX, DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, NOP, ORA, Operation, PHA, PHP, PLA, PLP,
-    RTS, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    RTI, RTS, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 use crate::cpu::state::Register;
 
@@ -171,6 +171,7 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<JMP, Indirect>(0x6c);
         table.insert::<JSR, Implied>(0x20);
         table.insert::<RTS, Implied>(0x60);
+        table.insert::<RTI, Implied>(0x40);
 
         // Conditional Branches
         table.insert::<BPL, Relative>(0x10);

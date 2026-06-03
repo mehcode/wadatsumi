@@ -561,36 +561,87 @@ impl Operation for RTS {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {
-            // Implied already performed the spurious fetch (hardware cycle 2); just advance.
+            // Implied already performed the spurious fetch; just advance.
             1 => Poll::Pending,
 
-            // Hardware cycle 3: dummy read at current stack top, then increment S.
+            // Dummy read at current stack top, then increment S.
             2 => {
                 let _ = bus.read(cpu.state.stack_address());
+
                 cpu.state.sp = cpu.state.sp.wrapping_add(1);
 
                 Poll::Pending
             }
 
-            // Hardware cycle 4: pull PCL from stack, increment S.
+            // Pull PCL from stack, increment S.
             3 => {
-                cpu.data = bus.read(cpu.state.stack_address());
+                cpu.state.pc = u16::from(bus.read(cpu.state.stack_address()));
                 cpu.state.sp = cpu.state.sp.wrapping_add(1);
 
                 Poll::Pending
             }
 
-            // Hardware cycle 5: pull PCH from stack, assemble PC.
+            // Pull PCH from stack.
             4 => {
-                let pch = u16::from(bus.read(cpu.state.stack_address()));
-                cpu.state.pc = (pch << 8) | u16::from(cpu.data);
+                cpu.state.pc |= u16::from(bus.read(cpu.state.stack_address())) << 8;
 
                 Poll::Pending
             }
 
-            // Hardware cycle 6: increment PC to point past JSR's last operand byte.
+            // Increment PC to point past JSR's last operand byte.
             _ => {
                 cpu.state.pc = cpu.state.pc.wrapping_add(1);
+
+                Poll::Ready(())
+            }
+        }
+    }
+}
+
+/// Returns from an interrupt; restores P and PC from the stack. 6 cycles.
+///
+/// Unlike `RTS`, the stacked PC is the exact return address (no +1 adjustment), and P is
+/// pulled before PC. The `B` flag is cleared and `U` is set on the restored P, identical
+/// to `PLP`.
+pub struct RTI;
+
+impl Operation for RTI {
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        match cpu.t {
+            // Implied already performed the spurious fetch; just advance.
+            1 => Poll::Pending,
+
+            // Dummy read at current stack top, then increment S.
+            2 => {
+                let _ = bus.read(cpu.state.stack_address());
+
+                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+
+                Poll::Pending
+            }
+
+            // Pull P from stack, increment S.
+            3 => {
+                let value = bus.read(cpu.state.stack_address());
+
+                cpu.state.p = CpuStatus::new(value);
+                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+
+                Poll::Pending
+            }
+
+            // Pull PCL from stack, increment S.
+            4 => {
+                cpu.state.pc = u16::from(bus.read(cpu.state.stack_address()));
+                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+
+                Poll::Pending
+            }
+
+            // Pull PCH from stack.
+            _ => {
+                cpu.state.pc |= u16::from(bus.read(cpu.state.stack_address())) << 8;
 
                 Poll::Ready(())
             }
