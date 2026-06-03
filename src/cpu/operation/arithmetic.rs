@@ -63,6 +63,26 @@ pub type CMP = COMPARE<{ A }>;
 pub type CPX = COMPARE<{ X }>;
 pub type CPY = COMPARE<{ Y }>;
 
+/// Decrement memory by one, then compare the result with the accumulator (`DCP`).
+/// Uses the read-modify-write pipeline. Sets `C` if `A >= result`. Updates `Z` and `N`.
+pub struct DCP;
+
+impl Operation for DCP {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = cpu.data.wrapping_sub(1);
+
+        bus.write(cpu.address, value);
+
+        cpu.state.p.set(CpuStatus::C, cpu.state.a >= value);
+        cpu.state.p.update_zn(cpu.state.a.wrapping_sub(value));
+
+        Poll::Ready(())
+    }
+}
+
 /// Decrements operand `O` by one (`DEC`, `DEX`, `DEY`).
 /// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
 /// For register operands, executes in a single implicit cycle.
@@ -112,6 +132,26 @@ impl<const O: Operand> Operation for INCREMENT<O> {
 pub type INC = INCREMENT<{ Operand::Memory }>;
 pub type INX = INCREMENT<{ Operand::Register(X) }>;
 pub type INY = INCREMENT<{ Operand::Register(Y) }>;
+
+/// Increment memory by one, then subtract the result from the accumulator (`ISC`).
+/// Uses the read-modify-write pipeline. Updates `Z`, `N`, `C`, and `V`.
+pub struct ISC;
+
+impl Operation for ISC {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = cpu.data.wrapping_add(1);
+
+        bus.write(cpu.address, value);
+
+        // Invert the operand and forward to ADC (same as SBC)
+        // to handle the shared addition logic for C, V, Z, and N.
+        cpu.data = !value;
+        ADC::apply(cpu, bus)
+    }
+}
 
 /// Subtracts a byte at the effective address and the borrow from the accumulator (`SBC`).
 /// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.

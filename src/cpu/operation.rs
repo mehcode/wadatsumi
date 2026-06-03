@@ -17,7 +17,7 @@ mod stack;
 mod system;
 mod transfer;
 
-pub use arithmetic::{ADC, CMP, CPX, CPY, DEC, DEX, DEY, INC, INX, INY, SBC};
+pub use arithmetic::{ADC, CMP, CPX, CPY, DCP, DEC, DEX, DEY, INC, INX, INY, ISC, SBC};
 pub use flow::{BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, JMP, JSR, RTI, RTS};
 pub use logical::{ALR, ANC, AND, ASL, BIT, EOR, LSR, ORA, RLA, ROL, ROR, SLO};
 pub use stack::{PHA, PHP, PLA, PLP};

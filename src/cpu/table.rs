@@ -9,9 +9,9 @@ use crate::cpu::addressing::{
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
     ADC, ALR, ANC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP,
-    CPX, CPY, DEC, DEX, DEY, EOR, INC, INX, INY, JMP, JSR, LAX, LDA, LDX, LDY, LSR, NOP, ORA,
-    Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RTI, RTS, SAX, SBC, SEC, SED, SEI, SLO, STA, STX,
-    STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAX, LDA, LDX, LDY, LSR, NOP,
+    ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RTI, RTS, SAX, SBC, SEC, SED, SEI, SLO, STA,
+    STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
@@ -246,23 +246,43 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<ANC, Immediate>(0x2b);
 
         // ASL operand + ORA operand (unofficial) [SLO]
-        table.insert::<SLO, IndirectX>(0x03);
         table.insert::<SLO, ZeroPage>(0x07);
-        table.insert::<SLO, Absolute>(0x0f);
-        table.insert::<SLO, IndirectY>(0x13);
         table.insert::<SLO, ZeroPageX>(0x17);
+        table.insert::<SLO, Absolute>(0x0f);
         table.insert::<SLO, AbsoluteX>(0x1f);
+        table.insert::<SLO, AbsoluteY>(0x1b);
+        table.insert::<SLO, IndirectX>(0x03);
+        table.insert::<SLO, IndirectY>(0x13);
 
         // AND immediate + LSR accumulator (unofficial) [ALR]
         table.insert::<ALR, Immediate>(0x4b);
 
         // ROL operand + AND accumulator (unofficial) [RLA]
-        table.insert::<RLA, IndirectX>(0x23);
         table.insert::<RLA, ZeroPage>(0x27);
-        table.insert::<RLA, Absolute>(0x2f);
-        table.insert::<RLA, IndirectY>(0x33);
         table.insert::<RLA, ZeroPageX>(0x37);
+        table.insert::<RLA, Absolute>(0x2f);
         table.insert::<RLA, AbsoluteX>(0x3f);
+        table.insert::<RLA, AbsoluteY>(0x3b);
+        table.insert::<RLA, IndirectX>(0x23);
+        table.insert::<RLA, IndirectY>(0x33);
+
+        // DEC memory + CMP accumulator (unofficial) [DCP]
+        table.insert::<DCP, IndirectX>(0xc3);
+        table.insert::<DCP, ZeroPage>(0xc7);
+        table.insert::<DCP, ZeroPageX>(0xd7);
+        table.insert::<DCP, Absolute>(0xcf);
+        table.insert::<DCP, AbsoluteX>(0xdf);
+        table.insert::<DCP, AbsoluteY>(0xdb);
+        table.insert::<DCP, IndirectY>(0xd3);
+
+        // INC memory + SBC accumulator (unofficial) [ISC]
+        table.insert::<ISC, IndirectX>(0xe3);
+        table.insert::<ISC, ZeroPage>(0xe7);
+        table.insert::<ISC, ZeroPageX>(0xf7);
+        table.insert::<ISC, Absolute>(0xef);
+        table.insert::<ISC, AbsoluteX>(0xff);
+        table.insert::<ISC, AbsoluteY>(0xfb);
+        table.insert::<ISC, IndirectY>(0xf3);
 
         // No Operation (unofficial) [NOP]
         table.insert::<NOP, Implied>(0x1a);
