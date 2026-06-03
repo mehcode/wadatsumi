@@ -11,8 +11,8 @@ datatest_stable::harness! {
 }
 
 // Cycle budget before we declare a hang. At ~1.79 MHz the slowest sub-test
-// completes well under 100 M cycles; 500 M gives comfortable headroom.
-const MAX_CYCLES: u64 = 500_000_000;
+// completes well under 100 M cycles.
+const MAX_CYCLES: u64 = 100_000_000;
 
 /// Smoke-tests each instr_test_v5 ROM by running it for up to [`MAX_CYCLES`] without crashing.
 /// Once `Bus::peek` is available, this should poll `$6000` for the blargg result code and
