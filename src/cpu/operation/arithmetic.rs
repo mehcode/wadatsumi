@@ -9,7 +9,7 @@ use std::task::Poll;
 
 use crate::Bus;
 use crate::cpu::operation::Register::{self, A, X, Y};
-use crate::cpu::operation::{MemoryAccess, Operation};
+use crate::cpu::operation::{MemoryAccess, Operand, Operation};
 use crate::cpu::{Cpu, CpuStatus};
 
 /// Adds the accumulator, a byte from the effective address, and the carry flag (`ADC`).
@@ -63,36 +63,20 @@ pub type CMP = COMPARE<{ A }>;
 pub type CPX = COMPARE<{ X }>;
 pub type CPY = COMPARE<{ Y }>;
 
-/// Decrements a byte in memory by one using the read-modify-write pipeline (`DEC`).
-/// Reads the value, performs a spurious write with the original byte, then writes the decremented result.
+/// Decrements operand `O` by one (`DEC`, `DEX`, `DEY`).
+/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
+/// For register operands, executes in a single implicit cycle.
 /// Updates `Z` and `N`.
-pub struct DEC;
+pub struct DECREMENT<const O: Operand>;
 
-impl Operation for DEC {
-    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
+impl<const O: Operand> Operation for DECREMENT<O> {
+    const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.data.wrapping_sub(1);
+        let value = O.read(cpu).wrapping_sub(1);
 
-        bus.write(cpu.address, value);
-
-        cpu.state.p.update_zn(value);
-
-        Poll::Ready(())
-    }
-}
-
-/// Decrements register `R` by one in a single implicit cycle (`DEX`, `DEY`).
-/// Updates `Z` and `N` to reflect the new value.
-pub struct DECREMENT<const R: Register>;
-
-impl<const R: Register> Operation for DECREMENT<R> {
-    #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        let value = R.get(&cpu.state).wrapping_sub(1);
-
-        R.set(&mut cpu.state, value);
+        O.write(cpu, bus, value);
 
         cpu.state.p.update_zn(value);
 
@@ -100,39 +84,24 @@ impl<const R: Register> Operation for DECREMENT<R> {
     }
 }
 
-pub type DEX = DECREMENT<{ X }>;
-pub type DEY = DECREMENT<{ Y }>;
+pub type DEC = DECREMENT<{ Operand::Memory }>;
+pub type DEX = DECREMENT<{ Operand::Register(X) }>;
+pub type DEY = DECREMENT<{ Operand::Register(Y) }>;
 
-/// Increments a byte in memory by one using the read-modify-write pipeline (`INC`).
-/// Reads the value, performs a spurious write with the original byte, then writes the incremented result.
+/// Increments operand `O` by one (`INC`, `INX`, `INY`).
+/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
+/// For register operands, executes in a single implicit cycle.
 /// Updates `Z` and `N`.
-pub struct INC;
+pub struct INCREMENT<const O: Operand>;
 
-impl Operation for INC {
-    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
+impl<const O: Operand> Operation for INCREMENT<O> {
+    const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.data.wrapping_add(1);
+        let value = O.read(cpu).wrapping_add(1);
 
-        bus.write(cpu.address, value);
-
-        cpu.state.p.update_zn(value);
-
-        Poll::Ready(())
-    }
-}
-
-/// Increments register `R` by one in a single implicit cycle (`INX`, `INY`).
-/// Updates `Z` and `N` to reflect the new value.
-pub struct INCREMENT<const R: Register>;
-
-impl<const R: Register> Operation for INCREMENT<R> {
-    #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        let value = R.get(&cpu.state).wrapping_add(1);
-
-        R.set(&mut cpu.state, value);
+        O.write(cpu, bus, value);
 
         cpu.state.p.update_zn(value);
 
@@ -140,8 +109,9 @@ impl<const R: Register> Operation for INCREMENT<R> {
     }
 }
 
-pub type INX = INCREMENT<{ X }>;
-pub type INY = INCREMENT<{ Y }>;
+pub type INC = INCREMENT<{ Operand::Memory }>;
+pub type INX = INCREMENT<{ Operand::Register(X) }>;
+pub type INY = INCREMENT<{ Operand::Register(Y) }>;
 
 /// Subtracts a byte at the effective address and the borrow from the accumulator (`SBC`).
 /// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.

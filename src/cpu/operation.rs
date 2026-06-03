@@ -51,6 +51,7 @@ pub trait Operation {
         Self: Sized;
 }
 
+/// A CPU register (`A`, `X`, `Y`, or `SP`).
 #[derive(Debug, Clone, Copy, ConstParamTy, PartialEq, Eq)]
 pub enum Register {
     A,
@@ -90,6 +91,57 @@ impl Register {
 
             Self::SP => {
                 cpu.sp = value;
+            }
+        }
+    }
+}
+
+/// The source or destination of an operation's data,
+/// either a CPU register or a memory location.
+///
+/// Used as a const generic parameter so register and memory variants of the same mnemonic
+/// (e.g. `INX`/`INY` vs `INC`) can share a single generic implementation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ConstParamTy)]
+pub enum Operand {
+    /// A CPU register (`A`, `X`, `Y`, or `SP`).
+    Register(Register),
+
+    /// The effective address resolved by the addressing mode.
+    Memory,
+}
+
+impl Operand {
+    /// Returns `Some(access)` for memory operands, `None` for register operands.
+    /// Suitable for use in `Operation::ACCESS` to drive the addressing-mode pipeline.
+    #[inline(always)]
+    #[must_use]
+    pub const fn access(self, access: MemoryAccess) -> Option<MemoryAccess> {
+        match self {
+            Self::Register(_) => None,
+            Self::Memory => Some(access),
+        }
+    }
+
+    /// Reads the current value of this operand.
+    #[inline(always)]
+    #[must_use]
+    pub const fn read<B: Bus>(self, cpu: &Cpu<B>) -> u8 {
+        match self {
+            Self::Register(r) => r.get(&cpu.state),
+            Self::Memory => cpu.data,
+        }
+    }
+
+    /// Writes `value` to this operand.
+    #[inline(always)]
+    pub fn write<B: Bus>(self, cpu: &mut Cpu<B>, bus: &mut B, value: u8) {
+        match self {
+            Self::Register(r) => {
+                r.set(&mut cpu.state, value);
+            }
+
+            Self::Memory => {
+                bus.write(cpu.address, value);
             }
         }
     }
