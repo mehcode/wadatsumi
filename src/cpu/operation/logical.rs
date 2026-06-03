@@ -11,6 +11,10 @@ use crate::Bus;
 use crate::cpu::operation::{MemoryAccess, Operand, Operation, Register};
 use crate::cpu::{Cpu, CpuStatus};
 
+/// Shifts operand `O` one bit left, filling bit 0 with zero (`ASL`).
+/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
+/// For register operands, executes in a single implicit cycle.
+/// Sets `C` to the original bit 7. Updates `Z` and `N`.
 pub struct ASL<const O: Operand>;
 
 impl<const O: Operand> Operation for ASL<O> {
@@ -83,6 +87,10 @@ impl Operation for EOR {
     }
 }
 
+/// Shifts operand `O` one bit right, filling bit 7 with zero (`LSR`).
+/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
+/// For register operands, executes in a single implicit cycle.
+/// Sets `C` to the original bit 0. Updates `Z` and `N`.
 pub struct LSR<const O: Operand>;
 
 impl<const O: Operand> Operation for LSR<O> {
@@ -120,6 +128,10 @@ impl Operation for ORA {
     }
 }
 
+/// Rotates operand `O` one bit left through the carry flag (`ROL`).
+/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
+/// For register operands, executes in a single implicit cycle.
+/// Bit 0 is filled with `C`; sets `C` to the original bit 7. Updates `Z` and `N`.
 pub struct ROL<const O: Operand>;
 
 impl<const O: Operand> Operation for ROL<O> {
@@ -139,6 +151,10 @@ impl<const O: Operand> Operation for ROL<O> {
     }
 }
 
+/// Rotates operand `O` one bit right through the carry flag (`ROR`).
+/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
+/// For register operands, executes in a single implicit cycle.
+/// Bit 7 is filled with `C`; sets `C` to the original bit 0. Updates `Z` and `N`.
 pub struct ROR<const O: Operand>;
 
 impl<const O: Operand> Operation for ROR<O> {
