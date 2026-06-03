@@ -41,7 +41,7 @@ fn nestest() -> anyhow::Result<()> {
                 let state = &system.cpu.state;
                 // Bit 5 (U) is hardwired high on the physical chip; OR it in
                 // so our comparison matches the log which always has it set.
-                let p = state.p.bits() | CpuStatus::U;
+                let p = state.p.0 | CpuStatus::U;
 
                 assert!(
                     state.pc == entry.pc

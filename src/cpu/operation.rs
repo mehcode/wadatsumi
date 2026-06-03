@@ -82,19 +82,17 @@ impl Operation for BIT {
 
 /// Branches to a relative offset when status flag `FLAG` equals `EXPECTED` (`BCC`, `BCS`, `BEQ`, `BNE`, `BMI`, `BPL`, `BVC`, `BVS`).
 /// Takes 2 cycles if not taken, 3 if taken same-page, or 4 if the branch crosses a page boundary.
-pub struct BRANCH<const FLAG: u8, const EXPECTED: bool>;
+pub struct BRANCH<const FLAG: CpuStatus, const EXPECTED: bool>;
 
-impl<const FLAG: u8, const EXPECTED: bool> Operation for BRANCH<FLAG, EXPECTED> {
+impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXPECTED> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        let flag: CpuStatus = CpuStatus::from_bits_truncate(FLAG);
-
         match cpu.t {
             // Not-taken branches retire here (2 cycles total).
             1 => {
                 let offset = i8::from_ne_bytes([cpu.data]);
 
-                if cpu.state.p.contains(flag) == EXPECTED {
+                if cpu.state.p.contains(FLAG) == EXPECTED {
                     let target = cpu.state.pc.wrapping_add_signed(i16::from(offset));
 
                     cpu.data = u8::from(cpu.state.pc >> 8 != target >> 8);
@@ -133,33 +131,33 @@ impl<const FLAG: u8, const EXPECTED: bool> Operation for BRANCH<FLAG, EXPECTED> 
     }
 }
 
-pub type BCC = BRANCH<{ CpuStatus::C.bits() }, false>;
-pub type BCS = BRANCH<{ CpuStatus::C.bits() }, true>;
-pub type BEQ = BRANCH<{ CpuStatus::Z.bits() }, true>;
-pub type BNE = BRANCH<{ CpuStatus::Z.bits() }, false>;
-pub type BMI = BRANCH<{ CpuStatus::N.bits() }, true>;
-pub type BPL = BRANCH<{ CpuStatus::N.bits() }, false>;
-pub type BVC = BRANCH<{ CpuStatus::V.bits() }, false>;
-pub type BVS = BRANCH<{ CpuStatus::V.bits() }, true>;
+pub type BCC = BRANCH<{ CpuStatus::C }, false>;
+pub type BCS = BRANCH<{ CpuStatus::C }, true>;
+pub type BEQ = BRANCH<{ CpuStatus::Z }, true>;
+pub type BNE = BRANCH<{ CpuStatus::Z }, false>;
+pub type BMI = BRANCH<{ CpuStatus::N }, true>;
+pub type BPL = BRANCH<{ CpuStatus::N }, false>;
+pub type BVC = BRANCH<{ CpuStatus::V }, false>;
+pub type BVS = BRANCH<{ CpuStatus::V }, true>;
 
 /// Clears status flag `FLAG` unconditionally (`CLC`, `CLI`, `CLD`, `CLV`).
 /// Executes in a single implicit cycle after the opcode fetch.
 /// No memory access occurs and no other flags are affected.
-pub struct CLEAR<const FLAG: u8>;
+pub struct CLEAR<const FLAG: CpuStatus>;
 
-impl<const FLAG: u8> Operation for CLEAR<FLAG> {
+impl<const FLAG: CpuStatus> Operation for CLEAR<FLAG> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        cpu.state.p.remove(CpuStatus::from_bits_truncate(FLAG));
+        cpu.state.p.remove(FLAG);
 
         Poll::Ready(())
     }
 }
 
-pub type CLC = CLEAR<{ CpuStatus::C.bits() }>;
-pub type CLI = CLEAR<{ CpuStatus::I.bits() }>;
-pub type CLD = CLEAR<{ CpuStatus::D.bits() }>;
-pub type CLV = CLEAR<{ CpuStatus::V.bits() }>;
+pub type CLC = CLEAR<{ CpuStatus::C }>;
+pub type CLI = CLEAR<{ CpuStatus::I }>;
+pub type CLD = CLEAR<{ CpuStatus::D }>;
+pub type CLV = CLEAR<{ CpuStatus::V }>;
 
 /// Subtracts the byte at the effective address from register `R` without storing the result (`CMP`, `CPX`, `CPY`).
 /// Sets `C` if the register is greater than or equal to the operand (no borrow), clears it otherwise.
@@ -464,7 +462,7 @@ impl Operation for PHP {
             1 => Poll::Pending,
 
             _ => {
-                cpu.stack_push(bus, cpu.state.p.bits() | CpuStatus::U | CpuStatus::B);
+                cpu.stack_push(bus, cpu.state.p.0 | CpuStatus::U | CpuStatus::B);
 
                 Poll::Ready(())
             }
@@ -504,7 +502,8 @@ impl Operation for PLA {
 
 /// Pulls the processor status register from the stack. 4 cycles.
 /// Mirrors `PLA` timing but loads the pulled byte directly into `P` rather than `A`.
-/// The `U` and `B` bits reflect whatever was stored on the stack.
+/// `B` (bit 4) has no physical register counterpart and is always cleared; `U` (bit 5) is
+/// hardwired to 1 on the chip and is always set, regardless of what was on the stack.
 pub struct PLP;
 
 impl Operation for PLP {
@@ -516,7 +515,7 @@ impl Operation for PLP {
             _ => {
                 let value = bus.read(cpu.state.stack_address());
 
-                cpu.state.p = CpuStatus::from_bits_truncate(value);
+                cpu.state.p = CpuStatus::new(value);
 
                 Poll::Ready(())
             }
@@ -575,20 +574,20 @@ impl Operation for RTS {
 /// Sets status flag `FLAG` unconditionally (`SEC`, `SEI`, `SED`).
 /// Executes in a single implicit cycle after the opcode fetch.
 /// No memory access occurs and no other flags are affected.
-pub struct SET<const FLAG: u8>;
+pub struct SET<const FLAG: CpuStatus>;
 
-impl<const FLAG: u8> Operation for SET<FLAG> {
+impl<const FLAG: CpuStatus> Operation for SET<FLAG> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        cpu.state.p.insert(CpuStatus::from_bits_truncate(FLAG));
+        cpu.state.p.insert(FLAG);
 
         Poll::Ready(())
     }
 }
 
-pub type SEC = SET<{ CpuStatus::C.bits() }>;
-pub type SEI = SET<{ CpuStatus::I.bits() }>;
-pub type SED = SET<{ CpuStatus::D.bits() }>;
+pub type SEC = SET<{ CpuStatus::C }>;
+pub type SEI = SET<{ CpuStatus::I }>;
+pub type SED = SET<{ CpuStatus::D }>;
 
 /// Stores register `R` into memory at the effective address (`STA`, `STX`, `STY`).
 /// Writes in a single step once the addressing mode resolves.
