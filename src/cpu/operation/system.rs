@@ -8,7 +8,7 @@
 use std::task::Poll;
 
 use crate::Bus;
-use crate::cpu::operation::Operation;
+use crate::cpu::operation::{MemoryAccess, Operation};
 use crate::cpu::{Cpu, CpuStatus};
 
 /// Clears status flag `FLAG` unconditionally (`CLC`, `CLI`, `CLD`, `CLV`).
@@ -36,6 +36,10 @@ pub type CLV = CLEAR<{ CpuStatus::V }>;
 pub struct NOP;
 
 impl Operation for NOP {
+    // Read prevents Absolute's JMP shortcut (which fires when ACCESS is None) from
+    // short-circuiting at t=2; without it, NOP Absolute/Absolute,X would take one cycle too few.
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
+
     #[inline]
     fn apply<B: Bus>(_: &mut Cpu<B>, _: &mut B) -> Poll<()> {
         // Do nothing

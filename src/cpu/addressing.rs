@@ -186,7 +186,19 @@ impl AddressingMode for Indirect {
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
-            1 | 2 => Absolute::resolve::<O, _>(cpu, bus),
+            1 => {
+                // Fetch low byte of pointer address (same as ZeroPage).
+                cpu.address = u16::from(cpu.fetch(bus));
+                Poll::Pending
+            }
+
+            2 => {
+                // Fetch high byte of pointer address. Do NOT delegate to Absolute here because
+                // Absolute short-circuits for JMP (ACCESS=None) and returns Poll::Ready, which
+                // would skip t=3/4 and jump to the pointer address instead of dereferencing it.
+                cpu.address |= u16::from(cpu.fetch(bus)) << 8;
+                Poll::Pending
+            }
 
             3 => {
                 // Read the low byte of the jump target from the pointer; hold it in data.

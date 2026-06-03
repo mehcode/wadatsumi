@@ -221,7 +221,34 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<SED, Implied>(0xf8);
 
         // No Operation
+        table.insert::<NOP, Implied>(0x1a);
+        table.insert::<NOP, Implied>(0x3a);
+        table.insert::<NOP, Implied>(0x5a);
+        table.insert::<NOP, Implied>(0x7a);
+        table.insert::<NOP, Implied>(0xda);
         table.insert::<NOP, Implied>(0xea);
+        table.insert::<NOP, Implied>(0xfa);
+        table.insert::<NOP, Immediate>(0x80);
+        table.insert::<NOP, Immediate>(0x82);
+        table.insert::<NOP, Immediate>(0x89);
+        table.insert::<NOP, Immediate>(0xc2);
+        table.insert::<NOP, Immediate>(0xe2);
+        table.insert::<NOP, ZeroPage>(0x04);
+        table.insert::<NOP, ZeroPage>(0x44);
+        table.insert::<NOP, ZeroPage>(0x64);
+        table.insert::<NOP, ZeroPageX>(0x14);
+        table.insert::<NOP, ZeroPageX>(0x34);
+        table.insert::<NOP, ZeroPageX>(0x54);
+        table.insert::<NOP, ZeroPageX>(0x74);
+        table.insert::<NOP, ZeroPageX>(0xd4);
+        table.insert::<NOP, ZeroPageX>(0xf4);
+        table.insert::<NOP, Absolute>(0x0c);
+        table.insert::<NOP, AbsoluteX>(0x1c);
+        table.insert::<NOP, AbsoluteX>(0x3c);
+        table.insert::<NOP, AbsoluteX>(0x5c);
+        table.insert::<NOP, AbsoluteX>(0x7c);
+        table.insert::<NOP, AbsoluteX>(0xdc);
+        table.insert::<NOP, AbsoluteX>(0xfc);
 
         table
     }
