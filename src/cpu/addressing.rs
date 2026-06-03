@@ -5,7 +5,7 @@ use std::task::Poll;
 
 use crate::bus::Bus;
 use crate::cpu::Cpu;
-use crate::cpu::operation::{Operation, OperationMode};
+use crate::cpu::operation::{MemoryAccess, Operation};
 use crate::cpu::state::Register::{self, X, Y};
 
 /// Determines how an instruction locates its operand.
@@ -127,11 +127,7 @@ impl AddressingMode for Absolute {
 
                 // JMP (Implicit) jumps to the resolved address with no separate data bus cycle — done.
                 // All other modes (Read, Write, RMW) need one more cycle for the actual memory access.
-                if matches!(O::MODE, OperationMode::Implicit) {
-                    Poll::Ready(None)
-                } else {
-                    Poll::Pending
-                }
+                if O::ACCESS.is_none() { Poll::Ready(None) } else { Poll::Pending }
             }
 
             _ => Poll::Ready(None),
@@ -164,7 +160,7 @@ impl<const R: Register> AddressingMode for AbsoluteIndexed<R> {
                 // Read ops with no page cross: the speculative read landed on the right address, so
                 // its result is the real operand — return it to avoid a redundant bus access.
                 // Write ops and page-crossing reads always take an extra cycle to commit the carry.
-                if !page_crossed && O::MODE.is_read() {
+                if !page_crossed && matches!(O::ACCESS, Some(MemoryAccess::Read)) {
                     Poll::Ready(Some(speculative))
                 } else {
                     Poll::Pending
@@ -294,7 +290,7 @@ impl AddressingMode for IndirectY {
                 Poll::Pending
             }
 
-            4 if !O::MODE.is_read() || cpu.data != 0 => {
+            4 if !matches!(O::ACCESS, Some(MemoryAccess::Read)) || cpu.data != 0 => {
                 // The 6502 always reads from the pre-carry address while correcting the high byte.
                 // Stores always pay this cycle; loads skip it only when no page was crossed.
                 // When no page cross occurred base_hi == effective_hi, so the speculative read lands

@@ -13,18 +13,10 @@ use crate::cpu::state::Register::{self, A, SP, X, Y};
 /// Classifies how an operation accesses memory, driving the addressing-mode pipeline.
 /// The addressing mode uses this to issue the correct read or write cycles before handing off to `apply`.
 #[derive(Debug, Clone, Copy)]
-pub enum OperationMode {
-    Implicit,
+pub enum MemoryAccess {
     Read,
     Write,
     ReadModifyWrite,
-}
-
-impl OperationMode {
-    /// Returns `true` if the mode is *read*.
-    pub const fn is_read(self) -> bool {
-        matches!(self, OperationMode::Read)
-    }
 }
 
 /// The effect of a single 2A03 instruction mnemonic.
@@ -33,7 +25,7 @@ impl OperationMode {
 /// [`AddressingMode`] resolves the effective address into `cpu.address`,
 /// the operation applies the mnemonic's effect to CPU and bus state.
 pub trait Operation {
-    const MODE: OperationMode = OperationMode::Implicit;
+    const ACCESS: Option<MemoryAccess> = None;
 
     /// Applies the operation's effect for the current cycle.
     ///
@@ -50,7 +42,7 @@ pub trait Operation {
 pub struct ADC;
 
 impl Operation for ADC {
-    const MODE: OperationMode = OperationMode::Read;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
@@ -77,7 +69,7 @@ impl Operation for ADC {
 pub struct AND;
 
 impl Operation for AND {
-    const MODE: OperationMode = OperationMode::Read;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
@@ -95,7 +87,7 @@ impl Operation for AND {
 pub struct BIT;
 
 impl Operation for BIT {
-    const MODE: OperationMode = OperationMode::Read;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
@@ -192,7 +184,7 @@ pub type CLV = CLEAR<{ CpuStatus::V }>;
 pub struct COMPARE<const R: Register>;
 
 impl<const R: Register> Operation for COMPARE<R> {
-    const MODE: OperationMode = OperationMode::Read;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
@@ -216,33 +208,17 @@ pub type CPY = COMPARE<{ Y }>;
 pub struct DEC;
 
 impl Operation for DEC {
-    const MODE: OperationMode = OperationMode::ReadModifyWrite;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        match cpu.t - cpu.executing {
-            0 => {
-                cpu.data = bus.read(cpu.address);
+        let value = cpu.data.wrapping_sub(1);
 
-                Poll::Pending
-            }
+        bus.write(cpu.address, value);
 
-            1 => {
-                bus.write(cpu.address, cpu.data);
+        cpu.state.p.update_zn(value);
 
-                cpu.data = cpu.data.wrapping_sub(1);
-
-                Poll::Pending
-            }
-
-            _ => {
-                bus.write(cpu.address, cpu.data);
-
-                cpu.state.p.update_zn(cpu.data);
-
-                Poll::Ready(())
-            }
-        }
+        Poll::Ready(())
     }
 }
 
@@ -256,6 +232,7 @@ impl<const R: Register> Operation for DECREMENT<R> {
         let value = cpu.state.get::<R>().wrapping_sub(1);
 
         cpu.state.set::<R>(value);
+
         cpu.state.p.update_zn(value);
 
         Poll::Ready(())
@@ -270,7 +247,7 @@ pub type DEY = DECREMENT<{ Y }>;
 pub struct EOR;
 
 impl Operation for EOR {
-    const MODE: OperationMode = OperationMode::Read;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
@@ -289,33 +266,17 @@ impl Operation for EOR {
 pub struct INC;
 
 impl Operation for INC {
-    const MODE: OperationMode = OperationMode::ReadModifyWrite;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
-        match cpu.t - cpu.executing {
-            0 => {
-                cpu.data = bus.read(cpu.address);
+        let value = cpu.data.wrapping_add(1);
 
-                Poll::Pending
-            }
+        bus.write(cpu.address, value);
 
-            1 => {
-                bus.write(cpu.address, cpu.data);
+        cpu.state.p.update_zn(value);
 
-                cpu.data = cpu.data.wrapping_add(1);
-
-                Poll::Pending
-            }
-
-            _ => {
-                bus.write(cpu.address, cpu.data);
-
-                cpu.state.p.update_zn(cpu.data);
-
-                Poll::Ready(())
-            }
-        }
+        Poll::Ready(())
     }
 }
 
@@ -329,6 +290,7 @@ impl<const R: Register> Operation for INCREMENT<R> {
         let value = cpu.state.get::<R>().wrapping_add(1);
 
         cpu.state.set::<R>(value);
+
         cpu.state.p.update_zn(value);
 
         Poll::Ready(())
@@ -409,7 +371,7 @@ impl Operation for JSR {
 pub struct LOAD<const R: Register>;
 
 impl<const R: Register> Operation for LOAD<R> {
-    const MODE: OperationMode = OperationMode::Read;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
@@ -442,7 +404,7 @@ impl Operation for NOP {
 pub struct ORA;
 
 impl Operation for ORA {
-    const MODE: OperationMode = OperationMode::Read;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
@@ -654,7 +616,7 @@ impl Operation for RTI {
 pub struct SBC;
 
 impl Operation for SBC {
-    const MODE: OperationMode = OperationMode::Read;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
@@ -691,7 +653,7 @@ pub type SED = SET<{ CpuStatus::D }>;
 pub struct STORE<const R: Register>;
 
 impl<const R: Register> Operation for STORE<R> {
-    const MODE: OperationMode = OperationMode::Write;
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
