@@ -5,7 +5,7 @@ use std::task::Poll;
 
 use crate::bus::Bus;
 use crate::cpu::Cpu;
-use crate::cpu::operation::Operation;
+use crate::cpu::operation::{Operation, OperationMode};
 use crate::cpu::state::Register::{self, X, Y};
 
 /// Determines how an instruction locates its operand.
@@ -116,18 +116,25 @@ pub type ZeroPageY = ZeroPageIndexed<{ Y }>;
 pub struct Absolute;
 
 impl AddressingMode for Absolute {
-    #[allow(clippy::single_match_else)]
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 => ZeroPage::resolve::<O, _>(cpu, bus),
 
-            _ => {
+            2 => {
                 // Fetch high byte and merge; low byte was stored in cpu.address on cycle 1.
                 cpu.address |= u16::from(cpu.fetch(bus)) << 8;
 
-                Poll::Ready(None)
+                // JMP (Implicit) jumps to the resolved address with no separate data bus cycle — done.
+                // All other modes (Read, Write, RMW) need one more cycle for the actual memory access.
+                if matches!(O::MODE, OperationMode::Implicit) {
+                    Poll::Ready(None)
+                } else {
+                    Poll::Pending
+                }
             }
+
+            _ => Poll::Ready(None),
         }
     }
 }
