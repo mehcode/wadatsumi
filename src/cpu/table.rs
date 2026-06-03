@@ -8,9 +8,9 @@ use crate::cpu::addressing::{
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    AND, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC, DEX,
-    DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RTS,
-    SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    ADC, AND, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC,
+    DEX, DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, NOP, ORA, Operation, PHA, PHP, PLA, PLP,
+    RTS, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 use crate::cpu::state::Register;
 
@@ -79,6 +79,26 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<PHP, Implied>(0x08);
         table.insert::<PLA, Implied>(0x68);
         table.insert::<PLP, Implied>(0x28);
+
+        // Add memory to accumulator with carry
+        table.insert::<ADC, Immediate>(0x69);
+        table.insert::<ADC, ZeroPage>(0x65);
+        table.insert::<ADC, ZeroPageX>(0x75);
+        table.insert::<ADC, Absolute>(0x6d);
+        table.insert::<ADC, AbsoluteX>(0x7d);
+        table.insert::<ADC, AbsoluteY>(0x79);
+        table.insert::<ADC, IndirectX>(0x61);
+        table.insert::<ADC, IndirectY>(0x71);
+
+        // Subtract memory from accumulator with borrow
+        table.insert::<SBC, Immediate>(0xe9);
+        table.insert::<SBC, ZeroPage>(0xe5);
+        table.insert::<SBC, ZeroPageX>(0xf5);
+        table.insert::<SBC, Absolute>(0xed);
+        table.insert::<SBC, AbsoluteX>(0xfd);
+        table.insert::<SBC, AbsoluteY>(0xf9);
+        table.insert::<SBC, IndirectX>(0xe1);
+        table.insert::<SBC, IndirectY>(0xf1);
 
         // Logical AND memory with accumulator
         table.insert::<AND, Immediate>(0x29);

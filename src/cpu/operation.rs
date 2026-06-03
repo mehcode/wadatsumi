@@ -45,6 +45,33 @@ pub trait Operation {
         Self: Sized;
 }
 
+/// Adds the accumulator, a byte from the effective address, and the carry flag (`ADC`).
+/// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.
+pub struct ADC;
+
+impl Operation for ADC {
+    const MODE: OperationMode = OperationMode::Read;
+
+    #[allow(clippy::cast_possible_truncation)]
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let result = u16::from(cpu.state.a)
+            + u16::from(cpu.data)
+            + u16::from(cpu.state.p.contains(CpuStatus::C));
+
+        cpu.state.p.update_zn(result as u8);
+        cpu.state.p.set(CpuStatus::C, result > 0xFF);
+        cpu.state.p.set(
+            CpuStatus::V,
+            (!(cpu.state.a ^ cpu.data) & (cpu.state.a ^ result as u8)) & 0x80 != 0,
+        );
+
+        cpu.state.a = result as u8;
+
+        Poll::Ready(())
+    }
+}
+
 /// Bitwise AND of the accumulator with a byte from the effective address (`AND`).
 /// Stores the result in `A`. Updates `Z` and `N`.
 pub struct AND;
@@ -568,6 +595,24 @@ impl Operation for RTS {
                 Poll::Ready(())
             }
         }
+    }
+}
+
+/// Subtracts a byte at the effective address and the borrow from the accumulator (`SBC`).
+/// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.
+pub struct SBC;
+
+impl Operation for SBC {
+    const MODE: OperationMode = OperationMode::Read;
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        // The 6502 defines SBC as A - M - (1 - C), which is identical to A + ~M + C.
+        // Inverting the operand before delegating to ADC exploits this equivalence so
+        // all flag updates (C, V, Z, N) fall out of the shared addition logic for free.
+        cpu.data = !cpu.data;
+
+        ADC::apply(cpu, bus)
     }
 }
 
