@@ -83,7 +83,7 @@ impl Operation for ARR {
 
         cpu.state.a = result;
         cpu.state.p.update_zn(result);
-        cpu.state.p.set(CpuStatus::C, value & 0x40 != 0);
+        cpu.state.p.set(CpuStatus::C, result & 0x40 != 0);
 
         // V detects a carry mismatch between BCD digits: not ADC-style overflow.
         cpu.state.p.set(CpuStatus::V, ((result >> 5) ^ (result >> 6)) & 1 != 0);
