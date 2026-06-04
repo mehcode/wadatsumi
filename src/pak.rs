@@ -7,7 +7,7 @@ use std::path::Path;
 use bytes::Bytes;
 
 use crate::error::Error;
-use crate::pak::mapper::Mapper;
+use crate::pak::mapper::{AnyMapper, Mapper};
 
 mod mapper;
 
@@ -51,7 +51,7 @@ pub struct Pak {
     prg: Bytes,
     chr: Bytes,
     sram: Option<Box<[u8]>>,
-    mapper: Box<dyn Mapper>,
+    mapper: AnyMapper,
 
     /// Nametable mirroring arrangement, set by the cartridge hardware.
     /// The PPU reads this to determine how the four logical nametables
@@ -122,7 +122,7 @@ impl Pak {
         let chr = pak.slice(prg_end..chr_end);
 
         let mapper = match mapper_num {
-            0 => Box::new(mapper::Nrom),
+            0 => AnyMapper::from(mapper::NROM),
 
             _ => return Err(Error::UnsupportedMapper(mapper_num)),
         };
@@ -141,6 +141,7 @@ impl Pak {
     /// Delegates to the mapper, which translates the address according to the
     /// cartridge's bank-switching state. The valid range is mapper-dependent
     /// but is typically $8000-$FFFF.
+    #[inline]
     pub fn read_prg(&self, address: u16) -> u8 {
         self.mapper.read_prg(&self.prg, address)
     }
@@ -148,6 +149,7 @@ impl Pak {
     /// Read one byte from SRAM at the given CPU bus address (`$6000–$7FFF`).
     ///
     /// Returns `0` if this cartridge has no SRAM.
+    #[inline]
     pub fn read_sram(&self, address: u16) -> u8 {
         self.sram.as_deref().map_or(0, |sram| self.mapper.read_sram(sram, address))
     }
@@ -155,6 +157,7 @@ impl Pak {
     /// Write one byte to SRAM at the given CPU bus address (`$6000–$7FFF`).
     ///
     /// Does nothing if this cartridge has no SRAM.
+    #[inline]
     pub fn write_sram(&mut self, address: u16, value: u8) {
         if let Some(sram) = self.sram.as_deref_mut() {
             self.mapper.write_sram(sram, address, value);

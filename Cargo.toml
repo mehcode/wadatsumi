@@ -7,6 +7,7 @@ license = "AGPL-3.0-or-later"
 [dependencies]
 bytes = "1.11.1"
 clap = { version = "4.6.1", features = ["derive"] }
+enum_dispatch = "0.3.13"
 thiserror = "2.0.18"
 
 [dev-dependencies]
