@@ -76,10 +76,10 @@ impl Operation for DCP {
 
         bus.write(cpu.address, value);
 
-        cpu.state.p.set(CpuStatus::C, cpu.state.a >= value);
-        cpu.state.p.update_zn(cpu.state.a.wrapping_sub(value));
-
-        Poll::Ready(())
+        // Load the decremented result into cpu.data so CMP can consume it as its operand,
+        // mirroring the ISC→ADC pattern: the RMW result becomes the input for the compare.
+        cpu.data = value;
+        CMP::apply(cpu, bus)
     }
 }
 

@@ -39,12 +39,12 @@ impl Operation for ANC {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
-        let result = cpu.state.a & cpu.data;
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        // ANC is AND with an extra flag: delegate to AND for the shared AND + Z/N update,
+        // then copy the sign bit of the result into C.
+        let _ = AND::apply(cpu, bus);
 
-        cpu.state.a = result;
-        cpu.state.p.update_zn(result);
-        cpu.state.p.set(CpuStatus::C, result & 0x80 != 0);
+        cpu.state.p.set(CpuStatus::C, cpu.state.a & 0x80 != 0);
 
         Poll::Ready(())
     }
