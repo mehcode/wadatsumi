@@ -170,3 +170,23 @@ impl Operation for SBC {
         ADC::apply(cpu, bus)
     }
 }
+
+/// ANDs the accumulator with `X`, subtracts the byte at the effective address, and stores
+/// the result in `X` (`SBX`). Sets `C` if `A & X >= operand` (no borrow). Updates `Z` and `N`.
+/// Does not affect `V`.
+pub struct SBX;
+
+impl Operation for SBX {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
+
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        let value = cpu.state.a & cpu.state.x;
+        let result = value.wrapping_sub(cpu.data);
+
+        cpu.state.p.set(CpuStatus::C, value >= cpu.data);
+        cpu.state.p.update_zn(result);
+        cpu.state.x = result;
+
+        Poll::Ready(())
+    }
+}

@@ -10,8 +10,8 @@ use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
     ADC, ALR, ANC, AND, ARR, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV,
     CMP, CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAX, LDA, LDX, LDY, LSR,
-    LXA, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC, SEC, SED,
-    SEI, SHA, SHX, SHY, SLO, SRE, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    LXA, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC, SBX, SEC,
+    SED, SEI, SHA, SHX, SHY, SLO, SRE, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
@@ -249,6 +249,9 @@ impl<B: Bus> InstructionTable<B> {
 
         // Subtract memory from accumulator with borrow (unofficial) [SBC]
         table.insert::<SBC, Immediate>(0xeb);
+
+        // AND A,X then subtract immediate; result → X (unofficial) [SBX]
+        table.insert::<SBX, Immediate>(0xcb);
 
         // AND accumulator with carry (unofficial) [ANC]
         table.insert::<ANC, Immediate>(0x0b);
