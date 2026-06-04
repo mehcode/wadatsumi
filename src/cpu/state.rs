@@ -49,7 +49,10 @@ impl CpuStatus {
         Self(bits & !Self::B & !Self::U)
     }
 
-    /// Returns `true` if all bits in `flag` are set.
+    /// Returns `true` if any bit in `flag` is set.
+    ///
+    /// Callers pass single-bit flag constants (`C`, `Z`, …), for which "any bit set"
+    /// and "all bits set" coincide; this is not a general subset test.
     #[must_use]
     pub const fn contains(&self, flag: Self) -> bool {
         self.0 & flag.0 != 0
@@ -75,18 +78,18 @@ impl CpuStatus {
     }
 
     /// Sets or clears Z based on whether `result` is zero.
-    pub fn update_z(&mut self, result: u8) {
+    pub const fn update_z(&mut self, result: u8) {
         self.set(Self::Z, result == 0);
     }
 
     /// Sets or clears N from bit 7 of `result`.
-    pub fn update_n(&mut self, result: u8) {
+    pub const fn update_n(&mut self, result: u8) {
         self.set(Self::N, result & 0x80 != 0);
     }
 
     /// Sets or clears Z and N from `result`.
     /// Equivalent to calling [`update_z`] and [`update_n`].
-    pub fn update_zn(&mut self, result: u8) {
+    pub const fn update_zn(&mut self, result: u8) {
         self.update_z(result);
         self.update_n(result);
     }

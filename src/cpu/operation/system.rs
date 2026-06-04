@@ -14,6 +14,7 @@ use crate::cpu::{Cpu, CpuStatus};
 pub struct BRK;
 
 impl Operation for BRK {
+    #[allow(clippy::cast_possible_truncation)]
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {

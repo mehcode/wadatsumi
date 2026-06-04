@@ -128,7 +128,7 @@ impl Operation for SHA {
 /// Stores `R & (baseAddrHigh + 1)` into memory (`SHY`, `SHX`).
 /// `baseAddrHigh` is the high byte of the effective address before `IDX`-indexing. No flags are modified.
 /// On a page cross the hardware outputs the result on the address high bus instead of the carry-corrected
-/// base_hi+1, so the write goes to `(result << 8) | lo` rather than the true effective address.
+/// `base_hi+1`, so the write goes to `(result << 8) | lo` rather than the true effective address.
 pub struct SH<const R: Register, const IDX: Register>;
 
 impl<const R: Register, const IDX: Register> Operation for SH<R, IDX> {
@@ -143,10 +143,10 @@ impl<const R: Register, const IDX: Register> Operation for SH<R, IDX> {
         let result = value & base_high.wrapping_add(1);
 
         // On a page cross the result ANDs into the address high byte (hardware bus conflict).
-        let address: u16 = if (cpu.address >> 8) as u8 != base_high {
-            (u16::from(result) << 8) | (cpu.address & 0xFF)
-        } else {
+        let address: u16 = if (cpu.address >> 8) as u8 == base_high {
             cpu.address
+        } else {
+            (u16::from(result) << 8) | (cpu.address & 0xFF)
         };
 
         bus.write(address, result);
