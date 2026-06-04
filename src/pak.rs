@@ -117,6 +117,15 @@ impl Pak {
         // slice() returns a reference into the same allocation.
         let prg = pak.slice(data_start..prg_end);
 
+        // Fixed-window mappers (e.g. NROM) mirror PRG by masking the address with
+        // `len - 1`; that only yields a correctly-mirrored index when the size is a
+        // power of two. Every legal PRG-ROM is a power-of-two number of 16 KiB banks,
+        // so reject anything else here — this is also the invariant the mappers' unchecked
+        // indexing relies on for soundness.
+        if !prg.len().is_power_of_two() {
+            return Err(Error::InvalidPak);
+        }
+
         // chr is an empty slice when chr_banks == 0; the mapper is responsible for
         // providing CHR-RAM in that case.
         let chr = pak.slice(prg_end..chr_end);

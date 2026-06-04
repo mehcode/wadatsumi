@@ -13,11 +13,18 @@ impl Mapper for NROM {
     #[inline]
     fn read_prg(&self, prg: &[u8], address: u16) -> u8 {
         // PRG-ROM occupies $8000-$FFFF in the CPU address space.
-        // NROM-128 has 16 KB of PRG-ROM, mirrored across the full 32 KB window.
-        // NROM-256 fills the window exactly. The modulo handles both without branching,
-        // it mirrors a 16 KB slice and is a no-op for 32 KB.
 
-        prg[(address as usize) & (prg.len() - 1)]
+        // NROM-128 has 16 KB of PRG-ROM, mirrored across the full 32 KB window;
+
+        // NROM-256 fills the window exactly. Masking with `len - 1` folds both cases:
+        // it mirrors a 16 KB ROM into the window and is a no-op for a 32 KB ROM. The
+        // mirroring is only correct when `len` is a power of two, which `Pak::open`
+        // guarantees.
+
+        // SAFETY: `address & (len - 1)` can only clear bits, so the result is always
+        // `<= len - 1`, hence a valid index whenever `len > 0`. `Pak::open` rejects a
+        // zero-bank (empty) PRG, so `len >= 16 KiB > 0` holds here.
+        unsafe { *prg.get_unchecked((address as usize) & (prg.len() - 1)) }
     }
 
     #[inline]
@@ -27,11 +34,18 @@ impl Mapper for NROM {
 
     #[inline]
     fn read_sram(&self, sram: &[u8], address: u16) -> u8 {
-        sram[(address as usize) & 0x1fff]
+        // SAFETY: the mask `& 0x1fff` yields an index in `0..=0x1fff` (0..8 KiB). `Pak`
+        // allocates SRAM to `sram_size()` (8 KiB) and only calls this when SRAM exists,
+        // so the slice is exactly 8 KiB and the index is always in bounds.
+        unsafe { *sram.get_unchecked((address as usize) & 0x1fff) }
     }
 
     #[inline]
     fn write_sram(&self, sram: &mut [u8], address: u16, value: u8) {
-        sram[(address as usize) & 0x1fff] = value;
+        // SAFETY: identical invariant to `read_sram`, `& 0x1fff` indexes within the
+        // 8 KiB SRAM slice that `Pak` allocates from `sram_size()`.
+        unsafe {
+            *sram.get_unchecked_mut((address as usize) & 0x1fff) = value;
+        }
     }
 }

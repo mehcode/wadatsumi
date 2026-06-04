@@ -17,7 +17,6 @@ divan = "0.1"
 regex = "1.12.3"
 
 [lints.rust]
-unsafe_code = "forbid"
 unused = { level = "allow", priority = -1 }
 
 [lints.clippy]
