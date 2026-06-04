@@ -11,7 +11,7 @@ use std::task::Poll;
 use crate::Bus;
 use crate::cpu::Cpu;
 use crate::cpu::operation::Register::{self, A, SP, X, Y};
-use crate::cpu::operation::{MemoryAccess, Operation};
+use crate::cpu::operation::{MAGIC, MemoryAccess, Operation};
 
 /// Loads a byte from the effective address into both `A` and `X` (`LAX`).
 /// Updates `Z` and `N`.
@@ -51,6 +51,25 @@ pub type LDA = LOAD<{ A }>;
 pub type LDX = LOAD<{ X }>;
 pub type LDY = LOAD<{ Y }>;
 
+/// AND `(A | MAGIC)` with immediate byte, then store in both `A` and `X` (`LXA`/`OAL`).
+/// Updates `Z` and `N`.
+pub struct LXA;
+
+impl Operation for LXA {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+        let result = (cpu.state.a | MAGIC) & cpu.data;
+
+        cpu.state.a = result;
+        cpu.state.x = result;
+        cpu.state.p.update_zn(result);
+
+        Poll::Ready(())
+    }
+}
+
 pub struct SAX;
 
 impl Operation for SAX {
@@ -87,6 +106,48 @@ impl<const R: Register> Operation for STORE<R> {
 pub type STA = STORE<{ A }>;
 pub type STX = STORE<{ X }>;
 pub type STY = STORE<{ Y }>;
+
+/// Stores `A & X & (baseAddrHigh + 1)` into memory (`SHA`/`AHX`).
+/// `baseAddrHigh` is the high byte of the effective address before Y-indexing. No flags are modified.
+pub struct SHA;
+
+impl Operation for SHA {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let base_high = (cpu.address.wrapping_sub(u16::from(cpu.state.y)) >> 8) as u8;
+        let value = cpu.state.a & cpu.state.x & base_high.wrapping_add(1);
+
+        bus.write(cpu.address, value);
+
+        Poll::Ready(())
+    }
+}
+
+/// Stores `R & (baseAddrHigh + 1)` into memory (`SHY`, `SHX`).
+/// `baseAddrHigh` is the high byte of the effective address before `IDX`-indexing. No flags are modified.
+pub struct SH<const R: Register, const IDX: Register>;
+
+impl<const R: Register, const IDX: Register> Operation for SH<R, IDX> {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let index = IDX.get(&cpu.state);
+        let base_high = (cpu.address.wrapping_sub(u16::from(index)) >> 8) as u8;
+
+        let value = R.get(&cpu.state);
+        let result = value & base_high.wrapping_add(1);
+
+        bus.write(cpu.address, result);
+
+        Poll::Ready(())
+    }
+}
+
+pub type SHY = SH<{ Y }, { X }>;
+pub type SHX = SH<{ X }, { Y }>;
 
 /// Copies register `SRC` into register `DST` in a single implicit cycle (`TAX`, `TAY`, `TSX`, `TXA`, `TYA`, `TXS`).
 /// Updates `Z` and `N` when the destination is `A`, `X`, or `Y`.

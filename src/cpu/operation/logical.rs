@@ -68,6 +68,30 @@ impl Operation for AND {
     }
 }
 
+/// AND accumulator with immediate byte, then rotate right through carry (`ARR`).
+/// Unlike a plain `AND`+`ROR`, `C` is taken from bit 6 of the result and `V` from bit 6 XOR bit 5.
+/// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.
+pub struct ARR;
+
+impl Operation for ARR {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+        let value = cpu.state.a & cpu.data;
+        let result = (value >> 1) | (u8::from(cpu.state.p.contains(CpuStatus::C)) << 7);
+
+        cpu.state.a = result;
+        cpu.state.p.update_zn(result);
+        cpu.state.p.set(CpuStatus::C, value & 0x40 != 0);
+
+        // V detects a carry mismatch between BCD digits: not ADC-style overflow.
+        cpu.state.p.set(CpuStatus::V, ((result >> 5) ^ (result >> 6)) & 1 != 0);
+
+        Poll::Ready(())
+    }
+}
+
 /// Shifts operand `O` one bit left, filling bit 0 with zero (`ASL`).
 /// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
 /// For register operands, executes in a single implicit cycle.

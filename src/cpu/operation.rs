@@ -19,10 +19,12 @@ mod transfer;
 
 pub use arithmetic::{ADC, CMP, CPX, CPY, DCP, DEC, DEX, DEY, INC, INX, INY, ISC, SBC};
 pub use flow::{BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS, JMP, JSR, RTI, RTS};
-pub use logical::{ALR, ANC, AND, ASL, BIT, EOR, LSR, ORA, RLA, ROL, ROR, RRA, SLO, SRE};
+pub use logical::{ALR, ANC, AND, ARR, ASL, BIT, EOR, LSR, ORA, RLA, ROL, ROR, RRA, SLO, SRE};
 pub use stack::{PHA, PHP, PLA, PLP};
 pub use system::{CLC, CLD, CLI, CLV, NOP, SEC, SED, SEI};
-pub use transfer::{LAX, LDA, LDX, LDY, SAX, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA};
+pub use transfer::{
+    LAX, LDA, LDX, LDY, LXA, SAX, SHA, SHX, SHY, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+};
 
 /// Classifies how an operation accesses memory, driving the addressing-mode pipeline.
 /// The addressing mode uses this to issue the correct read or write cycles before handing off to `apply`.
@@ -147,3 +149,9 @@ impl Operand {
         }
     }
 }
+
+/// A floating internal bus value OR'd into the accumulator before the AND in
+/// unstable immediate-mode opcodes like LXA and XAA. Its true value depends on chip revision,
+/// temperature, and board capacitance, making these instructions non-deterministic on real hardware.
+/// 0xFF is the value that produces correct results against nestest and most practical test ROMs.
+const MAGIC: u8 = 0xff;

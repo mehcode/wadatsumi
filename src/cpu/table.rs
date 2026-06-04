@@ -8,10 +8,10 @@ use crate::cpu::addressing::{
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    ADC, ALR, ANC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV, CMP,
-    CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAX, LDA, LDX, LDY, LSR, NOP,
-    ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC, SEC, SED, SEI, SLO,
-    SRE, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    ADC, ALR, ANC, AND, ARR, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV,
+    CMP, CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAX, LDA, LDX, LDY, LSR,
+    LXA, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC, SEC, SED,
+    SEI, SHA, SHX, SHY, SLO, SRE, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
@@ -232,11 +232,20 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<LAX, ZeroPageY>(0xb7);
         table.insert::<LAX, AbsoluteY>(0xbf);
 
+        // AND (A | MAGIC) with immediate, then load A and X (unofficial) [LXA]
+        table.insert::<LXA, Immediate>(0xab);
+
         // Store A & X in memory (unofficial) [SAX]
         table.insert::<SAX, ZeroPage>(0x87);
         table.insert::<SAX, ZeroPageY>(0x97);
         table.insert::<SAX, Absolute>(0x8f);
         table.insert::<SAX, IndirectX>(0x83);
+
+        // Store AND (baseAddrHigh + 1) into memory (unofficial) [SHA, SHX, SHY]
+        table.insert::<SHA, AbsoluteY>(0x9f);
+        table.insert::<SHA, IndirectY>(0x93);
+        table.insert::<SHX, AbsoluteY>(0x9e);
+        table.insert::<SHY, AbsoluteX>(0x9c);
 
         // Subtract memory from accumulator with borrow (unofficial) [SBC]
         table.insert::<SBC, Immediate>(0xeb);
@@ -265,6 +274,9 @@ impl<B: Bus> InstructionTable<B> {
 
         // AND immediate + LSR accumulator (unofficial) [ALR]
         table.insert::<ALR, Immediate>(0x4b);
+
+        // AND immediate + ROR accumulator (unofficial) [ARR]
+        table.insert::<ARR, Immediate>(0x6b);
 
         // ROL operand + AND accumulator (unofficial) [RLA]
         table.insert::<RLA, ZeroPage>(0x27);
