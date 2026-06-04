@@ -8,10 +8,10 @@ use crate::cpu::addressing::{
 };
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
-    ADC, ALR, ANC, AND, ARR, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BVC, BVS, CLC, CLD, CLI, CLV,
-    CMP, CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAX, LDA, LDX, LDY, LSR,
-    LXA, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC, SBX, SEC,
-    SED, SEI, SHA, SHX, SHY, SLO, SRE, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    ADC, ALR, ANC, AND, ARR, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BRK, BVC, BVS, CLC, CLD, CLI,
+    CLV, CMP, CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAX, LDA, LDX, LDY,
+    LSR, LXA, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC, SBX,
+    SEC, SED, SEI, SHA, SHX, SHY, SLO, SRE, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
 };
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
@@ -211,6 +211,9 @@ impl<B: Bus> InstructionTable<B> {
         table.insert::<BCS, Relative>(0xb0);
         table.insert::<BNE, Relative>(0xd0);
         table.insert::<BEQ, Relative>(0xf0);
+
+        // Breakpoint [BRK]
+        table.insert::<BRK, Implied>(0x00);
 
         // CPU Control [CLC, CLD, CLI, CLV, SEC, SED, SEI]
         table.insert::<CLC, Implied>(0x18);
