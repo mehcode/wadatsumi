@@ -13,13 +13,11 @@ impl Mapper for NROM {
     #[inline]
     fn read_prg(&self, prg: &[u8], address: u16) -> u8 {
         // PRG-ROM occupies $8000-$FFFF in the CPU address space.
-        // Masking off bit 15 converts the CPU address to an offset within that 32 KB window.
-        let offset = (address as usize) & 0x7fff;
-
         // NROM-128 has 16 KB of PRG-ROM, mirrored across the full 32 KB window.
         // NROM-256 fills the window exactly. The modulo handles both without branching,
         // it mirrors a 16 KB slice and is a no-op for 32 KB.
-        prg[offset % prg.len()]
+
+        prg[(address as usize) & (prg.len() - 1)]
     }
 
     #[inline]
