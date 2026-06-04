@@ -42,15 +42,10 @@ impl System {
     }
 
     /// Advances all system components by one clock cycle.
-    ///
-    /// # Errors
-    /// Returns an error if the CPU encounters an unknown opcode.
-    pub fn tick(&mut self) -> crate::Result<()> {
-        self.cpu.tick(&mut self.bus)?;
+    pub fn tick(&mut self) {
+        self.cpu.tick(&mut self.bus);
 
         // TODO: self.ppu.tick() x 3
         // TODO: self.apu.tick()
-
-        Ok(())
     }
 }

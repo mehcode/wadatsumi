@@ -26,7 +26,7 @@ fn nestest(bencher: divan::Bencher) {
         })
         .bench_local_values(|mut system| {
             for _ in 0..26_554 {
-                system.tick().unwrap();
+                system.tick();
             }
         });
 }

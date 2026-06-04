@@ -9,6 +9,8 @@ bytes = "1.11.1"
 clap = { version = "4.6.1", features = ["derive"] }
 enum_dispatch = "0.3.13"
 thiserror = "2.0.18"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
 [dev-dependencies]
 anyhow = "1.0.102"

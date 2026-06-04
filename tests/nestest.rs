@@ -71,7 +71,7 @@ fn nestest() -> anyhow::Result<()> {
             }
         }
 
-        system.tick()?;
+        system.tick();
     }
 
     // A non-zero value here means at least one opcode produced the wrong

@@ -1,7 +1,6 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::Error;
 use crate::bus::Bus;
 use crate::cpu::instruction::Instruction;
 use crate::cpu::table::InstructionTable;
@@ -46,6 +45,10 @@ pub struct Cpu<B: Bus> {
     /// Zero means no instruction is currently in the execution phase.
     /// `cpu.t - cpu.executing` gives the operation-relative cycle index inside `apply`.
     executing: u8,
+
+    /// Set when the CPU fetches an opcode with no handler. Like the NMOS 6502 KIL/JAM
+    /// opcodes, the core then locks up: [`Cpu::tick`] becomes a no-op until [`Cpu::reset`].
+    halted: bool,
 }
 
 impl<B: Bus> Default for Cpu<B> {
@@ -67,6 +70,7 @@ impl<B: Bus> Cpu<B> {
             ptr: 0,
             data: 0,
             executing: 0,
+            halted: false,
         }
     }
 
@@ -77,25 +81,38 @@ impl<B: Bus> Cpu<B> {
         let hi = u16::from(bus.read(0xfffd));
 
         self.state.pc = (hi << 8) | lo;
+        self.halted = false;
     }
 
     /// Advances the CPU by one clock cycle.
     ///
-    /// # Errors
-    ///
-    /// Returns [`Error::UnknownOpcode`] if the opcode fetched at the current PC has no
-    /// handler in the instruction table.
-    pub fn tick(&mut self, bus: &mut B) -> crate::Result<()> {
+    /// Fetching an opcode with no handler jams the core (see [`Cpu::halted`]); once
+    /// halted, this is a no-op until [`Cpu::reset`] clears the condition.
+    pub fn tick(&mut self, bus: &mut B) {
+        if self.halted {
+            return;
+        }
+
         let Some(instruction) = self.instruction else {
             // T0. Opcode fetch. T advances to 1 so the first execution T-state enters at T1.
             let opcode = self.fetch(bus);
 
-            self.t += 1;
-            self.instruction = Some(Self::TABLE.get(opcode).ok_or_else(|| {
-                Error::UnknownOpcode { opcode, pc: self.state.pc.wrapping_sub(1) }
-            })?);
+            let Some(handler) = Self::TABLE.get(opcode) else {
+                // Illegal/unimplemented opcode: lock up like a KIL/JAM instruction.
+                tracing::error!(
+                    opcode = format!("{opcode:02X}"),
+                    pc = format!("{:04X}", self.state.pc.wrapping_sub(1)),
+                    "illegal opcode; halting CPU"
+                );
 
-            return Ok(());
+                self.halted = true;
+                return;
+            };
+
+            self.t += 1;
+            self.instruction = Some(handler);
+
+            return;
         };
 
         // Execute one T-state of the in-flight instruction; clear it when the handler signals done.
@@ -106,8 +123,12 @@ impl<B: Bus> Cpu<B> {
         } else {
             self.t += 1;
         }
+    }
 
-        Ok(())
+    /// Returns `true` once the CPU has jammed on an illegal opcode. Cleared by [`Cpu::reset`].
+    #[must_use]
+    pub const fn halted(&self) -> bool {
+        self.halted
     }
 
     /// Returns the current T-state; 0 (T0) indicates the SYNC cycle where the next

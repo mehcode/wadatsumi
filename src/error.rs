@@ -17,9 +17,6 @@ pub enum Error {
 
     #[error("unsupported mapper: {0}")]
     UnsupportedMapper(u8),
-
-    #[error("unknown opcode ${opcode:02X} at ${pc:04X}")]
-    UnknownOpcode { opcode: u8, pc: u16 },
 }
 
 impl Debug for Error {
@@ -32,12 +29,6 @@ impl Debug for Error {
             Self::UnsupportedMapper(mapper) => {
                 f.debug_tuple("UnsupportedMapper").field(mapper).finish()
             }
-
-            Self::UnknownOpcode { opcode, pc } => f
-                .debug_struct("UnknownOpcode")
-                .field("opcode", &format_args!("{opcode:02X}"))
-                .field("pc", &format_args!("{pc:04X}"))
-                .finish(),
         }
     }
 }

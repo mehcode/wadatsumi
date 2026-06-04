@@ -21,7 +21,7 @@ fn instr_test_v5(path: &Path) -> datatest_stable::Result<()> {
     let mut initialized = false;
 
     for _ in 0..MAX_CYCLES {
-        system.tick()?;
+        system.tick();
 
         // The ROM writes a 3-byte magic signature to $6001-$6003 once its startup
         // routine finishes. We ignore $6000 until we see it, before then the SRAM

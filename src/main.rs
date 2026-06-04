@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use tracing_subscriber::EnvFilter;
 use wadatsumi::System;
 
 #[derive(Parser)]
@@ -14,11 +15,15 @@ struct Args {
 fn main() -> wadatsumi::Result<()> {
     let args = Args::parse();
 
+    tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env()).init();
+
     let mut system = System::new();
 
     system.open(&args.pak)?;
 
-    loop {
-        system.tick()?;
+    while !system.cpu.halted() {
+        system.tick();
     }
+
+    Ok(())
 }
