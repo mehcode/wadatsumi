@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Bitwise logical operations on the accumulator: `AND`, `EOR`, `ORA`, and `BIT`.
-//! Unlike [`arithmetic`], operands are treated as bit patterns — no carry or overflow is produced.
+//! Unlike [`arithmetic`], operands are treated as bit patterns, no carry or overflow is produced.
 //! Shifts and rotates (`ASL`, `LSR`, `ROL`, `ROR`) belong here when added.
 
-use std::task::Poll;
+use std::task::{Poll, ready};
 
 use crate::Bus;
-use crate::cpu::operation::{ADC, MemoryAccess, Operand, Operation};
+use crate::cpu::operation::Operand::{self, Memory, Register};
+use crate::cpu::operation::Register::A;
+use crate::cpu::operation::{ADC, MemoryAccess, Operation};
 use crate::cpu::{Cpu2A03, CpuStatus};
 
 /// AND accumulator with immediate byte, then LSR the accumulator (`ALR`).
@@ -19,15 +21,12 @@ impl Operation for ALR {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let value = cpu.a & cpu.data;
-        let result = value >> 1;
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+        // AND reads cpu.data (the immediate byte) into A; LSR then shifts A in place.
+        // The register variant of LSR needs no cpu.data latch, it reads and writes A directly.
+        ready!(AND::apply(cpu, bus));
 
-        cpu.a = result;
-        cpu.p.set(CpuStatus::C, value & 0x01 != 0);
-        cpu.p.update_zn(result);
-
-        Poll::Ready(())
+        LSR::<{ Register(A) }>::apply(cpu, bus)
     }
 }
 
@@ -42,7 +41,7 @@ impl Operation for ANC {
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         // ANC is AND with an extra flag: delegate to AND for the shared AND + Z/N update,
         // then copy the sign bit of the result into C.
-        let _ = AND::apply(cpu, bus);
+        ready!(AND::apply(cpu, bus));
 
         cpu.p.set(CpuStatus::C, cpu.a & 0x80 != 0);
 
@@ -107,6 +106,7 @@ impl<const O: Operand> Operation for ASL<O> {
         let result = value << 1;
 
         O.write(cpu, bus, result);
+        O.latch(cpu, result);
 
         cpu.p.update_zn(result);
         cpu.p.set(CpuStatus::C, value & 0x80 != 0);
@@ -165,6 +165,7 @@ impl<const O: Operand> Operation for LSR<O> {
         let result = value >> 1;
 
         O.write(cpu, bus, result);
+        O.latch(cpu, result);
 
         cpu.p.update_zn(result);
         cpu.p.set(CpuStatus::C, value & 0x01 != 0);
@@ -206,6 +207,7 @@ impl<const O: Operand> Operation for ROL<O> {
         let result = (value << 1) | u8::from(cpu.p.contains(CpuStatus::C));
 
         O.write(cpu, bus, result);
+        O.latch(cpu, result);
 
         cpu.p.update_zn(result);
         cpu.p.set(CpuStatus::C, value & 0x80 != 0);
@@ -229,6 +231,7 @@ impl<const O: Operand> Operation for ROR<O> {
         let result = (value >> 1) | (u8::from(cpu.p.contains(CpuStatus::C)) << 7);
 
         O.write(cpu, bus, result);
+        O.latch(cpu, result);
 
         cpu.p.update_zn(result);
         cpu.p.set(CpuStatus::C, value & 0x01 != 0);
@@ -246,16 +249,11 @@ impl Operation for RLA {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.data;
-        let rotated = (value << 1) | u8::from(cpu.p.contains(CpuStatus::C));
+        // ROL (Memory) writes the rotated value to both the bus and cpu.data; AND then reads
+        // cpu.data so no redundant bus read is needed between the two halves.
+        ready!(ROL::<{ Memory }>::apply(cpu, bus));
 
-        bus.write(cpu.address(),rotated);
-
-        cpu.p.set(CpuStatus::C, value & 0x80 != 0);
-        cpu.a &= rotated;
-        cpu.p.update_zn(cpu.a);
-
-        Poll::Ready(())
+        AND::apply(cpu, bus)
     }
 }
 
@@ -269,14 +267,8 @@ impl Operation for RRA {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.data;
-
-        cpu.data = (value >> 1) | (u8::from(cpu.p.contains(CpuStatus::C)) << 7);
-
-        bus.write(cpu.address(),cpu.data);
-
-        // The ROR carry-out (bit 0 of original) becomes the carry-in for ADC.
-        cpu.p.set(CpuStatus::C, value & 0x01 != 0);
+        // ROR sets C = original bit 0, which becomes the carry-in for ADC.
+        ready!(ROR::<{ Memory }>::apply(cpu, bus));
 
         ADC::apply(cpu, bus)
     }
@@ -291,16 +283,11 @@ impl Operation for SLO {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.data;
-        let shifted = value << 1;
+        // ASL (Memory) writes the shifted value to both the bus and cpu.data; ORA then reads
+        // cpu.data so no redundant bus read is needed between the two halves.
+        ready!(ASL::<{ Memory }>::apply(cpu, bus));
 
-        bus.write(cpu.address(),shifted);
-
-        cpu.p.set(CpuStatus::C, value & 0x80 != 0);
-        cpu.a |= shifted;
-        cpu.p.update_zn(cpu.a);
-
-        Poll::Ready(())
+        ORA::apply(cpu, bus)
     }
 }
 
@@ -313,15 +300,10 @@ impl Operation for SRE {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.data;
-        let shifted = value >> 1;
+        // LSR (Memory) writes the shifted value to both the bus and cpu.data; EOR then reads
+        // cpu.data so no redundant bus read is needed between the two halves.
+        ready!(LSR::<{ Memory }>::apply(cpu, bus));
 
-        bus.write(cpu.address(),shifted);
-
-        cpu.p.set(CpuStatus::C, value & 0x01 != 0);
-        cpu.a ^= shifted;
-        cpu.p.update_zn(cpu.a);
-
-        Poll::Ready(())
+        EOR::apply(cpu, bus)
     }
 }

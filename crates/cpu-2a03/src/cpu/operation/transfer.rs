@@ -6,7 +6,7 @@
 //! Covers all three directions: Memory → Register, Register → Memory, and
 //! Register → Register.
 
-use std::task::Poll;
+use std::task::{Poll, ready};
 
 use crate::Bus;
 use crate::cpu::Cpu2A03;
@@ -21,13 +21,14 @@ impl Operation for LAX {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        cpu.a = cpu.data;
-        cpu.x = cpu.data;
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+        // LDA loads cpu.data into A and updates flags; LDX reads the same cpu.data into X.
+        // Both halves consume the byte already latched by the Read pipeline, no extra bus read.
+        // LDA loads cpu.data into A and updates flags; LDX reads the same cpu.data into X.
+        // Both halves consume the byte already latched by the Read pipeline, no extra bus read.
+        ready!(LDA::apply(cpu, bus));
 
-        cpu.p.update_zn(cpu.data);
-
-        Poll::Ready(())
+        LDX::apply(cpu, bus)
     }
 }
 
@@ -70,6 +71,8 @@ impl Operation for LXA {
     }
 }
 
+/// Stores `A & X` into memory at the effective address (`SAX`).
+/// Does not affect any flags or modify `A` or `X`.
 pub struct SAX;
 
 impl Operation for SAX {

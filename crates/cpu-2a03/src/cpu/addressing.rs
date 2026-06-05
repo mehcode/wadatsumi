@@ -142,7 +142,7 @@ impl AddressingMode for Absolute {
                 // Fetch high byte; low byte was stored in cpu.adl on cycle 1.
                 cpu.adh = cpu.fetch(bus);
 
-                // JMP (Implicit) jumps to the resolved address with no separate data bus cycle — done.
+                // JMP (Implicit) jumps to the resolved address with no separate data bus cycle, done.
                 // All other modes (Read, Write, RMW) need one more cycle for the actual memory access.
                 if O::ACCESS.is_none() { Poll::Ready(None) } else { Poll::Pending }
             }
@@ -177,7 +177,7 @@ impl<const R: Register> AddressingMode for AbsoluteIndexed<R> {
                 [cpu.adl, cpu.adh] = address.to_le_bytes();
 
                 // Read ops with no page cross: the speculative read landed on the right address, so
-                // its result is the real operand — return it to avoid a redundant bus access.
+                // its result is the real operand, return it to avoid a redundant bus access.
                 // Write ops and page-crossing reads always take an extra cycle to commit the carry.
                 if !page_crossed && matches!(O::ACCESS, Some(MemoryAccess::Read)) {
                     Poll::Ready(Some(speculative))

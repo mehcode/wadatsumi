@@ -118,7 +118,7 @@ impl Pak {
         // Fixed-window mappers (e.g. NROM) mirror PRG by masking the address with
         // `len - 1`; that only yields a correctly-mirrored index when the size is a
         // power of two. Every legal PRG-ROM is a power-of-two number of 16 KiB banks,
-        // so reject anything else here — this is also the invariant the mappers' unchecked
+        // so reject anything else here, this is also the invariant the mappers' unchecked
         // indexing relies on for soundness.
         if !prg.len().is_power_of_two() {
             return Err(Error::InvalidPak);

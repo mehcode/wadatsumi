@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Arithmetic operations: addition, subtraction, increment, decrement, and comparison.
-//! Unlike [`logical`], operands are treated as numbers — `ADC` and `SBC` update `C` and `V`
+//! Unlike [`logical`], operands are treated as numbers, `ADC` and `SBC` update `C` and `V`
 //! in addition to `Z` and `N`, reflecting carries and borrows across byte boundaries.
 
 use std::task::Poll;
@@ -68,13 +68,11 @@ impl Operation for DCP {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.data.wrapping_sub(1);
-
-        bus.write(cpu.address(), value);
-
-        // Load the decremented result into cpu.data so CMP can consume it as its operand,
-        // mirroring the ISC→ADC pattern: the RMW result becomes the input for the compare.
-        cpu.data = value;
+        // Inline the decrement-and-writeback rather than delegating to DEC: DEC does not write
+        // cpu.data (to avoid a dead store on standalone DEC), so the result must be placed in
+        // cpu.data explicitly here for CMP to consume it.
+        cpu.data = cpu.data.wrapping_sub(1);
+        bus.write(cpu.address(), cpu.data);
         CMP::apply(cpu, bus)
     }
 }
@@ -90,11 +88,10 @@ impl<const O: Operand> Operation for DECREMENT<O> {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = O.read(cpu).wrapping_sub(1);
+        let result = O.read(cpu).wrapping_sub(1);
 
-        O.write(cpu, bus, value);
-
-        cpu.p.update_zn(value);
+        O.write(cpu, bus, result);
+        cpu.p.update_zn(result);
 
         Poll::Ready(())
     }
@@ -115,11 +112,10 @@ impl<const O: Operand> Operation for INCREMENT<O> {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = O.read(cpu).wrapping_add(1);
+        let result = O.read(cpu).wrapping_add(1);
 
-        O.write(cpu, bus, value);
-
-        cpu.p.update_zn(value);
+        O.write(cpu, bus, result);
+        cpu.p.update_zn(result);
 
         Poll::Ready(())
     }
@@ -138,14 +134,11 @@ impl Operation for ISC {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.data.wrapping_add(1);
-
-        bus.write(cpu.address(), value);
-
-        // Invert the operand and forward to ADC (same as SBC)
-        // to handle the shared addition logic for C, V, Z, and N.
-        cpu.data = !value;
-        ADC::apply(cpu, bus)
+        // Same pattern as DCP: inline the increment-and-writeback so that SBC reads the
+        // incremented value from cpu.data without INC needing a cpu.data write of its own.
+        cpu.data = cpu.data.wrapping_add(1);
+        bus.write(cpu.address(), cpu.data);
+        SBC::apply(cpu, bus)
     }
 }
 

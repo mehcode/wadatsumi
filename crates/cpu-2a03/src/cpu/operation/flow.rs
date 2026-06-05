@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Control flow — the only operations that write to the program counter.
+//! Control flow, the only operations that write to the program counter.
 //! Covers conditional branches (`BCC`–`BVS`), unconditional jumps (`JMP`),
 //! and subroutine call and return (`JSR`, `RTS`, `RTI`).
 
@@ -139,7 +139,6 @@ impl Operation for JSR {
 
 /// Returns from a subroutine; pulls the return address from the stack and increments it by one.
 ///
-/// Uses `Implied` addressing: the spurious PC read (hardware cycle 2) is handled there.
 /// The address on the stack is JSR's ADH byte (last byte of the JSR instruction), so
 /// incrementing by 1 lands on the byte immediately following the full JSR instruction.
 pub struct RTS;
@@ -148,7 +147,7 @@ impl Operation for RTS {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {
-            // Implied already performed the spurious fetch; just advance.
+            // T1: internal, wait for stack pointer.
             1 => Poll::Pending,
 
             // Dummy read at current stack top, then increment S.
@@ -196,7 +195,7 @@ impl Operation for RTI {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {
-            // Implied already performed the spurious fetch; just advance.
+            // T1: internal, wait for stack pointer.
             1 => Poll::Pending,
 
             // Dummy read at current stack top, then increment S.

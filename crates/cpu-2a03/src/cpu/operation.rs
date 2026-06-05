@@ -147,6 +147,19 @@ impl Operand {
             }
         }
     }
+
+    /// Latches `value` into `cpu.data` when this operand is [`Operand::Memory`].
+    ///
+    /// Used by shift and rotate operations so that composed undocumented ops (SLO, SRE, RLA,
+    /// RRA) can read the modified value from `cpu.data` without an extra bus access. For
+    /// register variants this is a no-op; `O` is a const generic so LLVM eliminates the branch
+    /// at compile time with zero overhead on the register-operand hot paths (ASL A, LSR A, etc.).
+    #[inline(always)]
+    pub const fn latch<B: Bus>(self, cpu: &mut Cpu2A03<B>, value: u8) {
+        if matches!(self, Self::Memory) {
+            cpu.data = value;
+        }
+    }
 }
 
 /// A floating internal bus value OR'd into the accumulator before the AND in

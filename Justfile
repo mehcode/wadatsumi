@@ -24,3 +24,7 @@ lint:
 # Run all tests.
 test:
     @cargo test --all
+
+# Run all benchmarks.
+bench:
+    @cargo bench --all
