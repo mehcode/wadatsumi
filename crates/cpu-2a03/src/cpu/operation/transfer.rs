@@ -122,7 +122,14 @@ impl Operation for SHA {
         let base_high = (cpu.address().wrapping_sub(u16::from(cpu.y)) >> 8) as u8;
         let value = cpu.a & cpu.x & base_high.wrapping_add(1);
 
-        bus.write(cpu.address(), value);
+        // On a page cross the result ANDs into the address high byte (hardware bus conflict).
+        let address: u16 = if cpu.adh == base_high {
+            cpu.address()
+        } else {
+            u16::from_le_bytes([cpu.adl, value])
+        };
+
+        bus.write(address, value);
 
         Poll::Ready(())
     }
