@@ -23,10 +23,10 @@ impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXP
             1 => {
                 let offset = i8::from_ne_bytes([cpu.data]);
 
-                if cpu.state.p.contains(FLAG) == EXPECTED {
-                    let target = cpu.state.pc.wrapping_add_signed(i16::from(offset));
+                if cpu.p.contains(FLAG) == EXPECTED {
+                    let target = cpu.pc.wrapping_add_signed(i16::from(offset));
 
-                    cpu.data = u8::from(cpu.state.pc >> 8 != target >> 8);
+                    cpu.data = u8::from(cpu.pc >> 8 != target >> 8);
                     cpu.address = target;
 
                     return Poll::Pending;
@@ -38,7 +38,7 @@ impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXP
             // Spurious fetch at the next sequential opcode while the offset is applied to PCL.
             // Same-page branches retire here (3 cycles total).
             2 => {
-                let _ = bus.read(cpu.state.pc); // dummy read
+                let _ = bus.read(cpu.pc); // dummy read
 
                 if cpu.data != 0 {
                     return Poll::Pending;
@@ -48,7 +48,7 @@ impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXP
             // Spurious read at the wrong-page PC while PCH is being corrected.
             // Page-crossing branches retire here (4 cycles total).
             3 => {
-                let wrong_page_pc = (cpu.state.pc & 0xFF00) | (cpu.address & 0x00FF);
+                let wrong_page_pc = (cpu.pc & 0xFF00) | (cpu.address & 0x00FF);
                 let _ = bus.read(wrong_page_pc);
             }
 
@@ -56,7 +56,7 @@ impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXP
         }
 
         // Jump to the new effective address
-        cpu.state.pc = cpu.address;
+        cpu.pc = cpu.address;
 
         Poll::Ready(())
     }
@@ -79,7 +79,7 @@ pub struct JMP;
 impl Operation for JMP {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        cpu.state.pc = cpu.address;
+        cpu.pc = cpu.address;
 
         Poll::Ready(())
     }
@@ -101,14 +101,14 @@ impl Operation for JSR {
             1 => {
                 // ADL was pre-read into cpu.data by Implied's spurious read without advancing PC.
                 // Nudge PC to ADH so it is correctly positioned for the push and final fetch.
-                cpu.state.pc = cpu.state.pc.wrapping_add(1);
+                cpu.pc = cpu.pc.wrapping_add(1);
 
                 Poll::Pending
             }
 
             2 => {
                 // Internal: spurious read from the current stack top (hardware pipeline artifact).
-                let _ = bus.read(cpu.state.stack_address());
+                let _ = bus.read(cpu.stack_address());
 
                 Poll::Pending
             }
@@ -116,20 +116,20 @@ impl Operation for JSR {
             3 => {
                 // Push PCH. PC points at ADH, the last byte of this instruction, which is the
                 // correct return address for RTS to pull and increment.
-                cpu.stack_push(bus, (cpu.state.pc >> 8) as u8);
+                cpu.stack_push(bus, (cpu.pc >> 8) as u8);
 
                 Poll::Pending
             }
 
             4 => {
-                cpu.stack_push(bus, cpu.state.pc as u8);
+                cpu.stack_push(bus, cpu.pc as u8);
 
                 Poll::Pending
             }
 
             _ => {
                 // Fetch ADH and assemble the full target address; ADL is waiting in cpu.data.
-                cpu.state.pc = u16::from(cpu.fetch(bus)) << 8 | u16::from(cpu.data);
+                cpu.pc = u16::from(cpu.fetch(bus)) << 8 | u16::from(cpu.data);
 
                 Poll::Ready(())
             }
@@ -153,31 +153,31 @@ impl Operation for RTS {
 
             // Dummy read at current stack top, then increment S.
             2 => {
-                let _ = bus.read(cpu.state.stack_address());
+                let _ = bus.read(cpu.stack_address());
 
-                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+                cpu.sp = cpu.sp.wrapping_add(1);
 
                 Poll::Pending
             }
 
             // Pull PCL from stack, increment S.
             3 => {
-                cpu.state.pc = u16::from(bus.read(cpu.state.stack_address()));
-                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+                cpu.pc = u16::from(bus.read(cpu.stack_address()));
+                cpu.sp = cpu.sp.wrapping_add(1);
 
                 Poll::Pending
             }
 
             // Pull PCH from stack.
             4 => {
-                cpu.state.pc |= u16::from(bus.read(cpu.state.stack_address())) << 8;
+                cpu.pc |= u16::from(bus.read(cpu.stack_address())) << 8;
 
                 Poll::Pending
             }
 
             // Increment PC to point past JSR's last operand byte.
             _ => {
-                cpu.state.pc = cpu.state.pc.wrapping_add(1);
+                cpu.pc = cpu.pc.wrapping_add(1);
 
                 Poll::Ready(())
             }
@@ -201,34 +201,34 @@ impl Operation for RTI {
 
             // Dummy read at current stack top, then increment S.
             2 => {
-                let _ = bus.read(cpu.state.stack_address());
+                let _ = bus.read(cpu.stack_address());
 
-                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+                cpu.sp = cpu.sp.wrapping_add(1);
 
                 Poll::Pending
             }
 
             // Pull P from stack, increment S.
             3 => {
-                let value = bus.read(cpu.state.stack_address());
+                let value = bus.read(cpu.stack_address());
 
-                cpu.state.p = CpuStatus::new(value);
-                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+                cpu.p = CpuStatus::new(value);
+                cpu.sp = cpu.sp.wrapping_add(1);
 
                 Poll::Pending
             }
 
             // Pull PCL from stack, increment S.
             4 => {
-                cpu.state.pc = u16::from(bus.read(cpu.state.stack_address()));
-                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+                cpu.pc = u16::from(bus.read(cpu.stack_address()));
+                cpu.sp = cpu.sp.wrapping_add(1);
 
                 Poll::Pending
             }
 
             // Pull PCH from stack.
             _ => {
-                cpu.state.pc |= u16::from(bus.read(cpu.state.stack_address())) << 8;
+                cpu.pc |= u16::from(bus.read(cpu.stack_address())) << 8;
 
                 Poll::Ready(())
             }

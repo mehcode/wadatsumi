@@ -21,43 +21,43 @@ impl Operation for BRK {
             1 => {
                 // Implied already read the padding byte spuriously; advance PC past it
                 // so the return address pushed below is BRK+2, as the 6502 requires.
-                cpu.state.pc = cpu.state.pc.wrapping_add(1);
+                cpu.pc = cpu.pc.wrapping_add(1);
 
                 Poll::Pending
             }
 
             // Push PCH on stack, decrement S
             2 => {
-                cpu.stack_push(bus, (cpu.state.pc >> 8) as u8);
+                cpu.stack_push(bus, (cpu.pc >> 8) as u8);
 
                 Poll::Pending
             }
 
             3 => {
                 // Push PCL on stack, decrement S
-                cpu.stack_push(bus, cpu.state.pc as u8);
+                cpu.stack_push(bus, cpu.pc as u8);
 
                 Poll::Pending
             }
 
             4 => {
                 // Push P on stack with B and U always set, decrement S
-                cpu.stack_push(bus, cpu.state.p.0 | CpuStatus::B | CpuStatus::U);
+                cpu.stack_push(bus, cpu.p.0 | CpuStatus::B | CpuStatus::U);
 
                 Poll::Pending
             }
 
             5 => {
                 // Fetch PCL; set I to suppress further IRQs while in the handler
-                cpu.state.pc = u16::from(bus.read(0xfffe));
-                cpu.state.p.insert(CpuStatus::I);
+                cpu.pc = u16::from(bus.read(0xfffe));
+                cpu.p.insert(CpuStatus::I);
 
                 Poll::Pending
             }
 
             _ => {
                 // Fetch PCH
-                cpu.state.pc |= u16::from(bus.read(0xffff)) << 8;
+                cpu.pc |= u16::from(bus.read(0xffff)) << 8;
 
                 Poll::Ready(())
             }
@@ -73,7 +73,7 @@ pub struct CLEAR<const FLAG: CpuStatus>;
 impl<const FLAG: CpuStatus> Operation for CLEAR<FLAG> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        cpu.state.p.remove(FLAG);
+        cpu.p.remove(FLAG);
 
         Poll::Ready(())
     }
@@ -109,7 +109,7 @@ pub struct SET<const FLAG: CpuStatus>;
 impl<const FLAG: CpuStatus> Operation for SET<FLAG> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        cpu.state.p.insert(FLAG);
+        cpu.p.insert(FLAG);
 
         Poll::Ready(())
     }

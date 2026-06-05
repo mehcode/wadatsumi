@@ -8,17 +8,40 @@ use crate::cpu::table::InstructionTable;
 mod addressing;
 mod instruction;
 mod operation;
-mod state;
+mod status;
 mod table;
 
-pub use state::{CpuState, CpuStatus};
+pub use status::CpuStatus;
 
 /// The 2A03 NES CPU core.
 /// Driven one clock cycle at a time via [`Cpu::tick`].
 pub struct Cpu2A03<B: Bus> {
-    /// Architectural register state (A, X, Y, S, P, PC). Separated so it can be
-    /// snapshotted or inspected independently of micro-architecture scratch.
-    pub state: CpuState,
+    /// Accumulator (A).
+    ///
+    /// The main register for arithmetic and logic operations.
+    /// Unlike the X and Y registers, it has a direct connection to the Arithmetic and Logic Unit (ALU).
+    pub a: u8,
+
+    /// X index register.
+    pub x: u8,
+
+    /// Y index register.
+    pub y: u8,
+
+    /// Program counter (PC).
+    ///
+    /// This register points the address from which the next instruction
+    /// byte (opcode or parameter) will be fetched.
+    pub pc: u16,
+
+    /// Stack pointer (SP).
+    ///
+    /// The NMOS 65xx processors have 256 bytes of stack memory, ranging from `$0100` to `$01FF`.
+    /// The S register is a 8-bit offset to the stack page.
+    pub sp: u8,
+
+    /// Processor (P) status register.
+    pub p: CpuStatus,
 
     /// The current T-state of the in-flight instruction: 0 during the opcode fetch cycle,
     /// incrementing by one each subsequent clock cycle until the instruction completes.
@@ -63,7 +86,18 @@ impl<B: Bus> Cpu2A03<B> {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            state: CpuState::new(),
+            a: 0,
+            x: 0,
+            y: 0,
+            pc: 0,
+
+            // After the reset sequence the 6502 performs three phantom stack writes,
+            // decrementing S from 0xFF to 0xFD.
+            sp: 0xFD,
+
+            // I is set by the reset sequence.
+            p: CpuStatus::I,
+
             instruction: None,
             t: 0,
             address: 0,
@@ -80,7 +114,7 @@ impl<B: Bus> Cpu2A03<B> {
         let lo = u16::from(bus.read(0xfffc));
         let hi = u16::from(bus.read(0xfffd));
 
-        self.state.pc = (hi << 8) | lo;
+        self.pc = (hi << 8) | lo;
         self.halted = false;
     }
 
@@ -101,7 +135,7 @@ impl<B: Bus> Cpu2A03<B> {
                 // Illegal/unimplemented opcode: lock up like a KIL/JAM instruction.
                 tracing::error!(
                     opcode = format!("{opcode:02X}"),
-                    pc = format!("{:04X}", self.state.pc.wrapping_sub(1)),
+                    pc = format!("{:04X}", self.pc.wrapping_sub(1)),
                     "illegal opcode; halting CPU"
                 );
 
@@ -140,15 +174,23 @@ impl<B: Bus> Cpu2A03<B> {
 
     /// Reads the byte at PC, and advances PC.
     fn fetch(&mut self, bus: &mut B) -> u8 {
-        let value = bus.read(self.state.pc);
-        self.state.pc = self.state.pc.wrapping_add(1);
+        let value = bus.read(self.pc);
+        self.pc = self.pc.wrapping_add(1);
 
         value
     }
 
+    /// Returns the full 16-bit address of the current stack top: `$0100 | SP`.
+    #[inline(always)]
+    #[must_use]
+    const fn stack_address(&self) -> u16 {
+        0x0100 | self.sp as u16
+    }
+
     /// Writes `value` to `$0100 + SP`, then decrements SP.
+    #[inline]
     fn stack_push(&mut self, bus: &mut B, value: u8) {
-        bus.write(self.state.stack_address(), value);
-        self.state.sp = self.state.sp.wrapping_sub(1);
+        bus.write(self.stack_address(), value);
+        self.sp = self.sp.wrapping_sub(1);
     }
 }

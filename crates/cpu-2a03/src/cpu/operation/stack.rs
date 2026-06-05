@@ -24,7 +24,7 @@ impl Operation for PHA {
             1 => Poll::Pending,
 
             _ => {
-                cpu.stack_push(bus, cpu.state.a);
+                cpu.stack_push(bus, cpu.a);
 
                 Poll::Ready(())
             }
@@ -45,7 +45,7 @@ impl Operation for PHP {
             1 => Poll::Pending,
 
             _ => {
-                cpu.stack_push(bus, cpu.state.p.0 | CpuStatus::U | CpuStatus::B);
+                cpu.stack_push(bus, cpu.p.0 | CpuStatus::U | CpuStatus::B);
 
                 Poll::Ready(())
             }
@@ -65,17 +65,17 @@ impl Operation for PLA {
             1 => Poll::Pending,
 
             2 => {
-                let _ = bus.read(cpu.state.stack_address());
-                cpu.state.sp = cpu.state.sp.wrapping_add(1);
+                let _ = bus.read(cpu.stack_address());
+                cpu.sp = cpu.sp.wrapping_add(1);
 
                 Poll::Pending
             }
 
             _ => {
-                let value = bus.read(cpu.state.stack_address());
+                let value = bus.read(cpu.stack_address());
 
-                cpu.state.a = value;
-                cpu.state.p.update_zn(value);
+                cpu.a = value;
+                cpu.p.update_zn(value);
 
                 Poll::Ready(())
             }
@@ -96,9 +96,9 @@ impl Operation for PLP {
             1 | 2 => PLA::apply(cpu, bus),
 
             _ => {
-                let value = bus.read(cpu.state.stack_address());
+                let value = bus.read(cpu.stack_address());
 
-                cpu.state.p = CpuStatus::new(value);
+                cpu.p = CpuStatus::new(value);
 
                 Poll::Ready(())
             }

@@ -22,10 +22,10 @@ impl Operation for LAX {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        cpu.state.a = cpu.data;
-        cpu.state.x = cpu.data;
+        cpu.a = cpu.data;
+        cpu.x = cpu.data;
 
-        cpu.state.p.update_zn(cpu.data);
+        cpu.p.update_zn(cpu.data);
 
         Poll::Ready(())
     }
@@ -40,8 +40,8 @@ impl<const R: Register> Operation for LOAD<R> {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        R.set(&mut cpu.state, cpu.data);
-        cpu.state.p.update_zn(cpu.data);
+        R.set(cpu, cpu.data);
+        cpu.p.update_zn(cpu.data);
 
         Poll::Ready(())
     }
@@ -60,11 +60,11 @@ impl Operation for LXA {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let result = (cpu.state.a | MAGIC) & cpu.data;
+        let result = (cpu.a | MAGIC) & cpu.data;
 
-        cpu.state.a = result;
-        cpu.state.x = result;
-        cpu.state.p.update_zn(result);
+        cpu.a = result;
+        cpu.x = result;
+        cpu.p.update_zn(result);
 
         Poll::Ready(())
     }
@@ -77,7 +77,7 @@ impl Operation for SAX {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = cpu.state.a & cpu.state.x;
+        let value = cpu.a & cpu.x;
 
         bus.write(cpu.address, value);
 
@@ -95,7 +95,7 @@ impl<const R: Register> Operation for STORE<R> {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let value = R.get(&cpu.state);
+        let value = R.get(cpu);
 
         bus.write(cpu.address, value);
 
@@ -116,8 +116,8 @@ impl Operation for SHA {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let base_high = (cpu.address.wrapping_sub(u16::from(cpu.state.y)) >> 8) as u8;
-        let value = cpu.state.a & cpu.state.x & base_high.wrapping_add(1);
+        let base_high = (cpu.address.wrapping_sub(u16::from(cpu.y)) >> 8) as u8;
+        let value = cpu.a & cpu.x & base_high.wrapping_add(1);
 
         bus.write(cpu.address, value);
 
@@ -136,10 +136,10 @@ impl<const R: Register, const IDX: Register> Operation for SH<R, IDX> {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let index = IDX.get(&cpu.state);
+        let index = IDX.get(cpu);
         let base_high = (cpu.address.wrapping_sub(u16::from(index)) >> 8) as u8;
 
-        let value = R.get(&cpu.state);
+        let value = R.get(cpu);
         let result = value & base_high.wrapping_add(1);
 
         // On a page cross the result ANDs into the address high byte (hardware bus conflict).
@@ -166,12 +166,12 @@ pub struct TRANSFER<const SRC: Register, const DST: Register>;
 impl<const SRC: Register, const DST: Register> Operation for TRANSFER<SRC, DST> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let value = SRC.get(&cpu.state);
+        let value = SRC.get(cpu);
 
-        DST.set(&mut cpu.state, value);
+        DST.set(cpu, value);
 
         if matches!(DST, A | X | Y) {
-            cpu.state.p.update_zn(value);
+            cpu.p.update_zn(value);
         }
 
         Poll::Ready(())

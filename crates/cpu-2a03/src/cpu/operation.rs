@@ -7,7 +7,7 @@ use std::marker::ConstParamTy;
 use std::task::Poll;
 
 use crate::bus::Bus;
-use crate::cpu::{Cpu2A03, CpuState};
+use crate::cpu::Cpu2A03;
 
 mod arithmetic;
 mod flow;
@@ -66,7 +66,7 @@ impl Register {
     #[inline(always)]
     #[allow(clippy::trivially_copy_pass_by_ref)]
     #[must_use]
-    pub const fn get(self, cpu: &CpuState) -> u8 {
+    pub const fn get<B: Bus>(self, cpu: &Cpu2A03<B>) -> u8 {
         match self {
             Self::A => cpu.a,
             Self::X => cpu.x,
@@ -77,7 +77,7 @@ impl Register {
 
     /// Writes `value` to this register.
     #[inline(always)]
-    pub const fn set(self, cpu: &mut CpuState, value: u8) {
+    pub const fn set<B: Bus>(self, cpu: &mut Cpu2A03<B>, value: u8) {
         match self {
             Self::A => {
                 cpu.a = value;
@@ -129,7 +129,7 @@ impl Operand {
     #[must_use]
     pub const fn read<B: Bus>(self, cpu: &Cpu2A03<B>) -> u8 {
         match self {
-            Self::Register(r) => r.get(&cpu.state),
+            Self::Register(r) => r.get(cpu),
             Self::Memory => cpu.data,
         }
     }
@@ -139,7 +139,7 @@ impl Operand {
     pub fn write<B: Bus>(self, cpu: &mut Cpu2A03<B>, bus: &mut B, value: u8) {
         match self {
             Self::Register(r) => {
-                r.set(&mut cpu.state, value);
+                r.set(cpu, value);
             }
 
             Self::Memory => {

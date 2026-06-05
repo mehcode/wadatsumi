@@ -20,12 +20,12 @@ impl Operation for ALR {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let value = cpu.state.a & cpu.data;
+        let value = cpu.a & cpu.data;
         let result = value >> 1;
 
-        cpu.state.a = result;
-        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
-        cpu.state.p.update_zn(result);
+        cpu.a = result;
+        cpu.p.set(CpuStatus::C, value & 0x01 != 0);
+        cpu.p.update_zn(result);
 
         Poll::Ready(())
     }
@@ -44,7 +44,7 @@ impl Operation for ANC {
         // then copy the sign bit of the result into C.
         let _ = AND::apply(cpu, bus);
 
-        cpu.state.p.set(CpuStatus::C, cpu.state.a & 0x80 != 0);
+        cpu.p.set(CpuStatus::C, cpu.a & 0x80 != 0);
 
         Poll::Ready(())
     }
@@ -59,10 +59,10 @@ impl Operation for AND {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let result = cpu.state.a & cpu.data;
+        let result = cpu.a & cpu.data;
 
-        cpu.state.a = result;
-        cpu.state.p.update_zn(result);
+        cpu.a = result;
+        cpu.p.update_zn(result);
 
         Poll::Ready(())
     }
@@ -78,15 +78,15 @@ impl Operation for ARR {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let value = cpu.state.a & cpu.data;
-        let result = (value >> 1) | (u8::from(cpu.state.p.contains(CpuStatus::C)) << 7);
+        let value = cpu.a & cpu.data;
+        let result = (value >> 1) | (u8::from(cpu.p.contains(CpuStatus::C)) << 7);
 
-        cpu.state.a = result;
-        cpu.state.p.update_zn(result);
-        cpu.state.p.set(CpuStatus::C, result & 0x40 != 0);
+        cpu.a = result;
+        cpu.p.update_zn(result);
+        cpu.p.set(CpuStatus::C, result & 0x40 != 0);
 
         // V detects a carry mismatch between BCD digits: not ADC-style overflow.
-        cpu.state.p.set(CpuStatus::V, ((result >> 5) ^ (result >> 6)) & 1 != 0);
+        cpu.p.set(CpuStatus::V, ((result >> 5) ^ (result >> 6)) & 1 != 0);
 
         Poll::Ready(())
     }
@@ -108,8 +108,8 @@ impl<const O: Operand> Operation for ASL<O> {
 
         O.write(cpu, bus, result);
 
-        cpu.state.p.update_zn(result);
-        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
+        cpu.p.update_zn(result);
+        cpu.p.set(CpuStatus::C, value & 0x80 != 0);
 
         Poll::Ready(())
     }
@@ -124,9 +124,9 @@ impl Operation for BIT {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        cpu.state.p.update_z(cpu.state.a & cpu.data);
-        cpu.state.p.set(CpuStatus::N, cpu.data & 0x80 != 0);
-        cpu.state.p.set(CpuStatus::V, cpu.data & 0x40 != 0);
+        cpu.p.update_z(cpu.a & cpu.data);
+        cpu.p.set(CpuStatus::N, cpu.data & 0x80 != 0);
+        cpu.p.set(CpuStatus::V, cpu.data & 0x40 != 0);
 
         Poll::Ready(())
     }
@@ -141,10 +141,10 @@ impl Operation for EOR {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let result = cpu.state.a ^ cpu.data;
+        let result = cpu.a ^ cpu.data;
 
-        cpu.state.a = result;
-        cpu.state.p.update_zn(result);
+        cpu.a = result;
+        cpu.p.update_zn(result);
 
         Poll::Ready(())
     }
@@ -166,8 +166,8 @@ impl<const O: Operand> Operation for LSR<O> {
 
         O.write(cpu, bus, result);
 
-        cpu.state.p.update_zn(result);
-        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
+        cpu.p.update_zn(result);
+        cpu.p.set(CpuStatus::C, value & 0x01 != 0);
 
         Poll::Ready(())
     }
@@ -182,10 +182,10 @@ impl Operation for ORA {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let result = cpu.state.a | cpu.data;
+        let result = cpu.a | cpu.data;
 
-        cpu.state.a = result;
-        cpu.state.p.update_zn(result);
+        cpu.a = result;
+        cpu.p.update_zn(result);
 
         Poll::Ready(())
     }
@@ -203,12 +203,12 @@ impl<const O: Operand> Operation for ROL<O> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
-        let result = (value << 1) | u8::from(cpu.state.p.contains(CpuStatus::C));
+        let result = (value << 1) | u8::from(cpu.p.contains(CpuStatus::C));
 
         O.write(cpu, bus, result);
 
-        cpu.state.p.update_zn(result);
-        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
+        cpu.p.update_zn(result);
+        cpu.p.set(CpuStatus::C, value & 0x80 != 0);
 
         Poll::Ready(())
     }
@@ -226,12 +226,12 @@ impl<const O: Operand> Operation for ROR<O> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
-        let result = (value >> 1) | (u8::from(cpu.state.p.contains(CpuStatus::C)) << 7);
+        let result = (value >> 1) | (u8::from(cpu.p.contains(CpuStatus::C)) << 7);
 
         O.write(cpu, bus, result);
 
-        cpu.state.p.update_zn(result);
-        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
+        cpu.p.update_zn(result);
+        cpu.p.set(CpuStatus::C, value & 0x01 != 0);
 
         Poll::Ready(())
     }
@@ -247,13 +247,13 @@ impl Operation for RLA {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data;
-        let rotated = (value << 1) | u8::from(cpu.state.p.contains(CpuStatus::C));
+        let rotated = (value << 1) | u8::from(cpu.p.contains(CpuStatus::C));
 
         bus.write(cpu.address, rotated);
 
-        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
-        cpu.state.a &= rotated;
-        cpu.state.p.update_zn(cpu.state.a);
+        cpu.p.set(CpuStatus::C, value & 0x80 != 0);
+        cpu.a &= rotated;
+        cpu.p.update_zn(cpu.a);
 
         Poll::Ready(())
     }
@@ -271,12 +271,12 @@ impl Operation for RRA {
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data;
 
-        cpu.data = (value >> 1) | (u8::from(cpu.state.p.contains(CpuStatus::C)) << 7);
+        cpu.data = (value >> 1) | (u8::from(cpu.p.contains(CpuStatus::C)) << 7);
 
         bus.write(cpu.address, cpu.data);
 
         // The ROR carry-out (bit 0 of original) becomes the carry-in for ADC.
-        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
+        cpu.p.set(CpuStatus::C, value & 0x01 != 0);
 
         ADC::apply(cpu, bus)
     }
@@ -296,9 +296,9 @@ impl Operation for SLO {
 
         bus.write(cpu.address, shifted);
 
-        cpu.state.p.set(CpuStatus::C, value & 0x80 != 0);
-        cpu.state.a |= shifted;
-        cpu.state.p.update_zn(cpu.state.a);
+        cpu.p.set(CpuStatus::C, value & 0x80 != 0);
+        cpu.a |= shifted;
+        cpu.p.update_zn(cpu.a);
 
         Poll::Ready(())
     }
@@ -318,9 +318,9 @@ impl Operation for SRE {
 
         bus.write(cpu.address, shifted);
 
-        cpu.state.p.set(CpuStatus::C, value & 0x01 != 0);
-        cpu.state.a ^= shifted;
-        cpu.state.p.update_zn(cpu.state.a);
+        cpu.p.set(CpuStatus::C, value & 0x01 != 0);
+        cpu.a ^= shifted;
+        cpu.p.update_zn(cpu.a);
 
         Poll::Ready(())
     }

@@ -39,7 +39,7 @@ impl AddressingMode for Implied {
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         // Spurious read surfaced in case the operation wants it (e.g. JSR uses it as ADL).
-        Poll::Ready(Some(bus.read(cpu.state.pc)))
+        Poll::Ready(Some(bus.read(cpu.pc)))
     }
 }
 
@@ -51,8 +51,8 @@ impl AddressingMode for Immediate {
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<Option<u8>> {
         // Point address at the literal operand byte sitting at PC, then skip past it.
-        cpu.address = cpu.state.pc;
-        cpu.state.pc = cpu.state.pc.wrapping_add(1);
+        cpu.address = cpu.pc;
+        cpu.pc = cpu.pc.wrapping_add(1);
 
         Poll::Ready(None)
     }
@@ -96,7 +96,7 @@ impl<const R: Register> AddressingMode for ZeroPageIndexed<R> {
                 let _ = bus.read(cpu.address);
 
                 // Wrap the indexed offset within page zero; no carry into the high byte.
-                let offset = R.get(&cpu.state);
+                let offset = R.get(cpu);
                 cpu.address = u16::from((cpu.address as u8).wrapping_add(offset));
 
                 Poll::Pending
@@ -148,7 +148,7 @@ impl<const R: Register> AddressingMode for AbsoluteIndexed<R> {
             1 | 2 => Absolute::resolve::<O, _>(cpu, bus),
 
             3 => {
-                let index = R.get(&cpu.state);
+                let index = R.get(cpu);
                 let address = cpu.address.wrapping_add(u16::from(index));
                 let page_crossed = cpu.address >> 8 != address >> 8;
 
@@ -245,7 +245,7 @@ impl AddressingMode for IndirectX {
                 // The result wraps within page zero so the effective pointer stays in 0x00–0xFF.
                 let _ = bus.read(u16::from(cpu.ptr)); // dummy read
 
-                cpu.ptr = cpu.ptr.wrapping_add(cpu.state.x);
+                cpu.ptr = cpu.ptr.wrapping_add(cpu.x);
 
                 Poll::Pending
             }
@@ -296,7 +296,7 @@ impl AddressingMode for IndirectY {
                 let hi = u16::from(bus.read(u16::from(cpu.ptr.wrapping_add(1)))) << 8;
                 let address = cpu.address | hi;
 
-                cpu.address = address.wrapping_add(u16::from(cpu.state.y));
+                cpu.address = address.wrapping_add(u16::from(cpu.y));
                 cpu.data = u8::from(address >> 8 != cpu.address >> 8);
 
                 Poll::Pending

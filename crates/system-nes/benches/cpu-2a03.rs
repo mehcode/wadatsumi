@@ -21,7 +21,7 @@ fn nestest(bencher: divan::Bencher) {
         .with_inputs(|| {
             let pak = std::fs::read("tests/nestest/nestest.nes").unwrap();
             let mut system = SystemNes::open(pak).unwrap();
-            system.cpu.state.pc = 0xc000;
+            system.cpu.pc = 0xc000;
 
             system
         })

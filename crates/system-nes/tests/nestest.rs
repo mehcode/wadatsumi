@@ -20,7 +20,7 @@ fn nestest() -> anyhow::Result<()> {
     // Skip the reset vector and jump straight to the automation entry point.
     // The normal reset vector initialises the PPU, which we have not
     // implemented yet; $C000 bypasses all of that.
-    system.cpu.state.pc = 0xc000;
+    system.cpu.pc = 0xc000;
 
     let log = parse_log(include_str!("nestest/nestest.log"))?;
     let mut expected = log.iter().enumerate();
@@ -40,18 +40,19 @@ fn nestest() -> anyhow::Result<()> {
         // state at exactly this moment, so it is the right point to compare.
         if system.cpu.t() == 0 {
             if let Some((line, entry)) = expected.next() {
-                let state = &system.cpu.state;
+                let cpu = &system.cpu;
+
                 // Bit 5 (U) is hardwired high on the physical chip; OR it in
                 // so our comparison matches the log which always has it set.
-                let p = state.p.0 | 0b0010_0000;
+                let p = cpu.p.0 | 0b0010_0000;
 
                 assert!(
-                    state.pc == entry.pc
-                        && state.a == entry.a
-                        && state.x == entry.x
-                        && state.y == entry.y
+                    cpu.pc == entry.pc
+                        && cpu.a == entry.a
+                        && cpu.x == entry.x
+                        && cpu.y == entry.y
                         && p == entry.p
-                        && state.sp == entry.sp
+                        && cpu.sp == entry.sp
                         && 7 + i == entry.cycle,
                     "diverged on line {}:\n  expected: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}\n    actual: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}",
                     line + 1,
@@ -62,12 +63,12 @@ fn nestest() -> anyhow::Result<()> {
                     entry.p,
                     entry.sp,
                     entry.cycle,
-                    state.pc,
-                    state.a,
-                    state.x,
-                    state.y,
+                    cpu.pc,
+                    cpu.a,
+                    cpu.x,
+                    cpu.y,
                     p,
-                    state.sp,
+                    cpu.sp,
                     7 + i,
                 );
             }

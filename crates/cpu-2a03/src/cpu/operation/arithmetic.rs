@@ -22,18 +22,14 @@ impl Operation for ADC {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let result = u16::from(cpu.state.a)
-            + u16::from(cpu.data)
-            + u16::from(cpu.state.p.contains(CpuStatus::C));
+        let result =
+            u16::from(cpu.a) + u16::from(cpu.data) + u16::from(cpu.p.contains(CpuStatus::C));
 
-        cpu.state.p.update_zn(result as u8);
-        cpu.state.p.set(CpuStatus::C, result > 0xFF);
-        cpu.state.p.set(
-            CpuStatus::V,
-            (!(cpu.state.a ^ cpu.data) & (cpu.state.a ^ result as u8)) & 0x80 != 0,
-        );
+        cpu.p.update_zn(result as u8);
+        cpu.p.set(CpuStatus::C, result > 0xFF);
+        cpu.p.set(CpuStatus::V, (!(cpu.a ^ cpu.data) & (cpu.a ^ result as u8)) & 0x80 != 0);
 
-        cpu.state.a = result as u8;
+        cpu.a = result as u8;
 
         Poll::Ready(())
     }
@@ -49,11 +45,11 @@ impl<const R: Register> Operation for COMPARE<R> {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let value = R.get(&cpu.state);
+        let value = R.get(cpu);
         let result = value.wrapping_sub(cpu.data);
 
-        cpu.state.p.set(CpuStatus::C, value >= cpu.data);
-        cpu.state.p.update_zn(result);
+        cpu.p.set(CpuStatus::C, value >= cpu.data);
+        cpu.p.update_zn(result);
 
         Poll::Ready(())
     }
@@ -98,7 +94,7 @@ impl<const O: Operand> Operation for DECREMENT<O> {
 
         O.write(cpu, bus, value);
 
-        cpu.state.p.update_zn(value);
+        cpu.p.update_zn(value);
 
         Poll::Ready(())
     }
@@ -123,7 +119,7 @@ impl<const O: Operand> Operation for INCREMENT<O> {
 
         O.write(cpu, bus, value);
 
-        cpu.state.p.update_zn(value);
+        cpu.p.update_zn(value);
 
         Poll::Ready(())
     }
@@ -180,12 +176,12 @@ impl Operation for SBX {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let value = cpu.state.a & cpu.state.x;
+        let value = cpu.a & cpu.x;
         let result = value.wrapping_sub(cpu.data);
 
-        cpu.state.p.set(CpuStatus::C, value >= cpu.data);
-        cpu.state.p.update_zn(result);
-        cpu.state.x = result;
+        cpu.p.set(CpuStatus::C, value >= cpu.data);
+        cpu.p.update_zn(result);
+        cpu.x = result;
 
         Poll::Ready(())
     }
