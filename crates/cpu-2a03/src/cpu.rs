@@ -15,7 +15,7 @@ pub use state::{CpuState, CpuStatus};
 
 /// The 2A03 NES CPU core.
 /// Driven one clock cycle at a time via [`Cpu::tick`].
-pub struct Cpu<B: Bus> {
+pub struct Cpu2A03<B: Bus> {
     /// Architectural register state (A, X, Y, S, P, PC). Separated so it can be
     /// snapshotted or inspected independently of micro-architecture scratch.
     pub state: CpuState,
@@ -51,13 +51,13 @@ pub struct Cpu<B: Bus> {
     halted: bool,
 }
 
-impl<B: Bus> Default for Cpu<B> {
+impl<B: Bus> Default for Cpu2A03<B> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<B: Bus> Cpu<B> {
+impl<B: Bus> Cpu2A03<B> {
     const TABLE: InstructionTable<B> = InstructionTable::new();
 
     #[must_use]
@@ -75,7 +75,7 @@ impl<B: Bus> Cpu<B> {
     }
 
     /// Reads the `/RESET` vector at `$fffc` and `$fffd` and sets the PC to the result.
-    /// Call once after the [`Pak`] is loaded.
+    /// Call once after the cartridge is attached and the bus is ready.
     pub fn reset(&mut self, bus: &mut B) {
         let lo = u16::from(bus.read(0xfffc));
         let hi = u16::from(bus.read(0xfffd));

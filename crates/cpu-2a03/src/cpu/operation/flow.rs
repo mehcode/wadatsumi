@@ -9,7 +9,7 @@ use std::task::Poll;
 
 use crate::Bus;
 use crate::cpu::operation::Operation;
-use crate::cpu::{Cpu, CpuStatus};
+use crate::cpu::{Cpu2A03, CpuStatus};
 
 /// Branches to a relative offset when status flag `FLAG` equals `EXPECTED` (`BCC`, `BCS`, `BEQ`, `BNE`, `BMI`, `BPL`, `BVC`, `BVS`).
 /// Takes 2 cycles if not taken, 3 if taken same-page, or 4 if the branch crosses a page boundary.
@@ -17,7 +17,7 @@ pub struct BRANCH<const FLAG: CpuStatus, const EXPECTED: bool>;
 
 impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXPECTED> {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {
             // Not-taken branches retire here (2 cycles total).
             1 => {
@@ -78,7 +78,7 @@ pub struct JMP;
 
 impl Operation for JMP {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         cpu.state.pc = cpu.address;
 
         Poll::Ready(())
@@ -96,7 +96,7 @@ pub struct JSR;
 impl Operation for JSR {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {
             1 => {
                 // ADL was pre-read into cpu.data by Implied's spurious read without advancing PC.
@@ -146,7 +146,7 @@ pub struct RTS;
 
 impl Operation for RTS {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {
             // Implied already performed the spurious fetch; just advance.
             1 => Poll::Pending,
@@ -194,7 +194,7 @@ pub struct RTI;
 
 impl Operation for RTI {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         match cpu.t {
             // Implied already performed the spurious fetch; just advance.
             1 => Poll::Pending,

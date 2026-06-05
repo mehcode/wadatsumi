@@ -1,7 +1,8 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::bus::Bus;
+use wadatsumi_cpu_2a03::Bus;
+
 use crate::pak::Pak;
 
 /// Owns all system components except the CPU and routes memory-mapped I/O

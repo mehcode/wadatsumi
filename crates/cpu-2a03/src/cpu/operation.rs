@@ -7,8 +7,7 @@ use std::marker::ConstParamTy;
 use std::task::Poll;
 
 use crate::bus::Bus;
-use crate::cpu::state::CpuStatus;
-use crate::cpu::{Cpu, CpuState};
+use crate::cpu::{Cpu2A03, CpuState};
 
 mod arithmetic;
 mod flow;
@@ -48,7 +47,7 @@ pub trait Operation {
     /// Called only after the addressing mode has fully resolved. `cpu.address`
     /// holds the effective address. Returns `Poll::Ready(())` when the operation is
     /// complete, signalling the CPU to clear the in-flight instruction.
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()>
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()>
     where
         Self: Sized;
 }
@@ -128,7 +127,7 @@ impl Operand {
     /// Reads the current value of this operand.
     #[inline(always)]
     #[must_use]
-    pub const fn read<B: Bus>(self, cpu: &Cpu<B>) -> u8 {
+    pub const fn read<B: Bus>(self, cpu: &Cpu2A03<B>) -> u8 {
         match self {
             Self::Register(r) => r.get(&cpu.state),
             Self::Memory => cpu.data,
@@ -137,7 +136,7 @@ impl Operand {
 
     /// Writes `value` to this operand.
     #[inline(always)]
-    pub fn write<B: Bus>(self, cpu: &mut Cpu<B>, bus: &mut B, value: u8) {
+    pub fn write<B: Bus>(self, cpu: &mut Cpu2A03<B>, bus: &mut B, value: u8) {
         match self {
             Self::Register(r) => {
                 r.set(&mut cpu.state, value);

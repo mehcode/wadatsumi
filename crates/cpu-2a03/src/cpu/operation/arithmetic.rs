@@ -10,7 +10,7 @@ use std::task::Poll;
 use crate::Bus;
 use crate::cpu::operation::Register::{self, A, X, Y};
 use crate::cpu::operation::{MemoryAccess, Operand, Operation};
-use crate::cpu::{Cpu, CpuStatus};
+use crate::cpu::{Cpu2A03, CpuStatus};
 
 /// Adds the accumulator, a byte from the effective address, and the carry flag (`ADC`).
 /// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.
@@ -21,7 +21,7 @@ impl Operation for ADC {
 
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let result = u16::from(cpu.state.a)
             + u16::from(cpu.data)
             + u16::from(cpu.state.p.contains(CpuStatus::C));
@@ -48,7 +48,7 @@ impl<const R: Register> Operation for COMPARE<R> {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let value = R.get(&cpu.state);
         let result = value.wrapping_sub(cpu.data);
 
@@ -71,7 +71,7 @@ impl Operation for DCP {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data.wrapping_sub(1);
 
         bus.write(cpu.address, value);
@@ -93,7 +93,7 @@ impl<const O: Operand> Operation for DECREMENT<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu).wrapping_sub(1);
 
         O.write(cpu, bus, value);
@@ -118,7 +118,7 @@ impl<const O: Operand> Operation for INCREMENT<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu).wrapping_add(1);
 
         O.write(cpu, bus, value);
@@ -141,7 +141,7 @@ impl Operation for ISC {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data.wrapping_add(1);
 
         bus.write(cpu.address, value);
@@ -161,7 +161,7 @@ impl Operation for SBC {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         // The 6502 defines SBC as A - M - (1 - C), which is identical to A + ~M + C.
         // Inverting the operand before delegating to ADC exploits this equivalence so
         // all flag updates (C, V, Z, N) fall out of the shared addition logic for free.
@@ -179,7 +179,7 @@ pub struct SBX;
 impl Operation for SBX {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let value = cpu.state.a & cpu.state.x;
         let result = value.wrapping_sub(cpu.data);
 

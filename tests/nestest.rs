@@ -2,8 +2,8 @@ use std::sync::LazyLock;
 
 use anyhow::Context;
 use regex::Regex;
-use wadatsumi::cpu::CpuStatus;
-use wadatsumi::{Bus, System};
+use wadatsumi::System;
+use wadatsumi_cpu_2a03::Bus;
 
 /// The canonical NES CPU conformance ROM, authored by kevtris.
 ///
@@ -41,7 +41,7 @@ fn nestest() -> anyhow::Result<()> {
                 let state = &system.cpu.state;
                 // Bit 5 (U) is hardwired high on the physical chip; OR it in
                 // so our comparison matches the log which always has it set.
-                let p = state.p.0 | CpuStatus::U;
+                let p = state.p.0 | 0b0010_0000;
 
                 assert!(
                     state.pc == entry.pc

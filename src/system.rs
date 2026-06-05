@@ -3,7 +3,8 @@
 
 use std::path::Path;
 
-use crate::cpu::Cpu;
+use wadatsumi_cpu_2a03::Cpu2A03;
+
 use crate::pak::Pak;
 use crate::system::bus::SystemBus;
 
@@ -11,7 +12,7 @@ mod bus;
 
 /// The top-level NES system, tying together the CPU, WRAM, PPU and APU.
 pub struct System {
-    pub cpu: Cpu<SystemBus>,
+    pub cpu: Cpu2A03<SystemBus>,
     pub bus: SystemBus,
 }
 
@@ -24,7 +25,7 @@ impl Default for System {
 impl System {
     #[must_use]
     pub fn new() -> Self {
-        Self { cpu: Cpu::new(), bus: SystemBus::new() }
+        Self { cpu: Cpu2A03::new(), bus: SystemBus::new() }
     }
 
     /// Open and parse an iNES `.nes` ROM file.

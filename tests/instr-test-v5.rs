@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use wadatsumi::{Bus, System};
+use wadatsumi::System;
+use wadatsumi_cpu_2a03::Bus;
 
 datatest_stable::harness! {
     {

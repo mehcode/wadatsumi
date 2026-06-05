@@ -4,7 +4,7 @@
 use std::task::Poll;
 
 use crate::bus::Bus;
-use crate::cpu::Cpu;
+use crate::cpu::Cpu2A03;
 use crate::cpu::addressing::AddressingMode;
 use crate::cpu::operation::{MemoryAccess, Operation};
 
@@ -13,10 +13,13 @@ use crate::cpu::operation::{MemoryAccess, Operation};
 /// Called once per CPU clock tick. Returns `Poll::Ready(())` when the instruction is
 /// complete and the CPU should clear it; `Poll::Pending` when additional cycles are
 /// still needed (addressing mode still resolving, or operation not yet done).
-pub type Instruction<B> = fn(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()>;
+pub type Instruction<B> = fn(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()>;
 
 /// Monomorphic handler for a specific `(Operation, AddressingMode)` pair.
-pub fn execute<B: Bus, O: Operation, A: AddressingMode>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+pub fn execute<B: Bus, O: Operation, A: AddressingMode>(
+    cpu: &mut Cpu2A03<B>,
+    bus: &mut B,
+) -> Poll<()> {
     if cpu.executing == 0 {
         // Drive address resolution one cycle forward. Returns Poll::Pending while the effective
         // address is still being assembled (multi-byte fetch, index addition, page-cross penalty).

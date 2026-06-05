@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "crates/cpu-2a03"]
+
 [package]
 name = "wadatsumi"
 version = "0.0.1"
@@ -11,6 +14,7 @@ enum_dispatch = "0.3.13"
 thiserror = "2.0.18"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+wadatsumi-cpu-2a03 = { path = "crates/cpu-2a03" }
 
 [dev-dependencies]
 anyhow = "1.0.102"

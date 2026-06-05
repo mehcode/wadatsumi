@@ -8,8 +8,8 @@
 use std::task::Poll;
 
 use crate::Bus;
-use crate::cpu::operation::{ADC, MemoryAccess, Operand, Operation, Register};
-use crate::cpu::{Cpu, CpuStatus};
+use crate::cpu::operation::{ADC, MemoryAccess, Operand, Operation};
+use crate::cpu::{Cpu2A03, CpuStatus};
 
 /// AND accumulator with immediate byte, then LSR the accumulator (`ALR`).
 /// Sets `C` from bit 0 before the shift. Stores the result in `A`. Updates `Z`, `N`, and `C`.
@@ -19,7 +19,7 @@ impl Operation for ALR {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let value = cpu.state.a & cpu.data;
         let result = value >> 1;
 
@@ -39,7 +39,7 @@ impl Operation for ANC {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         // ANC is AND with an extra flag: delegate to AND for the shared AND + Z/N update,
         // then copy the sign bit of the result into C.
         let _ = AND::apply(cpu, bus);
@@ -58,7 +58,7 @@ impl Operation for AND {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let result = cpu.state.a & cpu.data;
 
         cpu.state.a = result;
@@ -77,7 +77,7 @@ impl Operation for ARR {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let value = cpu.state.a & cpu.data;
         let result = (value >> 1) | (u8::from(cpu.state.p.contains(CpuStatus::C)) << 7);
 
@@ -102,7 +102,7 @@ impl<const O: Operand> Operation for ASL<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
         let result = value << 1;
 
@@ -123,7 +123,7 @@ impl Operation for BIT {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         cpu.state.p.update_z(cpu.state.a & cpu.data);
         cpu.state.p.set(CpuStatus::N, cpu.data & 0x80 != 0);
         cpu.state.p.set(CpuStatus::V, cpu.data & 0x40 != 0);
@@ -140,7 +140,7 @@ impl Operation for EOR {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let result = cpu.state.a ^ cpu.data;
 
         cpu.state.a = result;
@@ -160,7 +160,7 @@ impl<const O: Operand> Operation for LSR<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
         let result = value >> 1;
 
@@ -181,7 +181,7 @@ impl Operation for ORA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let result = cpu.state.a | cpu.data;
 
         cpu.state.a = result;
@@ -201,7 +201,7 @@ impl<const O: Operand> Operation for ROL<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
         let result = (value << 1) | u8::from(cpu.state.p.contains(CpuStatus::C));
 
@@ -224,7 +224,7 @@ impl<const O: Operand> Operation for ROR<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
         let result = (value >> 1) | (u8::from(cpu.state.p.contains(CpuStatus::C)) << 7);
 
@@ -245,7 +245,7 @@ impl Operation for RLA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data;
         let rotated = (value << 1) | u8::from(cpu.state.p.contains(CpuStatus::C));
 
@@ -268,7 +268,7 @@ impl Operation for RRA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data;
 
         cpu.data = (value >> 1) | (u8::from(cpu.state.p.contains(CpuStatus::C)) << 7);
@@ -290,7 +290,7 @@ impl Operation for SLO {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data;
         let shifted = value << 1;
 
@@ -312,7 +312,7 @@ impl Operation for SRE {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data;
         let shifted = value >> 1;
 

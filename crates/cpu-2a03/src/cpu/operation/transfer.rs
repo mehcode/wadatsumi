@@ -9,7 +9,7 @@
 use std::task::Poll;
 
 use crate::Bus;
-use crate::cpu::Cpu;
+use crate::cpu::Cpu2A03;
 use crate::cpu::operation::Register::{self, A, SP, X, Y};
 use crate::cpu::operation::{MAGIC, MemoryAccess, Operation};
 
@@ -21,7 +21,7 @@ impl Operation for LAX {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         cpu.state.a = cpu.data;
         cpu.state.x = cpu.data;
 
@@ -39,7 +39,7 @@ impl<const R: Register> Operation for LOAD<R> {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         R.set(&mut cpu.state, cpu.data);
         cpu.state.p.update_zn(cpu.data);
 
@@ -59,7 +59,7 @@ impl Operation for LXA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let result = (cpu.state.a | MAGIC) & cpu.data;
 
         cpu.state.a = result;
@@ -76,7 +76,7 @@ impl Operation for SAX {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.state.a & cpu.state.x;
 
         bus.write(cpu.address, value);
@@ -94,7 +94,7 @@ impl<const R: Register> Operation for STORE<R> {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = R.get(&cpu.state);
 
         bus.write(cpu.address, value);
@@ -115,7 +115,7 @@ impl Operation for SHA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let base_high = (cpu.address.wrapping_sub(u16::from(cpu.state.y)) >> 8) as u8;
         let value = cpu.state.a & cpu.state.x & base_high.wrapping_add(1);
 
@@ -135,7 +135,7 @@ impl<const R: Register, const IDX: Register> Operation for SH<R, IDX> {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let index = IDX.get(&cpu.state);
         let base_high = (cpu.address.wrapping_sub(u16::from(index)) >> 8) as u8;
 
@@ -165,7 +165,7 @@ pub struct TRANSFER<const SRC: Register, const DST: Register>;
 
 impl<const SRC: Register, const DST: Register> Operation for TRANSFER<SRC, DST> {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
         let value = SRC.get(&cpu.state);
 
         DST.set(&mut cpu.state, value);

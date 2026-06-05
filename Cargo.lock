@@ -564,6 +564,14 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-subscriber",
+ "wadatsumi-cpu-2a03",
+]
+
+[[package]]
+name = "wadatsumi-cpu-2a03"
+version = "0.0.1"
+dependencies = [
+ "tracing",
 ]
 
 [[package]]

@@ -4,7 +4,7 @@
 use std::task::Poll;
 
 use crate::bus::Bus;
-use crate::cpu::Cpu;
+use crate::cpu::Cpu2A03;
 use crate::cpu::operation::Register::{self, X, Y};
 use crate::cpu::operation::{MemoryAccess, Operation};
 
@@ -25,7 +25,7 @@ pub trait AddressingMode {
     /// Returns `Poll::Ready(Some(byte))` when the addressing mode's last bus cycle read the
     /// operand as a side-effect (e.g. `AbsoluteIndexed` with no page cross); the caller should
     /// use this byte directly and skip any redundant bus read.
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>>
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>>
     where
         Self: Sized;
 }
@@ -37,7 +37,7 @@ pub struct Implied;
 
 impl AddressingMode for Implied {
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         // Spurious read surfaced in case the operation wants it (e.g. JSR uses it as ADL).
         Poll::Ready(Some(bus.read(cpu.state.pc)))
     }
@@ -49,7 +49,7 @@ pub struct Immediate;
 
 impl AddressingMode for Immediate {
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, _: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<Option<u8>> {
         // Point address at the literal operand byte sitting at PC, then skip past it.
         cpu.address = cpu.state.pc;
         cpu.state.pc = cpu.state.pc.wrapping_add(1);
@@ -65,7 +65,7 @@ pub struct ZeroPage;
 
 impl AddressingMode for ZeroPage {
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 => {
                 // Fetch zero-page address byte.
@@ -87,7 +87,7 @@ pub struct ZeroPageIndexed<const R: Register>;
 impl<const R: Register> AddressingMode for ZeroPageIndexed<R> {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 => ZeroPage::resolve::<O, _>(cpu, bus),
 
@@ -117,7 +117,7 @@ pub struct Absolute;
 
 impl AddressingMode for Absolute {
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 => ZeroPage::resolve::<O, _>(cpu, bus),
 
@@ -143,7 +143,7 @@ pub struct AbsoluteIndexed<const R: Register>;
 
 impl<const R: Register> AddressingMode for AbsoluteIndexed<R> {
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 | 2 => Absolute::resolve::<O, _>(cpu, bus),
 
@@ -184,7 +184,7 @@ pub struct Indirect;
 impl AddressingMode for Indirect {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 => {
                 // Fetch low byte of pointer address (same as ZeroPage).
@@ -231,7 +231,7 @@ pub struct IndirectX;
 
 impl AddressingMode for IndirectX {
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 => {
                 // Fetch the zero-page pointer byte that both indirect modes use as their base.
@@ -278,7 +278,7 @@ pub struct IndirectY;
 
 impl AddressingMode for IndirectY {
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 => IndirectX::resolve::<O, _>(cpu, bus),
 
@@ -330,7 +330,7 @@ pub struct Relative;
 
 impl AddressingMode for Relative {
     #[inline]
-    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) -> Poll<Option<u8>> {
+    fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         if cpu.t == 1 {
             // Fetch the signed offset; branch condition and PC update are handled by the operation.
             cpu.data = cpu.fetch(bus);
