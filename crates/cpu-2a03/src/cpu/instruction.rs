@@ -36,7 +36,7 @@ pub fn execute<B: Bus, O: Operation, A: AddressingMode>(
         if let Some(data) = prefetched {
             cpu.data = data;
         } else if matches!(O::ACCESS, Some(MemoryAccess::Read)) {
-            cpu.data = bus.read(cpu.address);
+            cpu.data = bus.read(cpu.address());
         }
     }
 
@@ -46,14 +46,14 @@ pub fn execute<B: Bus, O: Operation, A: AddressingMode>(
         match cpu.t - A::CYCLES {
             0 => {
                 // Latch the current value from memory; O::apply derives the new byte from cpu.data.
-                cpu.data = bus.read(cpu.address);
+                cpu.data = bus.read(cpu.address());
 
                 return Poll::Pending;
             }
 
             1 => {
                 // Spurious write: the unmodified byte is driven onto the data bus while the ALU works.
-                bus.write(cpu.address, cpu.data);
+                bus.write(cpu.address(), cpu.data);
 
                 return Poll::Pending;
             }

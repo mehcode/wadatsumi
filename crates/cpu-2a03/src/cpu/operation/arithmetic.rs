@@ -70,7 +70,7 @@ impl Operation for DCP {
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data.wrapping_sub(1);
 
-        bus.write(cpu.address, value);
+        bus.write(cpu.address(), value);
 
         // Load the decremented result into cpu.data so CMP can consume it as its operand,
         // mirroring the ISC→ADC pattern: the RMW result becomes the input for the compare.
@@ -140,7 +140,7 @@ impl Operation for ISC {
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.data.wrapping_add(1);
 
-        bus.write(cpu.address, value);
+        bus.write(cpu.address(), value);
 
         // Invert the operand and forward to ADC (same as SBC)
         // to handle the shared addition logic for C, V, Z, and N.

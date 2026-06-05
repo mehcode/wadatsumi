@@ -63,7 +63,7 @@ impl AddressingMode for Immediate {
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<Option<u8>> {
         // Point address at the literal operand byte sitting at PC, then skip past it.
-        cpu.address = cpu.pc;
+        [cpu.adl, cpu.adh] = cpu.pc.to_le_bytes();
         cpu.pc = cpu.pc.wrapping_add(1);
 
         Poll::Ready(None)
@@ -82,8 +82,9 @@ impl AddressingMode for ZeroPage {
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 => {
-                // Fetch zero-page address byte.
-                cpu.address = u16::from(cpu.fetch(bus));
+                // Fetch zero-page address byte; high byte is always zero.
+                let adl = cpu.fetch(bus);
+                cpu.set_address(adl, 0);
 
                 Poll::Pending
             }
@@ -101,7 +102,6 @@ pub struct ZeroPageIndexed<const R: Register>;
 impl<const R: Register> AddressingMode for ZeroPageIndexed<R> {
     const CYCLES: u8 = 3;
 
-    #[allow(clippy::cast_possible_truncation)]
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
@@ -109,11 +109,10 @@ impl<const R: Register> AddressingMode for ZeroPageIndexed<R> {
 
             2 => {
                 // Hardware reads the unindexed address while the ALU adds the index; result discarded.
-                let _ = bus.read(cpu.address);
+                let _ = bus.read(cpu.address());
 
                 // Wrap the indexed offset within page zero; no carry into the high byte.
-                let offset = R.get(cpu);
-                cpu.address = u16::from((cpu.address as u8).wrapping_add(offset));
+                cpu.adl = cpu.adl.wrapping_add(R.get(cpu));
 
                 Poll::Pending
             }
@@ -140,8 +139,8 @@ impl AddressingMode for Absolute {
             1 => ZeroPage::resolve::<O, _>(cpu, bus),
 
             2 => {
-                // Fetch high byte and merge; low byte was stored in cpu.address on cycle 1.
-                cpu.address |= u16::from(cpu.fetch(bus)) << 8;
+                // Fetch high byte; low byte was stored in cpu.adl on cycle 1.
+                cpu.adh = cpu.fetch(bus);
 
                 // JMP (Implicit) jumps to the resolved address with no separate data bus cycle — done.
                 // All other modes (Read, Write, RMW) need one more cycle for the actual memory access.
@@ -169,13 +168,13 @@ impl<const R: Register> AddressingMode for AbsoluteIndexed<R> {
 
             3 => {
                 let index = R.get(cpu);
-                let address = cpu.address.wrapping_add(u16::from(index));
-                let page_crossed = cpu.address >> 8 != address >> 8;
+                let address = cpu.address().wrapping_add(u16::from(index));
+                let page_crossed = cpu.adh != (address >> 8) as u8;
 
                 // Hardware speculatively reads (base_hi, lo + index) before the carry is resolved.
-                let speculative = bus.read((cpu.address & 0xFF00) | (address & 0x00FF));
+                let speculative = bus.read(u16::from_le_bytes([address as u8, cpu.adh]));
 
-                cpu.address = address;
+                [cpu.adl, cpu.adh] = address.to_le_bytes();
 
                 // Read ops with no page cross: the speculative read landed on the right address, so
                 // its result is the real operand — return it to avoid a redundant bus access.
@@ -204,13 +203,15 @@ pub struct Indirect;
 impl AddressingMode for Indirect {
     const CYCLES: u8 = 4;
 
-    #[allow(clippy::cast_possible_truncation)]
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
             1 => {
                 // Fetch low byte of pointer address (same as ZeroPage).
-                cpu.address = u16::from(cpu.fetch(bus));
+                let adl = cpu.fetch(bus);
+
+                cpu.set_address(adl, 0);
+
                 Poll::Pending
             }
 
@@ -218,13 +219,14 @@ impl AddressingMode for Indirect {
                 // Fetch high byte of pointer address. Do NOT delegate to Absolute here because
                 // Absolute short-circuits for JMP (ACCESS=None) and returns Poll::Ready, which
                 // would skip t=3/4 and jump to the pointer address instead of dereferencing it.
-                cpu.address |= u16::from(cpu.fetch(bus)) << 8;
+                cpu.adh = cpu.fetch(bus);
+
                 Poll::Pending
             }
 
             3 => {
                 // Read the low byte of the jump target from the pointer; hold it in data.
-                cpu.data = bus.read(cpu.address);
+                cpu.data = bus.read(cpu.address());
 
                 Poll::Pending
             }
@@ -232,10 +234,10 @@ impl AddressingMode for Indirect {
             4 => {
                 // Read the high byte from ptr+1, wrapping within the pointer's page (6502 hardware bug).
                 // Form the final target address and fall through to the execute block.
-                let ptr = (cpu.address & 0xFF00) | u16::from((cpu.address as u8).wrapping_add(1));
-                let hi = u16::from(bus.read(ptr)) << 8;
+                let ptr = u16::from_le_bytes([cpu.adl.wrapping_add(1), cpu.adh]);
+                let hi = bus.read(ptr);
 
-                cpu.address = u16::from(cpu.data) | hi;
+                cpu.set_address(cpu.data, hi);
 
                 Poll::Ready(None)
             }
@@ -276,14 +278,14 @@ impl AddressingMode for IndirectX {
 
             3 => {
                 // Read the low byte of the target address from the indexed pointer.
-                cpu.address = u16::from(bus.read(u16::from(cpu.ptr)));
+                cpu.set_address(bus.read(u16::from(cpu.ptr)), 0);
 
                 Poll::Pending
             }
 
             4 => {
                 // Read the high byte from ptr+1 (wrapping within page zero) to complete the 16-bit address.
-                cpu.address |= u16::from(bus.read(u16::from(cpu.ptr.wrapping_add(1)))) << 8;
+                cpu.adh = bus.read(u16::from(cpu.ptr.wrapping_add(1)));
 
                 Poll::Pending
             }
@@ -309,8 +311,8 @@ impl AddressingMode for IndirectY {
             1 => IndirectX::resolve::<O, _>(cpu, bus),
 
             2 => {
-                // Read the low byte of the target address from the indexed pointer.
-                cpu.address = u16::from(bus.read(u16::from(cpu.ptr)));
+                // Read the low byte of the target address from the zero-page pointer.
+                cpu.set_address(bus.read(u16::from(cpu.ptr)), 0);
 
                 Poll::Pending
             }
@@ -319,11 +321,12 @@ impl AddressingMode for IndirectY {
                 // Read the high byte from ptr+1, form the full base address, then add Y.
                 // Record whether the addition carried into the high byte so the next cycle can decide
                 // whether an extra bus cycle is needed to correct the address.
-                let hi = u16::from(bus.read(u16::from(cpu.ptr.wrapping_add(1)))) << 8;
-                let address = cpu.address | hi;
+                let base_hi = bus.read(u16::from(cpu.ptr.wrapping_add(1)));
+                let effective =
+                    u16::from_le_bytes([cpu.adl, base_hi]).wrapping_add(u16::from(cpu.y));
 
-                cpu.address = address.wrapping_add(u16::from(cpu.y));
-                cpu.data = u8::from(address >> 8 != cpu.address >> 8);
+                [cpu.adl, cpu.adh] = effective.to_le_bytes();
+                cpu.data = u8::from(base_hi != cpu.adh);
 
                 Poll::Pending
             }
@@ -334,9 +337,9 @@ impl AddressingMode for IndirectY {
                 // When no page cross occurred base_hi == effective_hi, so the speculative read lands
                 // on the correct page and no subtraction is needed.
                 let wrong_page_address = if cpu.data != 0 {
-                    (cpu.address & 0x00FF) | ((cpu.address & 0xFF00).wrapping_sub(0x0100))
+                    u16::from_le_bytes([cpu.adl, cpu.adh.wrapping_sub(1)])
                 } else {
-                    cpu.address
+                    cpu.address()
                 };
 
                 let _ = bus.read(wrong_page_address);

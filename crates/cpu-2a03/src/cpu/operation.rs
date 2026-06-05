@@ -143,7 +143,7 @@ impl Operand {
             }
 
             Self::Memory => {
-                bus.write(cpu.address, value);
+                bus.write(cpu.address(), value);
             }
         }
     }

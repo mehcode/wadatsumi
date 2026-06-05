@@ -55,9 +55,13 @@ pub struct Cpu2A03<B: Bus> {
     /// byte before it is expanded into a full 16-bit address.
     ptr: u8,
 
-    /// Effective address being assembled across addressing cycles. Holds the final
-    /// target address once addressing is complete.
-    address: u16,
+    /// High byte of the effective address (ADH). Written once the second address byte
+    /// is fetched; for zero-page modes it stays `$00` for the duration of the instruction.
+    adh: u8,
+
+    /// Low byte of the effective address (ADL). Always the first byte fetched during
+    /// address resolution; mutated in-place for zero-page indexed wrap-around.
+    adl: u8,
 
     /// Single-byte data latch used to pass a value between the read and write cycles
     /// of a read-modify-write instruction.
@@ -94,7 +98,8 @@ impl<B: Bus> Cpu2A03<B> {
 
             instruction: None,
             t: 0,
-            address: 0,
+            adh: 0,
+            adl: 0,
             ptr: 0,
             data: 0,
             halted: false,
@@ -170,6 +175,22 @@ impl<B: Bus> Cpu2A03<B> {
         self.pc = self.pc.wrapping_add(1);
 
         value
+    }
+
+    /// Reconstructs the full 16-bit effective address from `adl` and `adh`.
+    /// Used at bus read/write sites once address resolution is complete.
+    #[must_use]
+    #[inline(always)]
+    const fn address(&self) -> u16 {
+        u16::from_le_bytes([self.adl, self.adh])
+    }
+
+    /// Sets both address bytes together, used when a full 16-bit address is known at once
+    /// (e.g. zero-page fetch where `adh` is always `$00`, or indirect target assembly).
+    #[inline(always)]
+    const fn set_address(&mut self, adl: u8, adh: u8) {
+        self.adl = adl;
+        self.adh = adh;
     }
 
     /// Returns the full 16-bit address of the current stack top: `$0100 | SP`.

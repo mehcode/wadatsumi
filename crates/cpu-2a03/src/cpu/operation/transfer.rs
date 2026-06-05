@@ -79,7 +79,7 @@ impl Operation for SAX {
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = cpu.a & cpu.x;
 
-        bus.write(cpu.address, value);
+        bus.write(cpu.address(), value);
 
         Poll::Ready(())
     }
@@ -97,7 +97,7 @@ impl<const R: Register> Operation for STORE<R> {
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let value = R.get(cpu);
 
-        bus.write(cpu.address, value);
+        bus.write(cpu.address(), value);
 
         Poll::Ready(())
     }
@@ -116,10 +116,10 @@ impl Operation for SHA {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
-        let base_high = (cpu.address.wrapping_sub(u16::from(cpu.y)) >> 8) as u8;
+        let base_high = (cpu.address().wrapping_sub(u16::from(cpu.y)) >> 8) as u8;
         let value = cpu.a & cpu.x & base_high.wrapping_add(1);
 
-        bus.write(cpu.address, value);
+        bus.write(cpu.address(), value);
 
         Poll::Ready(())
     }
@@ -137,16 +137,16 @@ impl<const R: Register, const IDX: Register> Operation for SH<R, IDX> {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let index = IDX.get(cpu);
-        let base_high = (cpu.address.wrapping_sub(u16::from(index)) >> 8) as u8;
+        let base_high = (cpu.address().wrapping_sub(u16::from(index)) >> 8) as u8;
 
         let value = R.get(cpu);
         let result = value & base_high.wrapping_add(1);
 
         // On a page cross the result ANDs into the address high byte (hardware bus conflict).
-        let address: u16 = if (cpu.address >> 8) as u8 == base_high {
-            cpu.address
+        let address: u16 = if cpu.adh == base_high {
+            cpu.address()
         } else {
-            (u16::from(result) << 8) | (cpu.address & 0xFF)
+            u16::from_le_bytes([cpu.adl, result])
         };
 
         bus.write(address, result);

@@ -27,7 +27,7 @@ impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXP
                     let target = cpu.pc.wrapping_add_signed(i16::from(offset));
 
                     cpu.data = u8::from(cpu.pc >> 8 != target >> 8);
-                    cpu.address = target;
+                    [cpu.adl, cpu.adh] = target.to_le_bytes();
 
                     return Poll::Pending;
                 }
@@ -48,7 +48,7 @@ impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXP
             // Spurious read at the wrong-page PC while PCH is being corrected.
             // Page-crossing branches retire here (4 cycles total).
             3 => {
-                let wrong_page_pc = (cpu.pc & 0xFF00) | (cpu.address & 0x00FF);
+                let wrong_page_pc = (cpu.pc & 0xFF00) | u16::from(cpu.adl);
                 let _ = bus.read(wrong_page_pc);
             }
 
@@ -56,7 +56,7 @@ impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXP
         }
 
         // Jump to the new effective address
-        cpu.pc = cpu.address;
+        cpu.pc = cpu.address();
 
         Poll::Ready(())
     }
@@ -79,7 +79,7 @@ pub struct JMP;
 impl Operation for JMP {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        cpu.pc = cpu.address;
+        cpu.pc = cpu.address();
 
         Poll::Ready(())
     }

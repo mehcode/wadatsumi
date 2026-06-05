@@ -249,7 +249,7 @@ impl Operation for RLA {
         let value = cpu.data;
         let rotated = (value << 1) | u8::from(cpu.p.contains(CpuStatus::C));
 
-        bus.write(cpu.address, rotated);
+        bus.write(cpu.address(),rotated);
 
         cpu.p.set(CpuStatus::C, value & 0x80 != 0);
         cpu.a &= rotated;
@@ -273,7 +273,7 @@ impl Operation for RRA {
 
         cpu.data = (value >> 1) | (u8::from(cpu.p.contains(CpuStatus::C)) << 7);
 
-        bus.write(cpu.address, cpu.data);
+        bus.write(cpu.address(),cpu.data);
 
         // The ROR carry-out (bit 0 of original) becomes the carry-in for ADC.
         cpu.p.set(CpuStatus::C, value & 0x01 != 0);
@@ -294,7 +294,7 @@ impl Operation for SLO {
         let value = cpu.data;
         let shifted = value << 1;
 
-        bus.write(cpu.address, shifted);
+        bus.write(cpu.address(),shifted);
 
         cpu.p.set(CpuStatus::C, value & 0x80 != 0);
         cpu.a |= shifted;
@@ -316,7 +316,7 @@ impl Operation for SRE {
         let value = cpu.data;
         let shifted = value >> 1;
 
-        bus.write(cpu.address, shifted);
+        bus.write(cpu.address(),shifted);
 
         cpu.p.set(CpuStatus::C, value & 0x01 != 0);
         cpu.a ^= shifted;
