@@ -14,6 +14,14 @@ use crate::cpu::operation::{MemoryAccess, Operation};
 /// `cpu.address`, consuming exactly the cycles the real hardware would. Instructions then read
 /// or write through that address without knowing how it was resolved.
 pub trait AddressingMode {
+    /// Maximum number of cycles this addressing mode takes to resolve.
+    ///
+    /// For modes that can finish early (e.g. [`AbsoluteIndexed`] read with no page cross),
+    /// this is the *longer* path. RMW instructions always take the longer path, so this
+    /// constant is the correct base for computing the operation-relative cycle index:
+    /// `cpu.t - A::CYCLES` yields 0 on the first RMW cycle regardless of which mode is used.
+    const CYCLES: u8;
+
     /// Advance resolution by one cycle and return the current status.
     ///
     /// Returns `Poll::Pending` when additional cycles are still needed (e.g. while a multi-byte
@@ -36,6 +44,8 @@ pub trait AddressingMode {
 pub struct Implied;
 
 impl AddressingMode for Implied {
+    const CYCLES: u8 = 1;
+
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         // Spurious read surfaced in case the operation wants it (e.g. JSR uses it as ADL).
@@ -48,6 +58,8 @@ impl AddressingMode for Implied {
 pub struct Immediate;
 
 impl AddressingMode for Immediate {
+    const CYCLES: u8 = 1;
+
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<Option<u8>> {
         // Point address at the literal operand byte sitting at PC, then skip past it.
@@ -64,6 +76,8 @@ impl AddressingMode for Immediate {
 pub struct ZeroPage;
 
 impl AddressingMode for ZeroPage {
+    const CYCLES: u8 = 2;
+
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
@@ -85,6 +99,8 @@ impl AddressingMode for ZeroPage {
 pub struct ZeroPageIndexed<const R: Register>;
 
 impl<const R: Register> AddressingMode for ZeroPageIndexed<R> {
+    const CYCLES: u8 = 3;
+
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
@@ -116,6 +132,8 @@ pub type ZeroPageY = ZeroPageIndexed<{ Y }>;
 pub struct Absolute;
 
 impl AddressingMode for Absolute {
+    const CYCLES: u8 = 3;
+
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
@@ -142,6 +160,8 @@ impl AddressingMode for Absolute {
 pub struct AbsoluteIndexed<const R: Register>;
 
 impl<const R: Register> AddressingMode for AbsoluteIndexed<R> {
+    const CYCLES: u8 = 4;
+
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
@@ -182,6 +202,8 @@ pub type AbsoluteY = AbsoluteIndexed<{ Y }>;
 pub struct Indirect;
 
 impl AddressingMode for Indirect {
+    const CYCLES: u8 = 4;
+
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
@@ -230,6 +252,8 @@ impl AddressingMode for Indirect {
 pub struct IndirectX;
 
 impl AddressingMode for IndirectX {
+    const CYCLES: u8 = 5;
+
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
@@ -277,6 +301,8 @@ impl AddressingMode for IndirectX {
 pub struct IndirectY;
 
 impl AddressingMode for IndirectY {
+    const CYCLES: u8 = 5;
+
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {
@@ -329,6 +355,8 @@ impl AddressingMode for IndirectY {
 pub struct Relative;
 
 impl AddressingMode for Relative {
+    const CYCLES: u8 = 1;
+
     #[inline]
     fn resolve<O: Operation, B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<Option<u8>> {
         if cpu.t == 1 {

@@ -63,12 +63,6 @@ pub struct Cpu2A03<B: Bus> {
     /// of a read-modify-write instruction.
     data: u8,
 
-    /// The t-state at which the in-flight instruction's addressing mode resolved and execution
-    /// began; prevents `execute` from re-running address resolution on subsequent cycles.
-    /// Zero means no instruction is currently in the execution phase.
-    /// `cpu.t - cpu.executing` gives the operation-relative cycle index inside `apply`.
-    executing: u8,
-
     /// Set when the CPU fetches an opcode with no handler. Like the NMOS 6502 KIL/JAM
     /// opcodes, the core then locks up: [`Cpu::tick`] becomes a no-op until [`Cpu::reset`].
     halted: bool,
@@ -103,7 +97,6 @@ impl<B: Bus> Cpu2A03<B> {
             address: 0,
             ptr: 0,
             data: 0,
-            executing: 0,
             halted: false,
         }
     }
@@ -152,7 +145,6 @@ impl<B: Bus> Cpu2A03<B> {
         // Execute one T-state of the in-flight instruction; clear it when the handler signals done.
         if instruction(self, bus).is_ready() {
             self.instruction = None;
-            self.executing = 0;
             self.t = 0;
         } else {
             self.t += 1;

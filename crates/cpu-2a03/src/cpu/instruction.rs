@@ -20,19 +20,13 @@ pub fn execute<B: Bus, O: Operation, A: AddressingMode>(
     cpu: &mut Cpu2A03<B>,
     bus: &mut B,
 ) -> Poll<()> {
-    if cpu.executing == 0 {
+    if cpu.t <= A::CYCLES {
         // Drive address resolution one cycle forward. Returns Poll::Pending while the effective
         // address is still being assembled (multi-byte fetch, index addition, page-cross penalty).
         // Only when Poll::Ready is returned does cpu.address hold the final effective address.
         let Poll::Ready(prefetched) = A::resolve::<O, _>(cpu, bus) else {
             return Poll::Pending;
         };
-
-        // Snapshot the t-state where addressing completed. The RMW pipeline below uses
-        // `cpu.t - cpu.executing` as an addressing-mode-agnostic cycle index so that the
-        // three extra RMW bus cycles always occupy the same relative positions regardless
-        // of how many cycles address resolution consumed.
-        cpu.executing = cpu.t;
 
         // Some addressing modes (e.g. AbsoluteIndexed with no page cross) issue a bus read on
         // their final resolution cycle and hand back the byte as a prefetch shortcut. For plain
@@ -49,7 +43,7 @@ pub fn execute<B: Bus, O: Operation, A: AddressingMode>(
     // RMW instructions interpose three hardware-mandated bus cycles between address resolution
     // and the final write performed by O::apply.
     if matches!(O::ACCESS, Some(MemoryAccess::ReadModifyWrite)) {
-        match cpu.t - cpu.executing {
+        match cpu.t - A::CYCLES {
             0 => {
                 // Latch the current value from memory; O::apply derives the new byte from cpu.data.
                 cpu.data = bus.read(cpu.address);
