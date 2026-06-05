@@ -1,0 +1,28 @@
+[package]
+name = "wadatsumi-system-nes"
+version = "0.0.1"
+workspace = "../.."
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+bytes.workspace = true
+enum_dispatch.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+wadatsumi-cpu-2a03.workspace = true
+wadatsumi-system.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+datatest-stable.workspace = true
+divan.workspace = true
+regex.workspace = true
+
+[[bench]]
+name = "cpu-2a03"
+harness = false
+
+[[test]]
+name = "instr-test-v5"
+harness = false

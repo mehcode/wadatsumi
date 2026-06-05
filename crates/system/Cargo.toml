@@ -1,0 +1,9 @@
+[package]
+name = "wadatsumi-system"
+version = "0.0.1"
+workspace = "../.."
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+tracing = "0.1.44"

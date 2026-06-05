@@ -1,5 +1,28 @@
 [workspace]
-members = [".", "crates/cpu-2a03"]
+members = [".", "crates/cpu-2a03", "crates/system-nes", "crates/system"]
+
+[workspace.dependencies]
+anyhow = "1.0.102"
+bytes = "1.11.1"
+clap = { version = "4.6.1", features = ["derive"] }
+datatest-stable = "0.3.3"
+divan = "0.1"
+enum_dispatch = "0.3.13"
+regex = "1.12.3"
+thiserror = "2.0.18"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+wadatsumi-cpu-2a03 = { path = "crates/cpu-2a03" }
+wadatsumi-system = { path = "crates/system" }
+wadatsumi-system-nes = { path = "crates/system-nes" }
+
+[workspace.lints.rust]
+unused = { level = "allow", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+inline_always = { level = "allow" }
 
 [package]
 name = "wadatsumi"
@@ -8,35 +31,11 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 
 [dependencies]
-bytes = "1.11.1"
-clap = { version = "4.6.1", features = ["derive"] }
-enum_dispatch = "0.3.13"
-thiserror = "2.0.18"
-tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-wadatsumi-cpu-2a03 = { path = "crates/cpu-2a03" }
-
-[dev-dependencies]
-anyhow = "1.0.102"
-datatest-stable = "0.3.3"
-divan = "0.1"
-regex = "1.12.3"
-
-[lints.rust]
-unused = { level = "allow", priority = -1 }
-
-[lints.clippy]
-all = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-inline_always = { level = "allow" }
-
-[[bench]]
-name = "cpu"
-harness = false
-
-[[test]]
-name = "instr-test-v5"
-harness = false
+anyhow.workspace = true
+clap.workspace = true
+tracing-subscriber.workspace = true
+wadatsumi-system.workspace = true
+wadatsumi-system-nes.workspace = true
 
 [profile.release]
 codegen-units = 1

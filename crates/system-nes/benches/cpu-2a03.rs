@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use divan::counter::CyclesCount;
-use wadatsumi::System;
+use wadatsumi_system::System;
+use wadatsumi_system_nes::SystemNes;
 
 fn main() {
     divan::main();
@@ -18,8 +19,8 @@ fn nestest(bencher: divan::Bencher) {
     bencher
         .counter(CyclesCount::new(26_554u64))
         .with_inputs(|| {
-            let mut system = System::new();
-            system.open("tests/nestest/nestest.nes").unwrap();
+            let pak = std::fs::read("tests/nestest/nestest.nes").unwrap();
+            let mut system = SystemNes::open(pak).unwrap();
             system.cpu.state.pc = 0xc000;
 
             system

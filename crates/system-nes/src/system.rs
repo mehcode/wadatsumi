@@ -1,31 +1,22 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::path::Path;
-
 use wadatsumi_cpu_2a03::Cpu2A03;
+use wadatsumi_system::System;
 
+use crate::bus::SystemNesBus;
 use crate::pak::Pak;
-use crate::system::bus::SystemBus;
-
-mod bus;
 
 /// The top-level NES system, tying together the CPU, WRAM, PPU and APU.
-pub struct System {
-    pub cpu: Cpu2A03<SystemBus>,
-    pub bus: SystemBus,
+pub struct SystemNes {
+    pub cpu: Cpu2A03<SystemNesBus>,
+    pub bus: SystemNesBus,
 }
 
-impl Default for System {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl System {
+impl SystemNes {
     #[must_use]
-    pub fn new() -> Self {
-        Self { cpu: Cpu2A03::new(), bus: SystemBus::new() }
+    fn new() -> Self {
+        Self { cpu: Cpu2A03::new(), bus: SystemNesBus::new() }
     }
 
     /// Open and parse an iNES `.nes` ROM file.
@@ -34,16 +25,19 @@ impl System {
     /// Returns [`Error::InvalidPak`] if the file is missing or malformed,
     /// [`Error::UnsupportedMapper`] if the mapper is not implemented,
     /// or an I/O error if the file cannot be read.
-    pub fn open(&mut self, path: impl AsRef<Path>) -> crate::Result<()> {
-        self.bus.pak = Some(Pak::open(path)?);
+    pub fn open(pak: Vec<u8>) -> crate::Result<Self> {
+        let mut system = Self::new();
 
-        self.cpu.reset(&mut self.bus);
+        system.bus.pak = Some(Pak::open(pak)?);
 
-        Ok(())
+        system.cpu.reset(&mut system.bus);
+
+        Ok(system)
     }
+}
 
-    /// Advances all system components by one clock cycle.
-    pub fn tick(&mut self) {
+impl System for SystemNes {
+    fn tick(&mut self) {
         self.cpu.tick(&mut self.bus);
 
         // TODO: self.ppu.tick() x 3

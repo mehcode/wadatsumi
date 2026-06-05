@@ -5,21 +5,22 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
-use wadatsumi::System;
+use wadatsumi_system::System;
+use wadatsumi_system_nes::SystemNes;
 
 #[derive(Parser)]
 struct Args {
     pak: PathBuf,
 }
 
-fn main() -> wadatsumi::Result<()> {
+fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env()).init();
 
-    let mut system = System::new();
+    let pak = std::fs::read(&args.pak)?;
 
-    system.open(&args.pak)?;
+    let mut system = SystemNes::open(pak)?;
 
     while !system.cpu.halted() {
         system.tick();

@@ -8,15 +8,19 @@ run *args:
 
 # Format source files and ensure license headers.
 format:
-    @cargo fmt
+    @cargo fmt --all
     @hawkeye format --fail-if-updated false
+
+# Check source files
+check:
+    @cargo check --all-targets
 
 # Lint source files and check for license headers.
 lint:
-    @cargo clippy
+    @cargo clippy --all-targets
     @hawkeye check
     @cargo fmt --check
 
 # Run all tests.
 test:
-    @cargo test
+    @cargo test --all

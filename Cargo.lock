@@ -555,16 +555,10 @@ name = "wadatsumi"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "bytes",
  "clap",
- "datatest-stable",
- "divan",
- "enum_dispatch",
- "regex",
- "thiserror",
- "tracing",
  "tracing-subscriber",
- "wadatsumi-cpu-2a03",
+ "wadatsumi-system",
+ "wadatsumi-system-nes",
 ]
 
 [[package]]
@@ -572,6 +566,29 @@ name = "wadatsumi-cpu-2a03"
 version = "0.0.1"
 dependencies = [
  "tracing",
+]
+
+[[package]]
+name = "wadatsumi-system"
+version = "0.0.1"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
+name = "wadatsumi-system-nes"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "datatest-stable",
+ "divan",
+ "enum_dispatch",
+ "regex",
+ "thiserror",
+ "tracing",
+ "wadatsumi-cpu-2a03",
+ "wadatsumi-system",
 ]
 
 [[package]]

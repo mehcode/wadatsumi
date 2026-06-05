@@ -1,7 +1,9 @@
+use std::fs;
 use std::path::Path;
 
-use wadatsumi::System;
 use wadatsumi_cpu_2a03::Bus;
+use wadatsumi_system::System;
+use wadatsumi_system_nes::SystemNes;
 
 datatest_stable::harness! {
     {
@@ -16,8 +18,8 @@ datatest_stable::harness! {
 const MAX_CYCLES: u64 = 100_000_000;
 
 fn instr_test_v5(path: &Path) -> datatest_stable::Result<()> {
-    let mut system = System::new();
-    system.open(path)?;
+    let pak = fs::read(path)?;
+    let mut system = SystemNes::open(pak)?;
 
     let mut initialized = false;
 

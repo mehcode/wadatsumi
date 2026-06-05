@@ -7,18 +7,18 @@ use crate::pak::Pak;
 
 /// Owns all system components except the CPU and routes memory-mapped I/O
 /// across the NES address space.
-pub struct SystemBus {
+pub struct SystemNesBus {
     pub(super) pak: Option<Pak>,
     wram: Box<[u8; 2048]>,
 }
 
-impl SystemBus {
-    pub fn new() -> Self {
+impl SystemNesBus {
+    pub(crate) fn new() -> Self {
         Self { pak: None, wram: Box::new([0u8; 2048]) }
     }
 }
 
-impl Bus for SystemBus {
+impl Bus for SystemNesBus {
     #[allow(clippy::match_same_arms)]
     fn peek(&self, address: u16) -> u8 {
         match address {

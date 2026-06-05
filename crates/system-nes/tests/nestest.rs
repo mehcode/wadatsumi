@@ -1,9 +1,11 @@
+use std::fs;
 use std::sync::LazyLock;
 
 use anyhow::Context;
 use regex::Regex;
-use wadatsumi::System;
 use wadatsumi_cpu_2a03::Bus;
+use wadatsumi_system::System;
+use wadatsumi_system_nes::SystemNes;
 
 /// The canonical NES CPU conformance ROM, authored by kevtris.
 ///
@@ -12,8 +14,8 @@ use wadatsumi_cpu_2a03::Bus;
 /// read/write behavior.
 #[test]
 fn nestest() -> anyhow::Result<()> {
-    let mut system = System::new();
-    system.open("tests/nestest/nestest.nes")?;
+    let pak = fs::read("tests/nestest/nestest.nes")?;
+    let mut system = SystemNes::open(pak)?;
 
     // Skip the reset vector and jump straight to the automation entry point.
     // The normal reset vector initialises the PPU, which we have not
@@ -87,6 +89,7 @@ fn nestest() -> anyhow::Result<()> {
 
 /// One entry from the nestest golden log, representing CPU state at the
 /// start of an instruction (i.e. the SYNC / opcode-fetch cycle).
+#[expect(unused)]
 struct LogEntry {
     pc: u16,
     a: u8,
@@ -94,6 +97,8 @@ struct LogEntry {
     y: u8,
     p: u8,
     sp: u8,
+
+    // TODO: assert PPU state
     ppu_scanline: u16,
     ppu_dot: u16,
 

@@ -1,9 +1,6 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fs;
-use std::path::Path;
-
 use bytes::Bytes;
 
 use crate::error::Error;
@@ -49,6 +46,7 @@ pub enum Mirroring {
 /// the rest of the system needs to configure itself (e.g. nametable mirroring).
 pub struct Pak {
     prg: Bytes,
+    #[expect(unused)]
     chr: Bytes,
     sram: Option<Box<[u8]>>,
     mapper: AnyMapper,
@@ -56,6 +54,7 @@ pub struct Pak {
     /// Nametable mirroring arrangement, set by the cartridge hardware.
     /// The PPU reads this to determine how the four logical nametables
     /// map onto its 2 KB of VRAM.
+    #[expect(unused)]
     pub mirroring: Mirroring,
 }
 
@@ -70,8 +69,7 @@ impl Pak {
     /// are wrong, and [`Error::UnsupportedMapper`] if the mapper number is not
     /// implemented.
     ///
-    pub fn open(path: impl AsRef<Path>) -> crate::Result<Self> {
-        let pak = fs::read(path)?;
+    pub fn open(pak: Vec<u8>) -> crate::Result<Self> {
         let pak = Bytes::from(pak);
 
         // \x1A is the MS-DOS EOF marker, included so the file won't be misread as plain text.
