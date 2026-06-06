@@ -30,7 +30,7 @@ impl SystemNes {
 
         system.bus.pak = Some(Pak::open(pak)?);
 
-        system.cpu.reset(&mut system.bus);
+        system.reset();
 
         Ok(system)
     }
@@ -42,5 +42,13 @@ impl System for SystemNes {
 
         // TODO: self.ppu.tick() x 3
         // TODO: self.apu.tick()
+    }
+
+    fn reset(&mut self) {
+        self.cpu.reset();
+
+        while self.cpu.resetting() {
+            self.tick();
+        }
     }
 }

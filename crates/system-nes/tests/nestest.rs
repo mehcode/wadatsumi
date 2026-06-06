@@ -17,24 +17,18 @@ fn nestest() -> anyhow::Result<()> {
     let pak = fs::read("tests/nestest/nestest.nes")?;
     let mut system = SystemNes::open(pak)?;
 
-    // Skip the reset vector and jump straight to the automation entry point.
-    // The normal reset vector initialises the PPU, which we have not
-    // implemented yet; $C000 bypasses all of that.
+    // Redirect PC to the automation entry point ($C000) to bypass PPU initialisation.
+    // The reset sequence has already run inside SystemNes::open.
     system.cpu.pc = 0xc000;
 
     let log = parse_log(include_str!("nestest/nestest.log"))?;
     let mut expected = log.iter().enumerate();
 
-    // Run for exactly the number of cycles the official-opcode section
-    // requires. The ROM halts itself via an infinite loop at this point, so
-    // running additional cycles would be harmless, but the fixed budget makes
-    // the test deterministic and prevents us from accidentally executing the
-    // unofficial-opcode section.
-    //
-    // The log's cycle counter starts at 7 because the 2A03 reset sequence
-    // consumes 7 CPU cycles; since we bypass it with a direct PC write we
-    // add 7 to `i` to reproduce that base offset.
-    for i in 0..26_554 {
+    // Run for exactly the number of cycles the official-opcode section requires.
+    // The ROM halts itself via an infinite loop at this point, so running additional
+    // cycles would be harmless, but the fixed budget makes the test deterministic and
+    // prevents us from accidentally executing the unofficial-opcode section.
+    for _ in 0..26_554 {
         // t() == 0 is the SYNC cycle: the CPU is at an instruction boundary
         // and has not yet fetched the next opcode.  The nestest log records
         // state at exactly this moment, so it is the right point to compare.
@@ -53,7 +47,7 @@ fn nestest() -> anyhow::Result<()> {
                         && cpu.y == entry.y
                         && p == entry.p
                         && cpu.sp == entry.sp
-                        && 7 + i == entry.cycle,
+                        && cpu.cycles == entry.cycle,
                     "diverged on line {}:\n  expected: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}\n    actual: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}",
                     line + 1,
                     entry.pc,
@@ -69,7 +63,7 @@ fn nestest() -> anyhow::Result<()> {
                     cpu.y,
                     p,
                     cpu.sp,
-                    7 + i,
+                    cpu.cycles,
                 );
             }
         }

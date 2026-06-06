@@ -9,4 +9,7 @@
 pub trait System {
     /// Advances all system components by one clock cycle.
     fn tick(&mut self);
+
+    /// Triggers a hardware reset and runs the reset sequence to completion.
+    fn reset(&mut self);
 }

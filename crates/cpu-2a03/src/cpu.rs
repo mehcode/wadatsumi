@@ -1,6 +1,8 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::task::Poll;
+
 use crate::bus::Bus;
 use crate::cpu::instruction::Instruction;
 use crate::cpu::table::InstructionTable;
@@ -13,8 +15,24 @@ mod table;
 
 pub use status::CpuStatus;
 
+/// Tracks which stage of the CPU pipeline is active.
+pub enum Phase<B: Bus> {
+    /// At an instruction boundary: the next tick will fetch the opcode.
+    Fetch,
+
+    /// An instruction is in flight; the stored handler drives one T-state per [`Cpu2A03::tick`].
+    Execute(Instruction<B>),
+
+    /// The 7-cycle hardware reset sequence is in progress.
+    Reset,
+
+    /// The CPU has halted; [`Cpu2A03::tick`] is a no-op until [`Cpu2A03::reset`].
+    /// Triggered by an undefined opcode or an explicit `KIL` instruction.
+    Halted,
+}
+
 /// The 2A03 NES CPU core.
-/// Driven one clock cycle at a time via [`Cpu::tick`].
+/// Driven one clock cycle at a time via [`Cpu2A03::tick`].
 pub struct Cpu2A03<B: Bus> {
     /// Accumulator (A).
     ///
@@ -43,13 +61,12 @@ pub struct Cpu2A03<B: Bus> {
     /// Processor (P) status register.
     pub p: CpuStatus,
 
-    /// The current T-state of the in-flight instruction: 0 during the opcode fetch cycle,
-    /// incrementing by one each subsequent clock cycle until the instruction completes.
+    /// The current T-state: 0 during the opcode fetch cycle, incrementing by one each subsequent
+    /// clock cycle. Also used as the step counter within the reset sequence (T0–T6).
     t: u8,
 
-    /// The instruction fetched at cycle 0, held for the duration of execution.
-    /// None when `cycle == 0`.
-    instruction: Option<Instruction<B>>,
+    /// Current pipeline phase.
+    phase: Phase<B>,
 
     /// Scratch register used during indirect addressing to hold the zero-page pointer
     /// byte before it is expanded into a full 16-bit address.
@@ -67,9 +84,8 @@ pub struct Cpu2A03<B: Bus> {
     /// of a read-modify-write instruction.
     data: u8,
 
-    /// Set when the CPU fetches an opcode with no handler. Like the NMOS 6502 KIL/JAM
-    /// opcodes, the core then locks up: [`Cpu::tick`] becomes a no-op until [`Cpu::reset`].
-    halted: bool,
+    /// Total clock cycles elapsed since construction, incremented on every [`Cpu2A03::tick`].
+    pub cycles: u64,
 }
 
 impl<B: Bus> Default for Cpu2A03<B> {
@@ -81,6 +97,7 @@ impl<B: Bus> Default for Cpu2A03<B> {
 impl<B: Bus> Cpu2A03<B> {
     const TABLE: InstructionTable<B> = InstructionTable::new();
 
+    /// Returns a CPU in its power-on state, ready to begin the reset sequence on the first tick.
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -88,78 +105,92 @@ impl<B: Bus> Cpu2A03<B> {
             x: 0,
             y: 0,
             pc: 0,
-
-            // After the reset sequence the 6502 performs three phantom stack writes,
-            // decrementing S from 0xFF to 0xFD.
-            sp: 0xFD,
-
-            // I is set by the reset sequence.
-            p: CpuStatus::I,
-
-            instruction: None,
+            sp: 0x00,
+            p: CpuStatus(0),
             t: 0,
+            phase: Phase::Reset,
             adh: 0,
             adl: 0,
             ptr: 0,
             data: 0,
-            halted: false,
+            cycles: 0,
         }
     }
 
-    /// Reads the `/RESET` vector at `$fffc` and `$fffd` and sets the PC to the result.
-    /// Call once after the cartridge is attached and the bus is ready.
-    pub fn reset(&mut self, bus: &mut B) {
-        let lo = u16::from(bus.read(0xfffc));
-        let hi = u16::from(bus.read(0xfffd));
-
-        self.pc = (hi << 8) | lo;
-        self.halted = false;
+    /// Triggers the 7-cycle hardware reset sequence.
+    ///
+    /// The sequence runs through [`Cpu2A03::tick`]: SP is decremented three times, the I flag is
+    /// set, and PC is loaded from the `$FFFC`/`$FFFD` reset vector. Normal instruction execution
+    /// resumes on the eighth tick.
+    pub fn reset(&mut self) {
+        self.sp = 0x00;
+        self.p = CpuStatus(0);
+        self.t = 0;
+        self.phase = Phase::Reset;
     }
 
     /// Advances the CPU by one clock cycle.
-    ///
-    /// Fetching an opcode with no handler jams the core (see [`Cpu::halted`]); once
-    /// halted, this is a no-op until [`Cpu::reset`] clears the condition.
     pub fn tick(&mut self, bus: &mut B) {
-        if self.halted {
-            return;
-        }
+        self.cycles += 1;
 
-        let Some(instruction) = self.instruction else {
-            // T0. Opcode fetch. T advances to 1 so the first execution T-state enters at T1.
-            let opcode = self.fetch(bus);
+        match self.phase {
+            Phase::Halted => {
+                // CPU is halted; no-op until reset() clears the condition.
+            }
 
-            let Some(handler) = Self::TABLE.get(opcode) else {
-                // Illegal/unimplemented opcode: lock up like a KIL/JAM instruction.
-                tracing::error!(
-                    opcode = format!("{opcode:02X}"),
-                    pc = format!("{:04X}", self.pc.wrapping_sub(1)),
-                    "illegal opcode; halting CPU"
-                );
+            Phase::Reset => {
+                // Drive the 7-cycle hardware reset sequence one step forward.
+                if reset(self, bus).is_ready() {
+                    self.t = 0;
+                    self.phase = Phase::Fetch;
+                } else {
+                    self.t += 1;
+                }
+            }
 
-                self.halted = true;
-                return;
-            };
+            Phase::Fetch => {
+                // T0: fetch the opcode and cache its handler. T advances to 1 so the first
+                // execution T-state enters at T1.
+                let opcode = self.fetch(bus);
 
-            self.t += 1;
-            self.instruction = Some(handler);
+                let Some(handler) = Self::TABLE.get(opcode) else {
+                    tracing::error!(
+                        opcode = format!("{opcode:02X}"),
+                        pc = format!("{:04X}", self.pc.wrapping_sub(1)),
+                        "illegal opcode; halting CPU"
+                    );
 
-            return;
-        };
+                    self.phase = Phase::Halted;
 
-        // Execute one T-state of the in-flight instruction; clear it when the handler signals done.
-        if instruction(self, bus).is_ready() {
-            self.instruction = None;
-            self.t = 0;
-        } else {
-            self.t += 1;
+                    return;
+                };
+
+                self.t += 1;
+                self.phase = Phase::Execute(handler);
+            }
+
+            Phase::Execute(instruction) => {
+                // Drive the in-flight instruction one T-state forward; return to Fetch when done.
+                if instruction(self, bus).is_ready() {
+                    self.t = 0;
+                    self.phase = Phase::Fetch;
+                } else {
+                    self.t += 1;
+                }
+            }
         }
     }
 
-    /// Returns `true` once the CPU has jammed on an illegal opcode. Cleared by [`Cpu::reset`].
+    /// Returns `true` while the 7-cycle hardware reset sequence is in progress.
+    #[must_use]
+    pub const fn resetting(&self) -> bool {
+        matches!(self.phase, Phase::Reset)
+    }
+
+    /// Returns `true` when the CPU has jammed on an illegal opcode. Cleared by [`Cpu2A03::reset`].
     #[must_use]
     pub const fn halted(&self) -> bool {
-        self.halted
+        matches!(self.phase, Phase::Halted)
     }
 
     /// Returns the current T-state; 0 (T0) indicates the SYNC cycle where the next
@@ -205,5 +236,67 @@ impl<B: Bus> Cpu2A03<B> {
     fn stack_push(&mut self, bus: &mut B, value: u8) {
         bus.write(self.stack_address(), value);
         self.sp = self.sp.wrapping_sub(1);
+    }
+}
+
+/// Drives one cycle of the 7-cycle hardware reset sequence (T0–T6).
+///
+/// Returns `Poll::Pending` while the sequence is in progress and `Poll::Ready(())` on T6 once
+/// PC has been loaded from the reset vector and execution can resume.
+fn reset<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    match cpu.t {
+        // T0–T1: internal pipeline cycles; the bus is read but the result is discarded.
+        0 => {
+            bus.read(cpu.pc);
+
+            Poll::Pending
+        }
+
+        1 => {
+            bus.read(cpu.pc.wrapping_add(1));
+
+            Poll::Pending
+        }
+
+        // T2–T4: phantom stack accesses. On a live reset the R/W line is forced high so three
+        // reads are issued at the stack address instead of writes; SP still decrements each cycle.
+        2 => {
+            bus.read(cpu.stack_address());
+
+            cpu.sp = cpu.sp.wrapping_sub(1);
+
+            Poll::Pending
+        }
+
+        3 => {
+            bus.read(cpu.stack_address());
+
+            cpu.sp = cpu.sp.wrapping_sub(1);
+
+            Poll::Pending
+        }
+
+        4 => {
+            bus.read(cpu.stack_address());
+
+            cpu.sp = cpu.sp.wrapping_sub(1);
+            cpu.p.insert(CpuStatus::I);
+
+            Poll::Pending
+        }
+
+        // T5–T6: fetch the reset vector from $FFFC/$FFFD and load PC.
+        5 => {
+            cpu.adl = bus.read(0xFFFC);
+
+            Poll::Pending
+        }
+
+        _ => {
+            cpu.adh = bus.read(0xFFFD);
+            cpu.pc = cpu.address();
+
+            Poll::Ready(())
+        }
     }
 }
