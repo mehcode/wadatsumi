@@ -13,6 +13,27 @@ use crate::cpu::Cpu2A03;
 use crate::cpu::operation::Register::{self, A, SP, X, Y};
 use crate::cpu::operation::{MAGIC, MemoryAccess, Operation};
 
+/// Reads memory, ANDs with `SP`, and stores the result into `A`, `X`, and `SP` (`LAS`/`LAE`/`LAR`).
+/// Updates `Z` and `N`.
+pub struct LAS;
+
+impl Operation for LAS {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+        let result = cpu.data & cpu.sp;
+
+        cpu.a = result;
+        cpu.x = result;
+        cpu.sp = result;
+
+        cpu.p.update_zn(result);
+
+        Poll::Ready(())
+    }
+}
+
 /// Loads a byte from the effective address into both `A` and `X` (`LAX`).
 /// Updates `Z` and `N`.
 pub struct LAX;
@@ -71,6 +92,25 @@ impl Operation for LXA {
     }
 }
 
+/// AND `(A | MAGIC)` with `X` and the immediate byte; store result in `A` only (`XAA`/`ANE`).
+/// Highly unstable on real hardware; behaviour depends on analog MAGIC which varies by chip revision.
+/// Updates `Z` and `N`.
+pub struct XAA;
+
+impl Operation for XAA {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+        let result = (cpu.a | MAGIC) & cpu.x & cpu.data;
+
+        cpu.a = result;
+        cpu.p.update_zn(result);
+
+        Poll::Ready(())
+    }
+}
+
 /// Stores `A & X` into memory at the effective address (`SAX`).
 /// Does not affect any flags or modify `A` or `X`.
 pub struct SAX;
@@ -120,16 +160,16 @@ impl Operation for SHA {
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
         let base_high = (cpu.address().wrapping_sub(u16::from(cpu.y)) >> 8) as u8;
-        let value = cpu.a & cpu.x & base_high.wrapping_add(1);
+        let result = cpu.a & cpu.x & base_high.wrapping_add(1);
 
         // On a page cross the result ANDs into the address high byte (hardware bus conflict).
-        let address: u16 = if cpu.adh == base_high {
+        let address = if cpu.adh == base_high {
             cpu.address()
         } else {
-            u16::from_le_bytes([cpu.adl, value])
+            u16::from_le_bytes([cpu.adl, result])
         };
 
-        bus.write(address, value);
+        bus.write(address, result);
 
         Poll::Ready(())
     }
@@ -153,7 +193,7 @@ impl<const R: Register, const IDX: Register> Operation for SH<R, IDX> {
         let result = value & base_high.wrapping_add(1);
 
         // On a page cross the result ANDs into the address high byte (hardware bus conflict).
-        let address: u16 = if cpu.adh == base_high {
+        let address = if cpu.adh == base_high {
             cpu.address()
         } else {
             u16::from_le_bytes([cpu.adl, result])
@@ -167,6 +207,23 @@ impl<const R: Register, const IDX: Register> Operation for SH<R, IDX> {
 
 pub type SHY = SH<{ Y }, { X }>;
 pub type SHX = SH<{ X }, { Y }>;
+
+/// Sets `SP = A & X`, then stores `SP & (base_high + 1)` into memory (`TAS`/`SHS`/`XAS`).
+/// No flags modified. On a page cross the result corrupts the high address byte, identical to `SHA`.
+pub struct TAS;
+
+impl Operation for TAS {
+    const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
+
+    #[inline]
+    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+        // SHA computes A & X & (base_high + 1) and handles the page-cross bus conflict.
+        // Setting SP = A & X first means SP & (base_high + 1) == A & X & (base_high + 1),
+        // so SHA's existing logic is correct here without any changes.
+        cpu.sp = cpu.a & cpu.x;
+        SHA::apply(cpu, bus)
+    }
+}
 
 /// Copies register `SRC` into register `DST` in a single implicit cycle (`TAX`, `TAY`, `TSX`, `TXA`, `TYA`, `TXS`).
 /// Updates `Z` and `N` when the destination is `A`, `X`, or `Y`.

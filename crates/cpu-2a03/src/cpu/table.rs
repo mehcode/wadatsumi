@@ -9,9 +9,10 @@ use crate::cpu::addressing::{
 use crate::cpu::instruction::{Instruction, execute};
 use crate::cpu::operation::{
     ADC, ALR, ANC, AND, ARR, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BRK, BVC, BVS, CLC, CLD, CLI,
-    CLV, CMP, CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAX, LDA, LDX, LDY,
-    LSR, LXA, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC, SBX,
-    SEC, SED, SEI, SHA, SHX, SHY, SLO, SRE, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    CLV, CMP, CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAS, LAX, LDA, LDX,
+    LDY, LSR, LXA, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC,
+    SBX, SEC, SED, SEI, SHA, SHX, SHY, SLO, SRE, STA, STX, STY, TAS, TAX, TAY, TSX, TXA, TXS, TYA,
+    XAA,
 };
 
 /// Dispatch table mapping all 256 6502/2A03 opcodes to their [`Instruction`] handlers.
@@ -237,6 +238,15 @@ impl<B: Bus> InstructionTable<B> {
 
         // AND (A | MAGIC) with immediate, then load A and X (unofficial) [LXA]
         table.insert::<LXA, Immediate>(0xab);
+
+        // AND (A | MAGIC) with X and immediate; store in A only (unofficial) [XAA]
+        table.insert::<XAA, Immediate>(0x8b);
+
+        // SP = A & X, then store SP & (base_high + 1) (unofficial) [TAS]
+        table.insert::<TAS, AbsoluteY>(0x9b);
+
+        // Load M & SP into A, X, and SP (unofficial) [LAS]
+        table.insert::<LAS, AbsoluteY>(0xbb);
 
         // Store A & X in memory (unofficial) [SAX]
         table.insert::<SAX, ZeroPage>(0x87);

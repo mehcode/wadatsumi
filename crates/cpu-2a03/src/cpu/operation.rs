@@ -22,7 +22,8 @@ pub use logical::{ALR, ANC, AND, ARR, ASL, BIT, EOR, LSR, ORA, RLA, ROL, ROR, RR
 pub use stack::{PHA, PHP, PLA, PLP};
 pub use system::{BRK, CLC, CLD, CLI, CLV, NOP, SEC, SED, SEI};
 pub use transfer::{
-    LAX, LDA, LDX, LDY, LXA, SAX, SHA, SHX, SHY, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
+    LAS, LAX, LDA, LDX, LDY, LXA, SAX, SHA, SHX, SHY, STA, STX, STY, TAS, TAX, TAY, TSX, TXA,
+    TXS, TYA, XAA,
 };
 
 /// Classifies how an operation accesses memory, driving the addressing-mode pipeline.
