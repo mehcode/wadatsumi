@@ -174,8 +174,9 @@ impl Operation for RTS {
                 Poll::Pending
             }
 
-            // Increment PC to point past JSR's last operand byte.
+            // Spurious read at the return address; hardware reads PC before incrementing.
             _ => {
+                let _ = bus.read(cpu.pc);
                 cpu.pc = cpu.pc.wrapping_add(1);
 
                 Poll::Ready(())
