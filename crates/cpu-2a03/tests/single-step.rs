@@ -50,6 +50,9 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
 
         let mut cpu = Cpu2A03::<FlatBus>::new();
 
+        // SingleStepTests is generated from the visual6502 simulation, which uses 0xEE.
+        cpu.magic = 0xEE;
+
         cpu.pc = case.initial.pc;
         cpu.a = case.initial.a;
         cpu.x = case.initial.x;
@@ -57,14 +60,13 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
         cpu.sp = case.initial.sp;
         cpu.p.0 = case.initial.p;
 
-        // Tick until t() returns to 0, which signals that the instruction has retired and
-        // the CPU is back at an instruction boundary. The longest legal 6502 instruction
-        // takes 8 cycles; 10 gives a little headroom before we declare a hang.
-
-        for _ in 0..10 {
+        // Tick for exactly as many cycles as the test case specifies. Normal instructions
+        // exit early when t() returns to 0 (instruction boundary). KIL never exits, it jams
+        // the CPU in a halt loop, so the halted() check prevents a premature break.
+        for _ in 0..case.cycles.len() {
             cpu.tick(&mut bus);
 
-            if cpu.t() == 0 {
+            if cpu.t() == 0 && !cpu.halted() {
                 break;
             }
         }

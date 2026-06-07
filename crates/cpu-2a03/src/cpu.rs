@@ -26,9 +26,11 @@ pub enum Phase<B: Bus> {
     /// The 7-cycle hardware reset sequence is in progress.
     Reset,
 
-    /// The CPU has halted; [`Cpu2A03::tick`] is a no-op until [`Cpu2A03::reset`].
-    /// Triggered by an undefined opcode or an explicit `KIL` instruction.
-    Halted,
+    /// The CPU has jammed on a KIL instruction; only a hardware RESET can escape.
+    ///
+    /// After the opcode fetch the CPU reads from `halt_addr` (= PC+1), then cycles through
+    /// `$FFFF`/`$FFFE` reads indefinitely. `t` is repurposed as a halt-cycle counter.
+    Halted(u16),
 }
 
 /// The 2A03 NES CPU core.
@@ -86,6 +88,13 @@ pub struct Cpu2A03<B: Bus> {
 
     /// Total clock cycles elapsed since construction, incremented on every [`Cpu2A03::tick`].
     pub cycles: u64,
+
+    /// The "magic" byte OR'd into A before the AND in unstable immediate-mode opcodes (`LXA`, `XAA`).
+    ///
+    /// On real hardware this value is non-deterministic, it depends on analog bus capacitance,
+    /// chip revision, and temperature. Common values: `0xFF` (nestest), `0xEE` (SingleStepTests /
+    /// visual6502). Defaults to `0xFF`.
+    pub magic: u8,
 }
 
 impl<B: Bus> Default for Cpu2A03<B> {
@@ -115,6 +124,7 @@ impl<B: Bus> Cpu2A03<B> {
             ptr: 0,
             data: 0,
             cycles: 0,
+            magic: 0xFF,
         }
     }
 
@@ -135,8 +145,16 @@ impl<B: Bus> Cpu2A03<B> {
         self.cycles += 1;
 
         match self.phase {
-            Phase::Halted => {
-                // CPU is halted; no-op until reset() clears the condition.
+            Phase::Halted(halt_address) => {
+                // KIL halt loop: T0=PC+1, T1=$FFFF, T2-T3=$FFFE, T4+=$FFFF (matches visual6502).
+                let address = match self.t {
+                    0 => halt_address,
+                    2 | 3 => 0xFFFE,
+                    1 | _ => 0xFFFF,
+                };
+
+                bus.read(address);
+                self.t = self.t.saturating_add(1);
             }
 
             Phase::Reset => {
@@ -161,7 +179,8 @@ impl<B: Bus> Cpu2A03<B> {
                         "illegal opcode; halting CPU"
                     );
 
-                    self.phase = Phase::Halted;
+                    // Store current PC (= original_pc + 1) as the first halt-loop read address.
+                    self.phase = Phase::Halted(self.pc);
 
                     return;
                 };
@@ -188,10 +207,10 @@ impl<B: Bus> Cpu2A03<B> {
         matches!(self.phase, Phase::Reset)
     }
 
-    /// Returns `true` when the CPU has jammed on an illegal opcode. Cleared by [`Cpu2A03::reset`].
+    /// Returns `true` when the CPU has jammed on a KIL opcode. Cleared by [`Cpu2A03::reset`].
     #[must_use]
     pub const fn halted(&self) -> bool {
-        matches!(self.phase, Phase::Halted)
+        matches!(self.phase, Phase::Halted(_))
     }
 
     /// Returns the current T-state; 0 (T0) indicates the SYNC cycle where the next

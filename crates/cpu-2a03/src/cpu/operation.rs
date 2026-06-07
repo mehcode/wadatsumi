@@ -163,8 +163,3 @@ impl Operand {
     }
 }
 
-/// A floating internal bus value OR'd into the accumulator before the AND in
-/// unstable immediate-mode opcodes like LXA and XAA. Its true value depends on chip revision,
-/// temperature, and board capacitance, making these instructions non-deterministic on real hardware.
-/// 0xFF is the value that produces correct results against nestest and most practical test ROMs.
-const MAGIC: u8 = 0xff;

@@ -11,7 +11,7 @@ use std::task::{Poll, ready};
 use crate::Bus;
 use crate::cpu::Cpu2A03;
 use crate::cpu::operation::Register::{self, A, SP, X, Y};
-use crate::cpu::operation::{MAGIC, MemoryAccess, Operation};
+use crate::cpu::operation::{MemoryAccess, Operation};
 
 /// Reads memory, ANDs with `SP`, and stores the result into `A`, `X`, and `SP` (`LAS`/`LAE`/`LAR`).
 /// Updates `Z` and `N`.
@@ -82,7 +82,7 @@ impl Operation for LXA {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let result = (cpu.a | MAGIC) & cpu.data;
+        let result = (cpu.a | cpu.magic) & cpu.data;
 
         cpu.a = result;
         cpu.x = result;
@@ -102,7 +102,7 @@ impl Operation for XAA {
 
     #[inline]
     fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
-        let result = (cpu.a | MAGIC) & cpu.x & cpu.data;
+        let result = (cpu.a | cpu.magic) & cpu.x & cpu.data;
 
         cpu.a = result;
         cpu.p.update_zn(result);
