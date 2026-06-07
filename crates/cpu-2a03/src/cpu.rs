@@ -97,7 +97,8 @@ impl<B: Bus> Default for Cpu2A03<B> {
 impl<B: Bus> Cpu2A03<B> {
     const TABLE: InstructionTable<B> = InstructionTable::new();
 
-    /// Returns a CPU in its power-on state, ready to begin the reset sequence on the first tick.
+    /// Returns a CPU with registers zeroed and ready to fetch. Call [`Cpu2A03::reset`] to run the
+    /// 7-cycle hardware reset sequence and load PC from the reset vector before executing.
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -108,7 +109,7 @@ impl<B: Bus> Cpu2A03<B> {
             sp: 0x00,
             p: CpuStatus(0),
             t: 0,
-            phase: Phase::Reset,
+            phase: Phase::Fetch,
             adh: 0,
             adl: 0,
             ptr: 0,
