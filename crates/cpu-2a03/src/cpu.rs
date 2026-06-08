@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::mem::transmute;
 use std::task::Poll;
 
 use crate::bus::Bus;
@@ -16,26 +17,26 @@ mod table;
 pub use status::CpuStatus;
 
 /// Tracks which stage of the CPU pipeline is active.
-pub enum Phase<B: Bus> {
+enum Phase {
     /// At an instruction boundary: the next tick will fetch the opcode.
     Fetch,
 
     /// An instruction is in flight; the stored handler drives one T-state per [`Cpu2A03::tick`].
-    Execute(Instruction<B>),
+    Execute { instruction: fn() },
 
     /// The 7-cycle hardware reset sequence is in progress.
     Reset,
 
     /// The CPU has jammed on a KIL instruction; only a hardware RESET can escape.
     ///
-    /// After the opcode fetch the CPU reads from `halt_addr` (= PC+1), then cycles through
+    /// After the opcode fetch the CPU reads from `address` (= PC+1), then cycles through
     /// `$FFFF`/`$FFFE` reads indefinitely. `t` is repurposed as a halt-cycle counter.
-    Halted(u16),
+    Halted { address: u16 },
 }
 
 /// The 2A03 NES CPU core.
 /// Driven one clock cycle at a time via [`Cpu2A03::tick`].
-pub struct Cpu2A03<B: Bus> {
+pub struct Cpu2A03 {
     /// Accumulator (A).
     ///
     /// The main register for arithmetic and logic operations.
@@ -68,7 +69,7 @@ pub struct Cpu2A03<B: Bus> {
     t: u8,
 
     /// Current pipeline phase.
-    phase: Phase<B>,
+    phase: Phase,
 
     /// Scratch register used during indirect addressing to hold the zero-page pointer
     /// byte before it is expanded into a full 16-bit address.
@@ -97,15 +98,13 @@ pub struct Cpu2A03<B: Bus> {
     pub magic: u8,
 }
 
-impl<B: Bus> Default for Cpu2A03<B> {
+impl Default for Cpu2A03 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<B: Bus> Cpu2A03<B> {
-    const TABLE: InstructionTable<B> = InstructionTable::new();
-
+impl Cpu2A03 {
     /// Returns a CPU with registers zeroed and ready to fetch. Call [`Cpu2A03::reset`] to run the
     /// 7-cycle hardware reset sequence and load PC from the reset vector before executing.
     #[must_use]
@@ -141,14 +140,15 @@ impl<B: Bus> Cpu2A03<B> {
     }
 
     /// Advances the CPU by one clock cycle.
-    pub fn tick(&mut self, bus: &mut B) {
+    pub fn tick<B: Bus>(&mut self, bus: &mut B) {
         self.cycles += 1;
 
         match self.phase {
-            Phase::Halted(halt_address) => {
-                // KIL halt loop: T0=PC+1, T1=$FFFF, T2-T3=$FFFE, T4+=$FFFF (matches visual6502).
+            // KIL halt loop: T0=PC+1, T1=$FFFF, T2-T3=$FFFE, T4+=$FFFF (matches visual6502).
+            #[allow(clippy::wildcard_in_or_patterns)]
+            Phase::Halted { address } => {
                 let address = match self.t {
-                    0 => halt_address,
+                    0 => address,
                     2 | 3 => 0xFFFE,
                     1 | _ => 0xFFFF,
                 };
@@ -157,8 +157,8 @@ impl<B: Bus> Cpu2A03<B> {
                 self.t = self.t.saturating_add(1);
             }
 
+            // Drive the 7-cycle hardware reset sequence one step forward.
             Phase::Reset => {
-                // Drive the 7-cycle hardware reset sequence one step forward.
                 if reset(self, bus).is_ready() {
                     self.t = 0;
                     self.phase = Phase::Fetch;
@@ -167,12 +167,12 @@ impl<B: Bus> Cpu2A03<B> {
                 }
             }
 
+            // T0: fetch the opcode and cache its handler. T advances to 1 so the first
+            // execution T-state enters at T1.
             Phase::Fetch => {
-                // T0: fetch the opcode and cache its handler. T advances to 1 so the first
-                // execution T-state enters at T1.
                 let opcode = self.fetch(bus);
 
-                let Some(handler) = Self::TABLE.get(opcode) else {
+                let Some(instruction) = InstructionTable::<B>::dispatch(opcode) else {
                     tracing::error!(
                         opcode = format!("{opcode:02X}"),
                         pc = format!("{:04X}", self.pc.wrapping_sub(1)),
@@ -180,17 +180,24 @@ impl<B: Bus> Cpu2A03<B> {
                     );
 
                     // Store current PC (= original_pc + 1) as the first halt-loop read address.
-                    self.phase = Phase::Halted(self.pc);
+                    self.phase = Phase::Halted { address: self.pc };
 
                     return;
                 };
 
                 self.t += 1;
-                self.phase = Phase::Execute(handler);
+
+                // SAFETY: fn pointers are pointer-sized; B is the same type recovered in Execute.
+                self.phase = Phase::Execute {
+                    instruction: unsafe { transmute::<Instruction<B>, fn()>(instruction) },
+                };
             }
 
-            Phase::Execute(instruction) => {
-                // Drive the in-flight instruction one T-state forward; return to Fetch when done.
+            // Drive the in-flight instruction one T-state forward; return to Fetch when done.
+            Phase::Execute { instruction } => {
+                // SAFETY: instruction was stored as Instruction<B> in the Fetch arm of this same tick<B>.
+                let instruction: Instruction<B> = unsafe { transmute(instruction) };
+
                 if instruction(self, bus).is_ready() {
                     self.t = 0;
                     self.phase = Phase::Fetch;
@@ -210,7 +217,7 @@ impl<B: Bus> Cpu2A03<B> {
     /// Returns `true` when the CPU has jammed on a KIL opcode. Cleared by [`Cpu2A03::reset`].
     #[must_use]
     pub const fn halted(&self) -> bool {
-        matches!(self.phase, Phase::Halted(_))
+        matches!(self.phase, Phase::Halted { .. })
     }
 
     /// Returns the current T-state; 0 (T0) indicates the SYNC cycle where the next
@@ -221,7 +228,7 @@ impl<B: Bus> Cpu2A03<B> {
     }
 
     /// Reads the byte at PC, and advances PC.
-    fn fetch(&mut self, bus: &mut B) -> u8 {
+    fn fetch<B: Bus>(&mut self, bus: &mut B) -> u8 {
         let value = bus.read(self.pc);
         self.pc = self.pc.wrapping_add(1);
 
@@ -253,7 +260,7 @@ impl<B: Bus> Cpu2A03<B> {
 
     /// Writes `value` to `$0100 + SP`, then decrements SP.
     #[inline]
-    fn stack_push(&mut self, bus: &mut B, value: u8) {
+    fn stack_push<B: Bus>(&mut self, bus: &mut B, value: u8) {
         bus.write(self.stack_address(), value);
         self.sp = self.sp.wrapping_sub(1);
     }
@@ -263,7 +270,7 @@ impl<B: Bus> Cpu2A03<B> {
 ///
 /// Returns `Poll::Pending` while the sequence is in progress and `Poll::Ready(())` on T6 once
 /// PC has been loaded from the reset vector and execution can resume.
-fn reset<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+fn reset<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
     match cpu.t {
         // T0–T1: internal pipeline cycles; the bus is read but the result is discarded.
         0 => {

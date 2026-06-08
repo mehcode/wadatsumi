@@ -48,7 +48,7 @@ pub trait Operation {
     /// Called only after the addressing mode has fully resolved. `cpu.address`
     /// holds the effective address. Returns `Poll::Ready(())` when the operation is
     /// complete, signalling the CPU to clear the in-flight instruction.
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()>
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>
     where
         Self: Sized;
 }
@@ -67,7 +67,7 @@ impl Register {
     #[inline(always)]
     #[allow(clippy::trivially_copy_pass_by_ref)]
     #[must_use]
-    pub const fn get<B: Bus>(self, cpu: &Cpu2A03<B>) -> u8 {
+    pub const fn get(self, cpu: &Cpu2A03) -> u8 {
         match self {
             Self::A => cpu.a,
             Self::X => cpu.x,
@@ -78,7 +78,7 @@ impl Register {
 
     /// Writes `value` to this register.
     #[inline(always)]
-    pub const fn set<B: Bus>(self, cpu: &mut Cpu2A03<B>, value: u8) {
+    pub const fn set(self, cpu: &mut Cpu2A03, value: u8) {
         match self {
             Self::A => {
                 cpu.a = value;
@@ -128,7 +128,7 @@ impl Operand {
     /// Reads the current value of this operand.
     #[inline(always)]
     #[must_use]
-    pub const fn read<B: Bus>(self, cpu: &Cpu2A03<B>) -> u8 {
+    pub const fn read(self, cpu: &Cpu2A03) -> u8 {
         match self {
             Self::Register(r) => r.get(cpu),
             Self::Memory => cpu.data,
@@ -137,7 +137,7 @@ impl Operand {
 
     /// Writes `value` to this operand.
     #[inline(always)]
-    pub fn write<B: Bus>(self, cpu: &mut Cpu2A03<B>, bus: &mut B, value: u8) {
+    pub fn write<B: Bus>(self, cpu: &mut Cpu2A03, bus: &mut B, value: u8) {
         match self {
             Self::Register(r) => {
                 r.set(cpu, value);
@@ -156,10 +156,9 @@ impl Operand {
     /// register variants this is a no-op; `O` is a const generic so LLVM eliminates the branch
     /// at compile time with zero overhead on the register-operand hot paths (ASL A, LSR A, etc.).
     #[inline(always)]
-    pub const fn latch<B: Bus>(self, cpu: &mut Cpu2A03<B>, value: u8) {
+    pub const fn latch(self, cpu: &mut Cpu2A03, value: u8) {
         if matches!(self, Self::Memory) {
             cpu.data = value;
         }
     }
 }
-

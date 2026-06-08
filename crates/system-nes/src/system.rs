@@ -9,7 +9,7 @@ use crate::pak::Pak;
 
 /// The top-level NES system, tying together the CPU, WRAM, PPU and APU.
 pub struct SystemNes {
-    pub cpu: Cpu2A03<SystemNesBus>,
+    pub cpu: Cpu2A03,
     pub bus: SystemNesBus,
 }
 

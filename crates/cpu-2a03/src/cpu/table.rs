@@ -24,6 +24,8 @@ pub struct InstructionTable<B: Bus> {
 }
 
 impl<B: Bus> InstructionTable<B> {
+    const TABLE: Self = Self::new();
+
     /// Builds the table with every implemented opcode wired to its handler.
     #[allow(clippy::too_many_lines)]
     #[must_use]
@@ -368,7 +370,7 @@ impl<B: Bus> InstructionTable<B> {
     }
 
     /// Returns the handler for `opcode`, or `None` if the opcode is not implemented.
-    pub const fn get(&self, opcode: u8) -> Option<Instruction<B>> {
-        self.instructions[opcode as usize]
+    pub const fn dispatch(opcode: u8) -> Option<Instruction<B>> {
+        Self::TABLE.instructions[opcode as usize]
     }
 }

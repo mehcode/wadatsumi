@@ -1,3 +1,5 @@
+alias fmt := format
+
 # Compile the project.
 build:
     @cargo build

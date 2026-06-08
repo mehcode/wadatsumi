@@ -13,11 +13,11 @@ use crate::cpu::operation::{MemoryAccess, Operation};
 /// Called once per CPU clock tick. Returns `Poll::Ready(())` when the instruction is
 /// complete and the CPU should clear it; `Poll::Pending` when additional cycles are
 /// still needed (addressing mode still resolving, or operation not yet done).
-pub type Instruction<B> = fn(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()>;
+pub type Instruction<B> = fn(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>;
 
 /// Monomorphic handler for a specific `(Operation, AddressingMode)` pair.
 pub fn execute<B: Bus, O: Operation, A: AddressingMode>(
-    cpu: &mut Cpu2A03<B>,
+    cpu: &mut Cpu2A03,
     bus: &mut B,
 ) -> Poll<()> {
     if cpu.t <= A::CYCLES {

@@ -16,7 +16,7 @@ pub struct BRK;
 impl Operation for BRK {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         match cpu.t {
             1 => {
                 // Implied already read the padding byte spuriously; advance PC past it
@@ -72,7 +72,7 @@ pub struct CLEAR<const FLAG: CpuStatus>;
 
 impl<const FLAG: CpuStatus> Operation for CLEAR<FLAG> {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         cpu.p.remove(FLAG);
 
         Poll::Ready(())
@@ -95,7 +95,7 @@ impl Operation for NOP {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(_: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(_: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         // Do nothing
         Poll::Ready(())
     }
@@ -108,7 +108,7 @@ pub struct SET<const FLAG: CpuStatus>;
 
 impl<const FLAG: CpuStatus> Operation for SET<FLAG> {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         cpu.p.insert(FLAG);
 
         Poll::Ready(())

@@ -21,7 +21,7 @@ impl Operation for ALR {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         // AND reads cpu.data (the immediate byte) into A; LSR then shifts A in place.
         // The register variant of LSR needs no cpu.data latch, it reads and writes A directly.
         ready!(AND::apply(cpu, bus));
@@ -38,7 +38,7 @@ impl Operation for ANC {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         // ANC is AND with an extra flag: delegate to AND for the shared AND + Z/N update,
         // then copy the sign bit of the result into C.
         ready!(AND::apply(cpu, bus));
@@ -57,7 +57,7 @@ impl Operation for AND {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         let result = cpu.a & cpu.data;
 
         cpu.a = result;
@@ -76,7 +76,7 @@ impl Operation for ARR {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         let value = cpu.a & cpu.data;
         let result = (value >> 1) | (u8::from(cpu.p.contains(CpuStatus::C)) << 7);
 
@@ -101,7 +101,7 @@ impl<const O: Operand> Operation for ASL<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
         let result = value << 1;
 
@@ -123,7 +123,7 @@ impl Operation for BIT {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         cpu.p.update_z(cpu.a & cpu.data);
         cpu.p.set(CpuStatus::N, cpu.data & 0x80 != 0);
         cpu.p.set(CpuStatus::V, cpu.data & 0x40 != 0);
@@ -140,7 +140,7 @@ impl Operation for EOR {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         let result = cpu.a ^ cpu.data;
 
         cpu.a = result;
@@ -160,7 +160,7 @@ impl<const O: Operand> Operation for LSR<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
         let result = value >> 1;
 
@@ -182,7 +182,7 @@ impl Operation for ORA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, _: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         let result = cpu.a | cpu.data;
 
         cpu.a = result;
@@ -202,7 +202,7 @@ impl<const O: Operand> Operation for ROL<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
         let result = (value << 1) | u8::from(cpu.p.contains(CpuStatus::C));
 
@@ -226,7 +226,7 @@ impl<const O: Operand> Operation for ROR<O> {
     const ACCESS: Option<MemoryAccess> = O.access(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         let value = O.read(cpu);
         let result = (value >> 1) | (u8::from(cpu.p.contains(CpuStatus::C)) << 7);
 
@@ -248,7 +248,7 @@ impl Operation for RLA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         // ROL (Memory) writes the rotated value to both the bus and cpu.data; AND then reads
         // cpu.data so no redundant bus read is needed between the two halves.
         ready!(ROL::<{ Memory }>::apply(cpu, bus));
@@ -266,7 +266,7 @@ impl Operation for RRA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         // ROR sets C = original bit 0, which becomes the carry-in for ADC.
         ready!(ROR::<{ Memory }>::apply(cpu, bus));
 
@@ -282,7 +282,7 @@ impl Operation for SLO {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         // ASL (Memory) writes the shifted value to both the bus and cpu.data; ORA then reads
         // cpu.data so no redundant bus read is needed between the two halves.
         ready!(ASL::<{ Memory }>::apply(cpu, bus));
@@ -299,7 +299,7 @@ impl Operation for SRE {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::ReadModifyWrite);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03<B>, bus: &mut B) -> Poll<()> {
+    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         // LSR (Memory) writes the shifted value to both the bus and cpu.data; EOR then reads
         // cpu.data so no redundant bus read is needed between the two halves.
         ready!(LSR::<{ Memory }>::apply(cpu, bus));

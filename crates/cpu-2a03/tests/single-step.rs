@@ -48,7 +48,7 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
         // Cpu2A03::new() starts in Phase::Fetch so the first tick executes the instruction
         // at PC rather than running the hardware reset sequence.
 
-        let mut cpu = Cpu2A03::<FlatBus>::new();
+        let mut cpu = Cpu2A03::new();
 
         // SingleStepTests is generated from the visual6502 simulation, which uses 0xEE.
         cpu.magic = 0xEE;
