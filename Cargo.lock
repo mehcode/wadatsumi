@@ -622,6 +622,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "wadatsumi-ppu-2c02"
+version = "0.0.1"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
 name = "wadatsumi-system"
 version = "0.0.1"
 dependencies = [
@@ -641,6 +648,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "wadatsumi-cpu-2a03",
+ "wadatsumi-ppu-2c02",
  "wadatsumi-system",
 ]
 

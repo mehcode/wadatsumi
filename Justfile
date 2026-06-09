@@ -15,11 +15,11 @@ format:
 
 # Check source files
 check:
-    @cargo check --all-targets
+    @cargo check --all --tests
 
 # Lint source files and check for license headers.
 lint:
-    @cargo clippy --all-targets
+    @cargo clippy --all --tests
     @hawkeye check
     @cargo fmt --check
 

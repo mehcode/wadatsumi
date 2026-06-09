@@ -1,0 +1,11 @@
+lints.workspace = true
+
+[package]
+name = "wadatsumi-ppu-2c02"
+version = "0.0.1"
+workspace = "../.."
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+tracing.workspace = true
