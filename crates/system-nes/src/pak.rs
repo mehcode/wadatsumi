@@ -5,55 +5,46 @@ use bytes::Bytes;
 
 use crate::error::Error;
 use crate::pak::mapper::{AnyMapper, Mapper};
+use crate::pak::mirroring::Mirroring;
 
 mod mapper;
+mod mirroring;
 
 // iNES header is always exactly 16 bytes, followed by an optional trainer, then PRG, then CHR.
 const HEADER_SIZE: usize = 16;
 
 // A 512-byte block some ROM dumpers injected before the PRG data to patch games (cheats,
-// infinite lives, etc.). It's a dumping artifact, real cartridges never had trainers.
+// infinite lives, etc.). It's a dumping artifact, real paks never had trainers.
 // Modern emulators skip these bytes entirely.
 const TRAINER_SIZE: usize = 512;
 
 // PRG-ROM comes in 16 KB banks; the header stores the count, not the total size.
 const PRG_BANK_SIZE: usize = 16 * 1024;
 
-// CHR-ROM comes in 8 KB banks. A count of zero means the cartridge uses CHR-RAM instead —
+// CHR-ROM comes in 8 KB banks. A count of zero means the pak uses CHR-RAM instead —
 // the mapper supplies 8 KB of writable RAM in place of read-only ROM.
 const CHR_BANK_SIZE: usize = 8 * 1024;
-
-/// How the cartridge wires its nametables to the PPU's VRAM.
-///
-/// The NES PPU has 2 KB of VRAM, enough for two nametables, but the screen is logically
-/// divided into four. Mirroring determines which pairs of nametables share memory, which
-/// in turn controls how the background scrolls at the edges.
-pub enum Mirroring {
-    /// Nametables A/C share memory; B/D share memory. Scrolling wraps left-right.
-    Horizontal,
-
-    /// Nametables A/B share memory; C/D share memory. Scrolling wraps top-bottom.
-    Vertical,
-
-    /// All four nametables map to distinct memory (requires extra VRAM on the cartridge).
-    FourScreen,
-}
 
 /// A loaded NES game pak.
 ///
 /// Holds the PRG-ROM (CPU-side program data), CHR-ROM (PPU-side pattern data),
-/// the mapper that handles address translation, and cartridge-level metadata
-/// the rest of the system needs to configure itself (e.g. nametable mirroring).
+/// the mapper that handles address translation, and any pak-side RAM the board
+/// provides (SRAM at `$6000–$7FFF` on the CPU bus, and nametable RAM on the PPU bus).
 pub struct Pak {
     prg: Bytes,
     chr: Bytes,
     sram: Option<Box<[u8]>>,
-    mapper: AnyMapper,
 
-    /// Nametable mirroring arrangement, set by the cartridge hardware.
-    /// The PPU reads this to determine how the four logical nametables
-    /// map onto its 2 KB of VRAM.
-    pub mirroring: Mirroring,
+    /// Pak-side nametable RAM, on the PPU bus. Distinct from the console's
+    /// 2 KB CIRAM (which lives in [`SystemNes`][crate::SystemNes]); allocated
+    /// only when the mapper reports a non-zero [`Mapper::nt_ram_size`].
+    ///
+    /// Used by 4-screen boards (Gauntlet, Rad Racer II) to back the upper two
+    /// logical nametables that CIRAM cannot hold; future boards may use this
+    /// slot for MMC5 ExRAM-as-nametable and similar.
+    nt_ram: Option<Box<[u8]>>,
+
+    mapper: AnyMapper,
 }
 
 impl Pak {
@@ -127,18 +118,17 @@ impl Pak {
         let chr = pak.slice(prg_end..chr_end);
 
         let mapper = match mapper_num {
-            0 => AnyMapper::from(mapper::NROM),
+            0 => AnyMapper::from(mapper::NROM::new(mirroring)),
 
             _ => return Err(Error::UnsupportedMapper(mapper_num)),
         };
 
-        let sram = if mapper.sram_size() > 0 {
-            Some(vec![0; mapper.sram_size()].into_boxed_slice())
-        } else {
-            None
-        };
+        let sram = (mapper.sram_size() > 0).then(|| vec![0; mapper.sram_size()].into_boxed_slice());
 
-        Ok(Self { prg, chr, sram, mapper, mirroring })
+        let nt_ram =
+            (mapper.nt_ram_size() > 0).then(|| vec![0; mapper.nt_ram_size()].into_boxed_slice());
+
+        Ok(Self { prg, chr, sram, nt_ram, mapper })
     }
 
     /// Read one byte from PRG-ROM at the given CPU bus address, without advancing mapper state.
@@ -153,7 +143,7 @@ impl Pak {
     /// Read one byte from PRG-ROM at the given CPU bus address.
     ///
     /// Delegates to the mapper, which translates the address according to the
-    /// cartridge's bank-switching state and may update internal latch state.
+    /// pak's bank-switching state and may update internal latch state.
     /// The valid range is mapper-dependent but is typically $8000-$FFFF.
     #[inline]
     pub fn read_prg(&mut self, address: u16) -> u8 {
@@ -177,7 +167,7 @@ impl Pak {
 
     /// Read one byte from SRAM at the given CPU bus address (`$6000–$7FFF`).
     ///
-    /// Returns `0` if this cartridge has no SRAM.
+    /// Returns `0` if this pak has no SRAM.
     #[inline]
     pub fn read_sram(&self, address: u16) -> u8 {
         self.sram.as_deref().map_or(0, |sram| self.mapper.read_sram(sram, address))
@@ -185,11 +175,40 @@ impl Pak {
 
     /// Write one byte to SRAM at the given CPU bus address (`$6000–$7FFF`).
     ///
-    /// Does nothing if this cartridge has no SRAM.
+    /// Does nothing if this pak has no SRAM.
     #[inline]
     pub fn write_sram(&mut self, address: u16, value: u8) {
         if let Some(sram) = self.sram.as_deref_mut() {
             self.mapper.write_sram(sram, address, value);
         }
+    }
+
+    /// Read one byte from the nametable space (`$2000–$3EFF`), without advancing mapper
+    /// state. `ciram` is the console's internal 2 KB nametable RAM.
+    ///
+    /// The mapper applies its current mirroring arrangement to route the access to either
+    /// CIRAM or the pak's own nametable RAM (for four-screen boards).
+    #[inline]
+    pub fn nametable_peek(&self, ciram: &[u8; 2048], address: u16) -> u8 {
+        self.mapper.nametable_peek(self.nt_ram.as_deref().unwrap_or(&[]), ciram, address)
+    }
+
+    /// Read one byte from the nametable space (`$2000–$3EFF`).
+    ///
+    /// May update mapper latch state on future mappers (e.g. MMC5 EXNT).
+    #[inline]
+    pub fn nametable_read(&mut self, ciram: &[u8; 2048], address: u16) -> u8 {
+        self.mapper.nametable_read(self.nt_ram.as_deref().unwrap_or(&[]), ciram, address)
+    }
+
+    /// Write one byte into the nametable space (`$2000–$3EFF`).
+    #[inline]
+    pub fn nametable_write(&mut self, ciram: &mut [u8; 2048], address: u16, value: u8) {
+        self.mapper.nametable_write(
+            self.nt_ram.as_deref_mut().unwrap_or(&mut []),
+            ciram,
+            address,
+            value,
+        );
     }
 }

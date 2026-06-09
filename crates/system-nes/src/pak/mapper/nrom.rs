@@ -1,9 +1,9 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::pak::mapper::Mapper;
+use crate::pak::mapper::{Mapper, Mirroring};
 
-/// Mapper 0 (NROM). The simplest NES cartridge board, used by early titles like
+/// Mapper 0 (NROM). The simplest NES pak board, used by early titles like
 /// Donkey Kong, Super Mario Bros., and Excitebike. The board has no bank-switching
 /// hardware; the CPU sees the PRG-ROM directly at $8000-$FFFF. NROM-128 boards carry
 /// 16 KB of PRG-ROM mirrored across the full window; NROM-256 boards carry 32 KB.
@@ -11,7 +11,18 @@ use crate::pak::mapper::Mapper;
 /// NROM has no read side-effects on either PRG or CHR, so only the side-effect-free
 /// `peek_*` variants are implemented here; `read_prg` and `read_chr` use the trait
 /// defaults, which delegate to `peek_prg` and `peek_chr` respectively.
-pub struct NROM;
+///
+/// Mirroring is fixed at board manufacturing time (no runtime register); NROM stores
+/// the value parsed from the iNES header and applies it on every nametable access.
+pub struct NROM {
+    mirroring: Mirroring,
+}
+
+impl NROM {
+    pub fn new(mirroring: Mirroring) -> Self {
+        Self { mirroring }
+    }
+}
 
 impl Mapper for NROM {
     #[inline]
@@ -60,5 +71,10 @@ impl Mapper for NROM {
         //
         // SAFETY: `address & (len - 1)` is always `<= len - 1`, a valid index for `len > 0`.
         unsafe { *chr.get_unchecked((address as usize) & (chr.len() - 1)) }
+    }
+
+    #[inline]
+    fn mirroring(&self) -> Mirroring {
+        self.mirroring
     }
 }

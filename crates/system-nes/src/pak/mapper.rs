@@ -5,11 +5,13 @@
 
 use enum_dispatch::enum_dispatch;
 
+use crate::pak::mirroring::{Mirroring, NametableAddress};
+
 mod nrom;
 
 pub use nrom::NROM;
 
-/// Abstracts over cartridge memory-mapping hardware (the physical chips on the PCB).
+/// Abstracts over pak memory-mapping hardware (the physical chips on the PCB).
 ///
 /// Real NES paks varied enormously, some held a flat ROM, others had bank-switching
 /// controllers, extra RAM, or even their own audio chips. The mapper trait captures only the
@@ -33,7 +35,7 @@ pub trait Mapper {
         self.peek_prg(prg, address)
     }
 
-    /// How many bytes of SRAM this cartridge board provides; `Pak` allocates this slice on open.
+    /// How many bytes of SRAM this pak board provides; `Pak` allocates this slice on open.
     ///
     /// Returns `0` for boards with no battery-backed RAM, in which case `read_sram` and
     /// `write_sram` are never called.
@@ -64,6 +66,78 @@ pub trait Mapper {
     #[inline]
     fn read_chr(&mut self, chr: &[u8], address: u16) -> u8 {
         self.peek_chr(chr, address)
+    }
+
+    /// The pak's current nametable mirroring arrangement.
+    ///
+    /// Many mappers (MMC1, MMC3, FME-7) update this from internal registers during
+    /// gameplay; the value returned here is the *current* arrangement, not necessarily
+    /// the value parsed from the iNES header.
+    ///
+    /// The default [`nt_ram_size`], [`nametable_peek`], and [`nametable_write`] impls
+    /// use this to route accesses; exotic mappers whose nametable routing does not fit
+    /// the four-way [`Mirroring`] enum (notably MMC5 fill mode and ExRAM-as-nametable)
+    /// override the routing methods directly.
+    fn mirroring(&self) -> Mirroring;
+
+    /// How many bytes of pak-side nametable RAM this board provides; `Pak` allocates this
+    /// slice on open.
+    ///
+    /// Defaults to [`Mirroring::default_nt_ram_size`] for the current [`mirroring`]: 2 KB
+    /// for [`Mirroring::FourScreen`] and 0 otherwise. Override for boards that need
+    /// pak-side nametable RAM independent of mirroring (e.g. MMC5 `ExRAM` provides 1 KB
+    /// regardless).
+    #[inline]
+    fn nt_ram_size(&self) -> usize {
+        self.mirroring().default_nt_ram_size()
+    }
+
+    /// Read one byte from the nametable space (`$2000–$3EFF`) without advancing mapper state.
+    ///
+    /// `pak_nt_ram` is the pak's own nametable RAM (length [`nt_ram_size`]); `ciram` is the
+    /// console's internal 2 KB nametable RAM. The default body delegates routing to
+    /// [`Mirroring::nametable_address`]; override for exotic mappers whose nametable routing
+    /// does not fit the four-way [`Mirroring`] enum (notably MMC5 fill mode and `ExRAM`).
+    ///
+    /// Side-effect-free; used by the debugger and the PPU's peek path.
+    #[inline]
+    fn nametable_peek(&self, pak_nt_ram: &[u8], ciram: &[u8; 2048], address: u16) -> u8 {
+        match self.mirroring().nametable_address(address) {
+            NametableAddress::Ciram(address) => ciram[address],
+            NametableAddress::PakNtRam(address) => pak_nt_ram[address],
+        }
+    }
+
+    /// Read one byte from the nametable space (`$2000–$3EFF`).
+    ///
+    /// Takes `&mut self` because some mappers may latch on nametable fetches (notably MMC5
+    /// in `ExRAM`/EXNT mode); defaults to [`nametable_peek`] for the common case.
+    #[inline]
+    fn nametable_read(&mut self, pak_nt_ram: &[u8], ciram: &[u8; 2048], address: u16) -> u8 {
+        self.nametable_peek(pak_nt_ram, ciram, address)
+    }
+
+    /// Write one byte into the nametable space (`$2000–$3EFF`).
+    ///
+    /// The default body delegates routing to [`Mirroring::nametable_address`], symmetric
+    /// with [`nametable_peek`]; override alongside `nametable_peek` for exotic mappers.
+    #[inline]
+    fn nametable_write(
+        &mut self,
+        pak_nt_ram: &mut [u8],
+        ciram: &mut [u8; 2048],
+        address: u16,
+        value: u8,
+    ) {
+        match self.mirroring().nametable_address(address) {
+            NametableAddress::Ciram(address) => {
+                ciram[address] = value;
+            }
+
+            NametableAddress::PakNtRam(address) => {
+                pak_nt_ram[address] = value;
+            }
+        }
     }
 }
 
