@@ -19,17 +19,52 @@ pub use nrom::NROM;
 /// so that the mapper itself is pure logic with no data duplication.
 #[enum_dispatch]
 pub trait Mapper {
-    /// Read one byte from PRG-ROM/RAM at the given CPU address.
-    fn read_prg(&self, prg: &[u8], address: u16) -> u8;
+    /// Read one byte from PRG-ROM/RAM at the given CPU address without advancing mapper state.
+    ///
+    /// Side-effect-free; used by the debugger and disassembler.
+    fn peek_prg(&self, prg: &[u8], address: u16) -> u8;
 
-    /// How many bytes of SRAM this cartridge board provides; `Pak` allocates this on open.
+    /// Read one byte from PRG-ROM/RAM at the given CPU address.
+    ///
+    /// Takes `&mut self` because some mappers (e.g. MMC2) latch their CHR bank on certain PRG
+    /// reads; defaults to `peek_prg` for mappers with no read side-effects.
+    #[inline]
+    fn read_prg(&mut self, prg: &[u8], address: u16) -> u8 {
+        self.peek_prg(prg, address)
+    }
+
+    /// How many bytes of SRAM this cartridge board provides; `Pak` allocates this slice on open.
+    ///
+    /// Returns `0` for boards with no battery-backed RAM, in which case `read_sram` and
+    /// `write_sram` are never called.
     fn sram_size(&self) -> usize;
 
     /// Read one byte from SRAM at the given CPU address (`$6000–$7FFF`).
+    ///
+    /// Only called when `sram_size() > 0`; the mapper may assume the slice length equals
+    /// `sram_size()`.
     fn read_sram(&self, sram: &[u8], address: u16) -> u8;
 
     /// Write one byte to SRAM at the given CPU address (`$6000–$7FFF`).
-    fn write_sram(&self, sram: &mut [u8], address: u16, value: u8);
+    ///
+    /// Only called when `sram_size() > 0`; the mapper may assume the slice length equals
+    /// `sram_size()`.
+    fn write_sram(&mut self, sram: &mut [u8], address: u16, value: u8);
+
+    /// Read one byte from CHR-ROM/RAM at the given PPU address (`$0000–$1FFF`) without
+    /// advancing mapper state.
+    ///
+    /// Side-effect-free; used by the debugger and disassembler.
+    fn peek_chr(&self, chr: &[u8], address: u16) -> u8;
+
+    /// Read one byte from CHR-ROM/RAM at the given PPU address (`$0000–$1FFF`).
+    ///
+    /// Takes `&mut self` because some mappers (e.g. MMC2/MMC4) update their CHR bank latch on
+    /// pattern fetches; defaults to `peek_chr` for mappers without read side-effects.
+    #[inline]
+    fn read_chr(&mut self, chr: &[u8], address: u16) -> u8 {
+        self.peek_chr(chr, address)
+    }
 }
 
 #[enum_dispatch(Mapper)]

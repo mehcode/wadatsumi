@@ -1,3 +1,5 @@
+lints.workspace = true
+
 [package]
 name = "wadatsumi-system-nes"
 version = "0.0.1"
@@ -11,6 +13,7 @@ enum_dispatch.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 wadatsumi-cpu-2a03.workspace = true
+wadatsumi-ppu-2c02.workspace = true
 wadatsumi-system.workspace = true
 
 [dev-dependencies]

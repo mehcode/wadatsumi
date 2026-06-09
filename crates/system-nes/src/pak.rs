@@ -46,7 +46,6 @@ pub enum Mirroring {
 /// the rest of the system needs to configure itself (e.g. nametable mirroring).
 pub struct Pak {
     prg: Bytes,
-    #[expect(unused)]
     chr: Bytes,
     sram: Option<Box<[u8]>>,
     mapper: AnyMapper,
@@ -54,7 +53,6 @@ pub struct Pak {
     /// Nametable mirroring arrangement, set by the cartridge hardware.
     /// The PPU reads this to determine how the four logical nametables
     /// map onto its 2 KB of VRAM.
-    #[expect(unused)]
     pub mirroring: Mirroring,
 }
 
@@ -143,14 +141,38 @@ impl Pak {
         Ok(Self { prg, chr, sram, mapper, mirroring })
     }
 
+    /// Read one byte from PRG-ROM at the given CPU bus address, without advancing mapper state.
+    ///
+    /// Side-effect-free; used by the debugger and disassembler. The valid range is
+    /// mapper-dependent but is typically $8000-$FFFF.
+    #[inline]
+    pub fn peek_prg(&self, address: u16) -> u8 {
+        self.mapper.peek_prg(&self.prg, address)
+    }
+
     /// Read one byte from PRG-ROM at the given CPU bus address.
     ///
     /// Delegates to the mapper, which translates the address according to the
-    /// cartridge's bank-switching state. The valid range is mapper-dependent
-    /// but is typically $8000-$FFFF.
+    /// cartridge's bank-switching state and may update internal latch state.
+    /// The valid range is mapper-dependent but is typically $8000-$FFFF.
     #[inline]
-    pub fn read_prg(&self, address: u16) -> u8 {
+    pub fn read_prg(&mut self, address: u16) -> u8 {
         self.mapper.read_prg(&self.prg, address)
+    }
+
+    /// Read one byte from CHR-ROM at the given PPU address (`$0000–$1FFF`), without
+    /// advancing mapper state. Used by the PPU's peek path and the debugger.
+    #[inline]
+    pub fn peek_chr(&self, address: u16) -> u8 {
+        self.mapper.peek_chr(&self.chr, address)
+    }
+
+    /// Read one byte from CHR-ROM at the given PPU address (`$0000–$1FFF`).
+    ///
+    /// May update mapper latch state (e.g. MMC2/MMC4 bank switching on pattern fetches).
+    #[inline]
+    pub fn read_chr(&mut self, address: u16) -> u8 {
+        self.mapper.read_chr(&self.chr, address)
     }
 
     /// Read one byte from SRAM at the given CPU bus address (`$6000–$7FFF`).

@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 
-use wadatsumi_cpu_2a03::Bus;
 use wadatsumi_system::System;
 use wadatsumi_system_nes::SystemNes;
 
@@ -30,16 +29,16 @@ fn instr_test_v5(path: &Path) -> datatest_stable::Result<()> {
         // routine finishes. We ignore $6000 until we see it, before then the SRAM
         // is zero-initialized and $6000 would be a false "pass".
         if !initialized {
-            initialized = system.bus.peek(0x6001) == 0xDE
-                && system.bus.peek(0x6002) == 0xB0
-                && system.bus.peek(0x6003) == 0x61;
+            initialized = system.cpu_peek(0x6001) == 0xDE
+                && system.cpu_peek(0x6002) == 0xB0
+                && system.cpu_peek(0x6003) == 0x61;
 
             continue;
         }
 
         // $80 is the "still running" sentinel; any other value means the ROM
         // has finished and written its final result code to $6000.
-        let status = system.bus.peek(0x6000);
+        let status = system.cpu_peek(0x6000);
 
         if status == 0x80 {
             continue;
@@ -49,7 +48,7 @@ fn instr_test_v5(path: &Path) -> datatest_stable::Result<()> {
         // description to $6004 as a null-terminated ASCII string.
         if status != 0x00 {
             let msg: String = (0x6004..)
-                .map(|a| system.bus.peek(a))
+                .map(|a| system.cpu_peek(a))
                 .take_while(|&b| b != 0)
                 .map(|b| b as char)
                 .collect();

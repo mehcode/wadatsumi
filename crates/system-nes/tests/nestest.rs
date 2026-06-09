@@ -3,7 +3,6 @@ use std::sync::LazyLock;
 
 use anyhow::Context;
 use regex::Regex;
-use wadatsumi_cpu_2a03::Bus;
 use wadatsumi_system::System;
 use wadatsumi_system_nes::SystemNes;
 
@@ -73,11 +72,11 @@ fn nestest() -> anyhow::Result<()> {
 
     // A non-zero value here means at least one opcode produced the wrong
     // result; the value itself is a lookup key in nestest.txt.
-    assert_eq!(system.bus.read(0x0002), 0x00, "nestest result code");
+    assert_eq!(system.cpu_peek(0x0002), 0x00, "nestest result code");
 
     // Non-zero only when $0002 is also non-zero; narrows the failure to a
     // specific sub-test within the failing group.
-    assert_eq!(system.bus.read(0x0003), 0x00, "nestest sub-test code");
+    assert_eq!(system.cpu_peek(0x0003), 0x00, "nestest sub-test code");
 
     Ok(())
 }
