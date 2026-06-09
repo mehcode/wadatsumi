@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use libtest_mimic::Trial;
-use wadatsumi_cpu_2a03::{Bus, Cpu2A03};
+use wadatsumi_cpu_2a03::{Cpu2A03, CpuPeek, CpuReadWrite};
 
 const FIXTURES: LazyCell<PathBuf> =
     LazyCell::new(|| PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("single-step-nes6502"));
@@ -31,7 +31,7 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
     // Allocate the bus once and reset it between cases to avoid a 64 KB heap allocation
     // per test case (10,000 cases × one file per opcode = 2.56 M potential allocations).
 
-    let mut bus = FlatBus { ram: Box::new([0; 65536]), trace: Vec::new() };
+    let mut bus = FlatCpuReadWrite { ram: Box::new([0; 65536]), trace: Vec::new() };
 
     for case in cases {
         // Restore the bus to a known-zero state, then stamp in only the locations
@@ -149,16 +149,18 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
 /// Every [`Bus::read`] and [`Bus::write`] call appends an entry to `trace` so the test can
 /// verify the exact sequence of bus transactions the CPU performed against the golden cycles
 /// list from SingleStepTests. [`Bus::peek`] is side-effect-free and does not record anything.
-struct FlatBus {
+struct FlatCpuReadWrite {
     ram: Box<[u8; 65536]>,
     trace: Vec<(u16, u8, bool)>,
 }
 
-impl Bus for FlatBus {
+impl CpuPeek for FlatCpuReadWrite {
     fn peek(&self, address: u16) -> u8 {
         self.ram[address as usize]
     }
+}
 
+impl CpuReadWrite for FlatCpuReadWrite {
     fn read(&mut self, address: u16) -> u8 {
         let value = self.peek(address);
         self.trace.push((address, value, true));

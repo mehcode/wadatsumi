@@ -8,7 +8,7 @@
 
 use std::task::{Poll, ready};
 
-use crate::Bus;
+use crate::CpuReadWrite;
 use crate::cpu::Cpu2A03;
 use crate::cpu::operation::Register::{self, A, SP, X, Y};
 use crate::cpu::operation::{MemoryAccess, Operation};
@@ -21,7 +21,7 @@ impl Operation for LAS {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         let result = cpu.data & cpu.sp;
 
         cpu.a = result;
@@ -42,7 +42,7 @@ impl Operation for LAX {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         // LDA loads cpu.data into A and updates flags; LDX reads the same cpu.data into X.
         // Both halves consume the byte already latched by the Read pipeline, no extra bus read.
         // LDA loads cpu.data into A and updates flags; LDX reads the same cpu.data into X.
@@ -61,7 +61,7 @@ impl<const R: Register> Operation for LOAD<R> {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         R.set(cpu, cpu.data);
         cpu.p.update_zn(cpu.data);
 
@@ -81,7 +81,7 @@ impl Operation for LXA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         let result = (cpu.a | cpu.magic) & cpu.data;
 
         cpu.a = result;
@@ -101,7 +101,7 @@ impl Operation for XAA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Read);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         let result = (cpu.a | cpu.magic) & cpu.x & cpu.data;
 
         cpu.a = result;
@@ -119,7 +119,7 @@ impl Operation for SAX {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         let value = cpu.a & cpu.x;
 
         bus.write(cpu.address(), value);
@@ -137,7 +137,7 @@ impl<const R: Register> Operation for STORE<R> {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         let value = R.get(cpu);
 
         bus.write(cpu.address(), value);
@@ -158,7 +158,7 @@ impl Operation for SHA {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         let base_high = (cpu.address().wrapping_sub(u16::from(cpu.y)) >> 8) as u8;
         let result = cpu.a & cpu.x & base_high.wrapping_add(1);
 
@@ -185,7 +185,7 @@ impl<const R: Register, const IDX: Register> Operation for SH<R, IDX> {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         let index = IDX.get(cpu);
         let base_high = (cpu.address().wrapping_sub(u16::from(index)) >> 8) as u8;
 
@@ -216,7 +216,7 @@ impl Operation for TAS {
     const ACCESS: Option<MemoryAccess> = Some(MemoryAccess::Write);
 
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         // SHA computes A & X & (base_high + 1) and handles the page-cross bus conflict.
         // Setting SP = A & X first means SP & (base_high + 1) == A & X & (base_high + 1),
         // so SHA's existing logic is correct here without any changes.
@@ -232,7 +232,7 @@ pub struct TRANSFER<const SRC: Register, const DST: Register>;
 
 impl<const SRC: Register, const DST: Register> Operation for TRANSFER<SRC, DST> {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         let value = SRC.get(cpu);
 
         DST.set(cpu, value);

@@ -3,7 +3,7 @@
 
 use std::task::Poll;
 
-use crate::bus::Bus;
+use crate::bus::CpuReadWrite;
 use crate::cpu::Cpu2A03;
 use crate::cpu::addressing::AddressingMode;
 use crate::cpu::operation::{MemoryAccess, Operation};
@@ -16,7 +16,7 @@ use crate::cpu::operation::{MemoryAccess, Operation};
 pub type Instruction<B> = fn(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>;
 
 /// Monomorphic handler for a specific `(Operation, AddressingMode)` pair.
-pub fn execute<B: Bus, O: Operation, A: AddressingMode>(
+pub fn execute<B: CpuReadWrite, O: Operation, A: AddressingMode>(
     cpu: &mut Cpu2A03,
     bus: &mut B,
 ) -> Poll<()> {

@@ -4,7 +4,7 @@
 use std::mem::transmute;
 use std::task::Poll;
 
-use crate::bus::Bus;
+use crate::bus::CpuReadWrite;
 use crate::cpu::instruction::Instruction;
 use crate::cpu::table::InstructionTable;
 
@@ -140,7 +140,7 @@ impl Cpu2A03 {
     }
 
     /// Advances the CPU by one clock cycle.
-    pub fn tick<B: Bus>(&mut self, bus: &mut B) {
+    pub fn tick<B: CpuReadWrite>(&mut self, bus: &mut B) {
         self.cycles += 1;
 
         match self.phase {
@@ -228,7 +228,7 @@ impl Cpu2A03 {
     }
 
     /// Reads the byte at PC, and advances PC.
-    fn fetch<B: Bus>(&mut self, bus: &mut B) -> u8 {
+    fn fetch<B: CpuReadWrite>(&mut self, bus: &mut B) -> u8 {
         let value = bus.read(self.pc);
         self.pc = self.pc.wrapping_add(1);
 
@@ -260,7 +260,7 @@ impl Cpu2A03 {
 
     /// Writes `value` to `$0100 + SP`, then decrements SP.
     #[inline]
-    fn stack_push<B: Bus>(&mut self, bus: &mut B, value: u8) {
+    fn stack_push<B: CpuReadWrite>(&mut self, bus: &mut B, value: u8) {
         bus.write(self.stack_address(), value);
         self.sp = self.sp.wrapping_sub(1);
     }
@@ -270,7 +270,7 @@ impl Cpu2A03 {
 ///
 /// Returns `Poll::Pending` while the sequence is in progress and `Poll::Ready(())` on T6 once
 /// PC has been loaded from the reset vector and execution can resume.
-fn reset<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+fn reset<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
     match cpu.t {
         // T0–T1: internal pipeline cycles; the bus is read but the result is discarded.
         0 => {

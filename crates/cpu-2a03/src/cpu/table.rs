@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::bus::Bus;
+use crate::bus::CpuReadWrite;
 use crate::cpu::addressing::{
     Absolute, AbsoluteX, AbsoluteY, AddressingMode, Immediate, Implied, Indirect, IndirectX,
     IndirectY, Relative, ZeroPage, ZeroPageX, ZeroPageY,
@@ -19,11 +19,11 @@ use crate::cpu::operation::{
 ///
 /// Slots for unimplemented opcodes are `None`; the CPU should treat those as
 /// illegal instructions.
-pub struct InstructionTable<B: Bus> {
+pub struct InstructionTable<B: CpuReadWrite> {
     instructions: [Option<Instruction<B>>; 256],
 }
 
-impl<B: Bus> InstructionTable<B> {
+impl<B: CpuReadWrite> InstructionTable<B> {
     const TABLE: Self = Self::new();
 
     /// Builds the table with every implemented opcode wired to its handler.

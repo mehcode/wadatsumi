@@ -7,7 +7,7 @@
 
 use std::task::Poll;
 
-use crate::Bus;
+use crate::CpuReadWrite;
 use crate::cpu::operation::Operation;
 use crate::cpu::{Cpu2A03, CpuStatus};
 
@@ -17,7 +17,7 @@ pub struct BRANCH<const FLAG: CpuStatus, const EXPECTED: bool>;
 
 impl<const FLAG: CpuStatus, const EXPECTED: bool> Operation for BRANCH<FLAG, EXPECTED> {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         match cpu.t {
             // Not-taken branches retire here (2 cycles total).
             1 => {
@@ -78,7 +78,7 @@ pub struct JMP;
 
 impl Operation for JMP {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, _: &mut B) -> Poll<()> {
         cpu.pc = cpu.address();
 
         Poll::Ready(())
@@ -96,7 +96,7 @@ pub struct JSR;
 impl Operation for JSR {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         match cpu.t {
             1 => {
                 // ADL was pre-read into cpu.data by Implied's spurious read without advancing PC.
@@ -145,7 +145,7 @@ pub struct RTS;
 
 impl Operation for RTS {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         match cpu.t {
             // T1: internal, wait for stack pointer.
             1 => Poll::Pending,
@@ -194,7 +194,7 @@ pub struct RTI;
 
 impl Operation for RTI {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         match cpu.t {
             // T1: internal, wait for stack pointer.
             1 => Poll::Pending,

@@ -6,7 +6,7 @@
 use std::marker::ConstParamTy;
 use std::task::Poll;
 
-use crate::bus::Bus;
+use crate::bus::CpuReadWrite;
 use crate::cpu::Cpu2A03;
 
 mod arithmetic;
@@ -48,7 +48,7 @@ pub trait Operation {
     /// Called only after the addressing mode has fully resolved. `cpu.address`
     /// holds the effective address. Returns `Poll::Ready(())` when the operation is
     /// complete, signalling the CPU to clear the in-flight instruction.
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>
     where
         Self: Sized;
 }
@@ -137,7 +137,7 @@ impl Operand {
 
     /// Writes `value` to this operand.
     #[inline(always)]
-    pub fn write<B: Bus>(self, cpu: &mut Cpu2A03, bus: &mut B, value: u8) {
+    pub fn write<B: CpuReadWrite>(self, cpu: &mut Cpu2A03, bus: &mut B, value: u8) {
         match self {
             Self::Register(r) => {
                 r.set(cpu, value);

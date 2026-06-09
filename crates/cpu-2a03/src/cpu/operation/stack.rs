@@ -7,7 +7,7 @@
 
 use std::task::Poll;
 
-use crate::Bus;
+use crate::CpuReadWrite;
 use crate::cpu::operation::Operation;
 use crate::cpu::{Cpu2A03, CpuStatus};
 
@@ -19,7 +19,7 @@ pub struct PHA;
 impl Operation for PHA {
     #[allow(clippy::single_match_else)]
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         match cpu.t {
             1 => Poll::Pending,
 
@@ -40,7 +40,7 @@ pub struct PHP;
 impl Operation for PHP {
     #[allow(clippy::single_match_else)]
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         match cpu.t {
             1 => Poll::Pending,
 
@@ -60,7 +60,7 @@ pub struct PLA;
 
 impl Operation for PLA {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         match cpu.t {
             1 => Poll::Pending,
 
@@ -91,7 +91,7 @@ pub struct PLP;
 
 impl Operation for PLP {
     #[inline]
-    fn apply<B: Bus>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
         match cpu.t {
             1 | 2 => PLA::apply(cpu, bus),
 
