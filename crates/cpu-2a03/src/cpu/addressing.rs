@@ -161,6 +161,7 @@ pub struct AbsoluteIndexed<const R: Register>;
 impl<const R: Register> AddressingMode for AbsoluteIndexed<R> {
     const CYCLES: u8 = 4;
 
+    #[expect(clippy::cast_possible_truncation)]
     #[inline]
     fn resolve<O: Operation, B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<Option<u8>> {
         match cpu.t {

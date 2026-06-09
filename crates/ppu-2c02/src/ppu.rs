@@ -85,7 +85,14 @@ pub struct Ppu2C02 {
     io_latch: u8,
 }
 
+impl Default for Ppu2C02 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Ppu2C02 {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             control: PpuControl(0),
@@ -110,8 +117,9 @@ impl Ppu2C02 {
     /// (`$3F00`, `$3F04`, `$3F08`, `$3F0C`).
     #[inline]
     const fn palette_index(address: u16) -> usize {
-        let idx = (address & 0x1F) as usize;
-        if idx >= 0x10 && idx & 0x03 == 0 { idx & 0x0F } else { idx }
+        let index = (address & 0x1F) as usize;
+
+        if index >= 0x10 && index.trailing_zeros() >= 2 { index & 0x0F } else { index }
     }
 
     #[inline]
@@ -125,6 +133,6 @@ impl Ppu2C02 {
     }
 
     pub fn tick<B: PpuReadWrite>(&mut self, bus: &mut B) {
-        todo!()
+        // TODO: handle dot/scanline cycle
     }
 }

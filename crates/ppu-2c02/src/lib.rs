@@ -7,6 +7,5 @@ mod mask;
 mod ppu;
 mod status;
 
-pub use bus::PpuPeek;
-pub use bus::PpuReadWrite;
+pub use bus::{PpuPeek, PpuReadWrite};
 pub use ppu::Ppu2C02;

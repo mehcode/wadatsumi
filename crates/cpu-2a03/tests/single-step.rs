@@ -1,13 +1,14 @@
 use std::cell::LazyCell;
-use std::fs;
+use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::LazyLock;
 
 use libtest_mimic::Trial;
 use wadatsumi_cpu_2a03::{Cpu2A03, CpuPeek, CpuReadWrite};
 
-const FIXTURES: LazyCell<PathBuf> =
-    LazyCell::new(|| PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("single-step-nes6502"));
+static FIXTURES: LazyLock<PathBuf> =
+    LazyLock::new(|| PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("single-step-nes6502"));
 
 fn main() -> anyhow::Result<()> {
     download_processor_tests()?;
@@ -19,7 +20,7 @@ fn main() -> anyhow::Result<()> {
     libtest_mimic::run(&args, trials).exit();
 }
 
-/// Exercises a single opcode by running ten thousand test cases from SingleStepTests.
+/// Exercises a single opcode by running ten thousand test cases from `SingleStepTests`.
 ///
 /// Each test case supplies an exact initial machine state (registers + a sparse RAM snapshot),
 /// the expected final state after one instruction, and the exact sequence of bus transactions
@@ -31,7 +32,7 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
     // Allocate the bus once and reset it between cases to avoid a 64 KB heap allocation
     // per test case (10,000 cases × one file per opcode = 2.56 M potential allocations).
 
-    let mut bus = FlatCpuReadWrite { ram: Box::new([0; 65536]), trace: Vec::new() };
+    let mut bus = FlatCpuReadWrite { ram: vec![0u8; 65536].into_boxed_slice(), trace: Vec::new() };
 
     for case in cases {
         // Restore the bus to a known-zero state, then stamp in only the locations
@@ -148,9 +149,9 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
 ///
 /// Every [`Bus::read`] and [`Bus::write`] call appends an entry to `trace` so the test can
 /// verify the exact sequence of bus transactions the CPU performed against the golden cycles
-/// list from SingleStepTests. [`Bus::peek`] is side-effect-free and does not record anything.
+/// list from `SingleStepTests`. [`Bus::peek`] is side-effect-free and does not record anything.
 struct FlatCpuReadWrite {
-    ram: Box<[u8; 65536]>,
+    ram: Box<[u8]>,
     trace: Vec<(u16, u8, bool)>,
 }
 
@@ -188,7 +189,7 @@ struct CpuState {
     ram: Vec<(u16, u8)>,
 }
 
-/// One test case from SingleStepTests: a named scenario for a single instruction execution.
+/// One test case from `SingleStepTests`: a named scenario for a single instruction execution.
 #[derive(serde::Deserialize)]
 struct TestCase {
     name: String,
@@ -203,15 +204,15 @@ struct TestCase {
     cycles: Vec<(u16, u8, String)>,
 }
 
-/// Collects each test case (provided from SingleStepTests) into
+/// Collects each test case (provided from `SingleStepTests`) into
 /// an array of `Trials`.
 fn collect_trials() -> anyhow::Result<Vec<Trial>> {
     let mut entries = fs::read_dir(FIXTURES.join("nes6502/v1"))?
-        .filter_map(|e| e.ok())
+        .filter_map(Result::ok)
         .filter(|e| e.path().extension().is_some_and(|x| x == "json"))
         .collect::<Vec<_>>();
 
-    entries.sort_by_key(|e| e.path());
+    entries.sort_by_key(DirEntry::path);
 
     Ok(entries
         .into_iter()
@@ -224,7 +225,7 @@ fn collect_trials() -> anyhow::Result<Vec<Trial>> {
         .collect())
 }
 
-/// Download the 6502 processor tests from SingleStepTests.
+/// Download the 6502 processor tests from `SingleStepTests`.
 // https://github.com/SingleStepTests/65x02/tree/main/nes6502/v1
 fn download_processor_tests() -> anyhow::Result<()> {
     if FIXTURES.exists() {

@@ -178,6 +178,7 @@ impl PpuReadWrite for SystemNesPpuReadWrite<'_> {
         }
     }
 
+    #[expect(clippy::match_same_arms)]
     fn ppu_write(&mut self, address: u16, value: u8) {
         match address {
             // CHR-ROM is read-only; PPU writes to this range are silently discarded.

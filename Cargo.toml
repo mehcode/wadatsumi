@@ -28,6 +28,9 @@ all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 inline_always = { level = "allow" }
 
+[lints]
+workspace = true
+
 [package]
 name = "wadatsumi"
 version = "0.0.1"

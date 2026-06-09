@@ -1,3 +1,5 @@
+lints.workspace = true
+
 [package]
 name = "wadatsumi-system"
 version = "0.0.1"

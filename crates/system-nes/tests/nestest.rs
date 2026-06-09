@@ -31,40 +31,40 @@ fn nestest() -> anyhow::Result<()> {
         // t() == 0 is the SYNC cycle: the CPU is at an instruction boundary
         // and has not yet fetched the next opcode.  The nestest log records
         // state at exactly this moment, so it is the right point to compare.
-        if system.cpu.t() == 0 {
-            if let Some((line, entry)) = expected.next() {
-                let cpu = &system.cpu;
+        if system.cpu.t() == 0
+            && let Some((line, entry)) = expected.next()
+        {
+            let cpu = &system.cpu;
 
-                // Bit 5 (U) is hardwired high on the physical chip; OR it in
-                // so our comparison matches the log which always has it set.
-                let p = cpu.p.0 | 0b0010_0000;
+            // Bit 5 (U) is hardwired high on the physical chip; OR it in
+            // so our comparison matches the log which always has it set.
+            let p = cpu.p.0 | 0b0010_0000;
 
-                assert!(
-                    cpu.pc == entry.pc
-                        && cpu.a == entry.a
-                        && cpu.x == entry.x
-                        && cpu.y == entry.y
-                        && p == entry.p
-                        && cpu.sp == entry.sp
-                        && cpu.cycles == entry.cycle,
-                    "diverged on line {}:\n  expected: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}\n    actual: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}",
-                    line + 1,
-                    entry.pc,
-                    entry.a,
-                    entry.x,
-                    entry.y,
-                    entry.p,
-                    entry.sp,
-                    entry.cycle,
-                    cpu.pc,
-                    cpu.a,
-                    cpu.x,
-                    cpu.y,
-                    p,
-                    cpu.sp,
-                    cpu.cycles,
-                );
-            }
+            assert!(
+                cpu.pc == entry.pc
+                    && cpu.a == entry.a
+                    && cpu.x == entry.x
+                    && cpu.y == entry.y
+                    && p == entry.p
+                    && cpu.sp == entry.sp
+                    && cpu.cycles == entry.cycle,
+                "diverged on line {}:\n  expected: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}\n    actual: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}",
+                line + 1,
+                entry.pc,
+                entry.a,
+                entry.x,
+                entry.y,
+                entry.p,
+                entry.sp,
+                entry.cycle,
+                cpu.pc,
+                cpu.a,
+                cpu.x,
+                cpu.y,
+                p,
+                cpu.sp,
+                cpu.cycles,
+            );
         }
 
         system.tick();

@@ -23,6 +23,7 @@ impl Ppu2C02 {
     /// Intended for debuggers and memory viewers that need to inspect register state
     /// without disturbing it. `address` is the register index (0–7), corresponding
     /// to the low three bits of the CPU address range `$2000`–`$3FFF`.
+    #[must_use]
     pub fn cpu_peek(&self, address: u8) -> u8 {
         match address {
             // Status register (`$2002`).
@@ -57,6 +58,7 @@ impl Ppu2C02 {
     /// are PPUSTATUS (`2`), OAMDATA (`4`), and PPUDATA (`7`): each drives some or all bits
     /// of the result, merges undriven bits from `io_latch`, and then stores the full byte
     /// back into `io_latch` before returning.
+    #[expect(clippy::match_same_arms)]
     pub fn cpu_read<B: PpuReadWrite>(&mut self, address: u8, bus: &mut B) -> u8 {
         let value = match address {
             // Control register (`$2000`). Write-only; returns io_latch.
@@ -143,6 +145,7 @@ impl Ppu2C02 {
     /// `address` is the register index (0–7), corresponding to the low three bits
     /// of the CPU address range `$2000`–`$3FFF`. Callers are expected to have already
     /// masked the address to three bits.
+    #[expect(clippy::match_same_arms)]
     pub fn cpu_write<B: PpuReadWrite>(&mut self, address: u8, value: u8, bus: &mut B) {
         // Store the value in the IO latch.
         self.io_latch = value;
@@ -157,7 +160,7 @@ impl Ppu2C02 {
                 // This ensures the correct base nametable is already encoded in t before
                 // the PPU copies t → v at the start of each frame, so the game doesn't
                 // need a separate PPUADDR write just to change which nametable is active.
-                self.t = (self.t & !0b1100_0000_0000) | ((self.control.nametable() as u16) << 10);
+                self.t = (self.t & !0b1100_0000_0000) | (self.control.nametable() << 10);
             }
 
             // Mask register (`$2001`).
@@ -192,14 +195,14 @@ impl Ppu2C02 {
                     // Second write: encode vertical scroll into t.
                     self.t = (self.t & !0b0111_0011_1110_0000)
                         //   value[7:3] → t[9:5]    coarse Y  — which tile row (0–29)
-                        | ((value as u16 & 0b1111_1000) << 2)
+                        | ((u16::from(value) & 0b1111_1000) << 2)
                         //   value[2:0] → t[14:12]  fine Y    — which pixel row within the tile (0–7)
-                        | ((value as u16 & 0b0000_0111) << 12);
+                        | ((u16::from(value) & 0b0000_0111) << 12);
                 } else {
                     // https://www.nesdev.org/wiki/PPU_scrolling#$2005_(PPUSCROLL)_first_write_(w_is_0)
                     // First write: encode horizontal scroll into t and the fine-X register.
                     //   value[7:3] → t[4:0]  coarse X — which tile column (0–31)
-                    self.t = (self.t & !0b0001_1111) | ((value as u16) >> 3);
+                    self.t = (self.t & !0b0001_1111) | (u16::from(value) >> 3);
 
                     // Fine X lives in its own 3-bit register rather than in t because the PPU
                     // reads it separately on every dot to select a bit from the tile shift registers.
@@ -217,7 +220,7 @@ impl Ppu2C02 {
                 if self.cpu_second_write() {
                     // https://www.nesdev.org/wiki/PPU_scrolling#$2006_(PPUADDR)_second_write_(w_is_1)
                     // Second write: low byte → t[7:0], then copy t into v.
-                    self.t = (self.t & 0b0111_1111_0000_0000) | value as u16;
+                    self.t = (self.t & 0b0111_1111_0000_0000) | u16::from(value);
 
                     // The complete VRAM address is now known; latch it so PPUDATA takes effect immediately.
                     self.v = self.t;
@@ -225,7 +228,8 @@ impl Ppu2C02 {
                     // https://www.nesdev.org/wiki/PPU_scrolling#$2006_(PPUADDR)_first_write_(w_is_0)
                     // First write: high 6 bits → t[13:8], t[14] is always cleared.
                     // VRAM is 14-bit (0x0000–0x3FFF), so the top 2 bits of the byte are discarded.
-                    self.t = (self.t & 0b0000_0000_1111_1111) | ((value as u16 & 0b0011_1111) << 8);
+                    self.t =
+                        (self.t & 0b0000_0000_1111_1111) | ((u16::from(value) & 0b0011_1111) << 8);
                 }
             }
 

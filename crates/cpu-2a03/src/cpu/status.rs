@@ -54,7 +54,7 @@ impl CpuStatus {
     /// Callers pass single-bit flag constants (`C`, `Z`, …), for which "any bit set"
     /// and "all bits set" coincide; this is not a general subset test.
     #[must_use]
-    pub const fn contains(&self, flag: Self) -> bool {
+    pub const fn contains(self, flag: Self) -> bool {
         self.0 & flag.0 != 0
     }
 

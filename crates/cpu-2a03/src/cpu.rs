@@ -93,7 +93,7 @@ pub struct Cpu2A03 {
     /// The "magic" byte OR'd into A before the AND in unstable immediate-mode opcodes (`LXA`, `XAA`).
     ///
     /// On real hardware this value is non-deterministic, it depends on analog bus capacitance,
-    /// chip revision, and temperature. Common values: `0xFF` (nestest), `0xEE` (SingleStepTests /
+    /// chip revision, and temperature. Common values: `0xFF` (nestest), `0xEE` (`SingleStepTests` /
     /// visual6502). Defaults to `0xFF`.
     pub magic: u8,
 }
@@ -270,6 +270,7 @@ impl Cpu2A03 {
 ///
 /// Returns `Poll::Pending` while the sequence is in progress and `Poll::Ready(())` on T6 once
 /// PC has been loaded from the reset vector and execution can resume.
+#[expect(clippy::match_same_arms)]
 fn reset<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
     match cpu.t {
         // T0–T1: internal pipeline cycles; the bus is read but the result is discarded.

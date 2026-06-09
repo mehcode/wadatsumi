@@ -65,6 +65,7 @@ impl CpuReadWrite for SystemNesCpuReadWrite<'_> {
         }
     }
 
+    #[expect(clippy::match_same_arms)]
     fn write(&mut self, address: u16, value: u8) {
         match address {
             0x0000..=0x1fff => {
