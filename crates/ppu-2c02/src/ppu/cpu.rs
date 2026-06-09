@@ -160,7 +160,7 @@ impl Ppu2C02 {
                 // This ensures the correct base nametable is already encoded in t before
                 // the PPU copies t → v at the start of each frame, so the game doesn't
                 // need a separate PPUADDR write just to change which nametable is active.
-                self.t = (self.t & !0b1100_0000_0000) | (self.control.nametable() << 10);
+                self.t = (self.t & !0b1100_0000_0000) | (self.control.nametable_index() << 10);
             }
 
             // Mask register (`$2001`).
