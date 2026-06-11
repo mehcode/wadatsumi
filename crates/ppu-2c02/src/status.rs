@@ -1,9 +1,11 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// The PPU status register (`$2002`), readable by the CPU to detect rendering events.
-/// Stored as a raw byte; only bits [7:5] are driven by the PPU, bits [4:0] float and
-/// return `io_latch` on read (see `cpu_read`).
+/// The PPU status register (`$2002`). The CPU reads this to detect vblank, sprite-0 hit,
+/// and sprite overflow. Only bits 7..5 are driven by the PPU; bits 4..0 float and come
+/// from `io_latch` on read (see [`Ppu2C02::cpu_read`](crate::Ppu2C02::cpu_read)).
+///
+/// See <https://www.nesdev.org/wiki/PPU_registers#PPUSTATUS> for the canonical reference.
 ///
 /// ```text
 /// 7  bit  0
@@ -24,62 +26,63 @@
 pub struct PpuStatus(pub u8);
 
 impl PpuStatus {
-    /// Returns whether the sprite overflow flag is set (bit 5).
+    /// Sprite overflow flag (bit 5).
     ///
-    /// The hardware sets this flag when more than eight sprites appear on any one scanline during
-    /// OAM evaluation. In theory it lets games detect scanline overflow and reduce sprite count
-    /// to avoid flicker, but **the NES PPU has a well-documented hardware bug**: it evaluates
-    /// subsequent sprites with a corrupted row/column counter after finding the eighth sprite,
-    /// causing both false positives (flag set with ≤ 8 sprites) and false negatives (flag stays
-    /// clear with > 8 sprites) depending on sprite positions and OAM layout.
+    /// In theory the hardware sets this when more than eight sprites land on the same
+    /// scanline during OAM evaluation, so games can scale back sprite count to avoid
+    /// flicker. In practice **the PPU has a well-known hardware bug**: after finding the
+    /// eighth sprite it keeps evaluating with a corrupted row/column counter, which
+    /// produces both false positives (flag set with <= 8 sprites) and false negatives
+    /// (flag stays clear with > 8 sprites) depending on sprite positions and OAM layout.
     ///
-    /// The flag is cleared at dot 1 of pre-render scanline 261 along with the other status flags.
+    /// Cleared at dot 1 of the pre-render scanline (261) along with the other status flags.
     ///
     pub const fn sprite_overflow(self) -> bool {
         self.0 & 0b0010_0000 != 0
     }
 
-    /// Returns whether the sprite-0 hit flag is set (bit 6).
+    /// Sprite-0 hit flag (bit 6).
     ///
-    /// The PPU sets this flag on the dot where a non-transparent pixel of sprite 0 (the first
-    /// entry in OAM) overlaps a non-transparent background pixel, provided both background and
-    /// sprite rendering are enabled. Games poll this flag to split the screen at a precise
-    /// scanline for status bars and HUD elements, the split happens by writing to the scroll
-    /// registers immediately after detecting the hit.
+    /// Set on the dot where a non-transparent pixel of sprite 0 (the first OAM entry)
+    /// overlaps a non-transparent background pixel, as long as both layers are enabled.
+    /// Games poll this to split the screen at a precise scanline for status bars or HUDs,
+    /// then rewrite the scroll registers the moment they see the hit.
     ///
-    /// **The flag is never set on dot 255** (x = 255) of any scanline, regardless of overlap;
-    /// this is a hardware quirk. It is also suppressed when either layer is disabled or when the
-    /// hit would fall in the leftmost 8 pixels if the corresponding clipping bit in `PPUMASK`
-    /// is clear.
+    /// A couple of hardware quirks worth knowing:
+    /// - **Never set on dot 255** (`x = 255`), even with overlap. Hard-baked into the chip.
+    /// - Suppressed when either layer is off, and suppressed in the leftmost 8 pixels if
+    ///   the corresponding clip bit in `PPUMASK` is clear.
     ///
-    /// The flag is cleared at dot 1 of pre-render scanline 261 along with the other status flags.
+    /// Cleared at dot 1 of the pre-render scanline (261) along with the other status flags.
     ///
     pub const fn sprite_0_hit(self) -> bool {
         self.0 & 0b0100_0000 != 0
     }
 
-    /// Returns whether the vertical blank flag is set (bit 7).
+    /// Vertical blank flag (bit 7).
     ///
-    /// The PPU asserts this flag at dot 1 of scanline 241 (the first scanline of vblank) and
-    /// holds it until dot 1 of the pre-render scanline (261), where it is cleared along with
-    /// the other status flags. If NMI is enabled in `PPUCTRL` bit 7, the PPU also drives the
-    /// CPU's NMI line low at the same moment it sets this flag.
+    /// The PPU sets this at dot 1 of scanline 241 (the first scanline of vblank) and holds
+    /// it until dot 1 of the pre-render scanline (261), where it gets cleared along with
+    /// the other status flags. If `PPUCTRL` bit 7 is set, the PPU also asserts the CPU's
+    /// NMI line at the moment it sets this bit.
+    /// See <https://www.nesdev.org/wiki/PPU_frame_timing> for the full picture.
     ///
-    /// Reading `$2002` captures the flag and then clears it immediately (the clear takes effect
-    /// on the *next* read), ensuring software sees it at most once per vblank interval. Games
-    /// read this register at the top of their vblank handler both to detect vblank entry and to
-    /// reset the `w` write-latch before beginning `PPUSCROLL`/`PPUADDR` sequences.
+    /// Reading `$2002` captures the flag and clears it as a side effect, so software sees
+    /// it at most once per vblank. Games usually read `$2002` at the top of their NMI
+    /// handler both to detect the entry and to reset the `w` write-latch before any
+    /// `PPUSCROLL`/`PPUADDR` writes.
     ///
-    /// **Race condition**: if the CPU reads `$2002` on the exact cycle the flag is being set
-    /// (dot 1, scanline 241), the flag reads as `0` and the NMI for that frame is suppressed.
+    /// **Race condition**: reading `$2002` on the exact cycle the flag is being set
+    /// (dot 1, scanline 241) returns `0` *and* suppresses the NMI for that frame.
     ///
     pub const fn vblank(self) -> bool {
         self.0 & 0b1000_0000 != 0
     }
 
-    /// Sets or clears the vertical blank flag (bit 7).
+    /// Sets or clears the vblank flag (bit 7).
     ///
-    /// Set by the tick engine at scanline 241 dot 1; cleared at scanline 261 dot 1.
+    /// Driven by the tick engine: set at scanline 241 dot 1, cleared at scanline 261 dot 1.
+    ///
     pub(crate) const fn set_vblank(&mut self, vblank: bool) {
         self.0 = (self.0 & 0b0111_1111) | ((vblank as u8) << 7);
     }
@@ -87,8 +90,9 @@ impl PpuStatus {
     /// Sets or clears the sprite-0 hit flag (bit 6).
     ///
     /// Set by the pixel compositor when a non-transparent sprite-0 pixel overlaps a
-    /// non-transparent background pixel (subject to clipping and the dot-255 exception).
-    /// Cleared at scanline 261 dot 1.
+    /// non-transparent background pixel (subject to clipping and the dot-255 exception
+    /// noted on [`PpuStatus::sprite_0_hit`]). Cleared at scanline 261 dot 1.
+    ///
     pub(crate) const fn set_sprite_0_hit(&mut self, hit: bool) {
         self.0 = (self.0 & 0b1011_1111) | ((hit as u8) << 6);
     }
@@ -96,7 +100,9 @@ impl PpuStatus {
     /// Sets or clears the sprite overflow flag (bit 5).
     ///
     /// Set when more than eight sprites are found on a scanline during OAM evaluation
-    /// (subject to the hardware bug described on [`sprite_overflow`]). Cleared at scanline 261 dot 1.
+    /// (subject to the hardware bug noted on [`PpuStatus::sprite_overflow`]). Cleared at
+    /// scanline 261 dot 1.
+    ///
     pub(crate) const fn set_sprite_overflow(&mut self, overflow: bool) {
         self.0 = (self.0 & 0b1101_1111) | ((overflow as u8) << 5);
     }

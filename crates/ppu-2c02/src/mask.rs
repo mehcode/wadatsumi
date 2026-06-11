@@ -1,8 +1,14 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// The PPU mask register (`$2001`), written by the CPU to control rendering visibility and color effects.
-/// Stored as a raw byte because every bit pattern is valid and the byte is needed as-is for open-bus behavior.
+/// The PPU mask register (`$2001`). The CPU writes this to control what actually shows on
+/// screen: background and sprite enables, left-edge clipping, greyscale, and the three
+/// color-emphasis bits.
+///
+/// Stored as a raw byte so the written value round-trips intact, which matters for open-bus
+/// reads where the PPU has to echo recently-written bytes back.
+///
+/// See <https://www.nesdev.org/wiki/PPU_registers#PPUMASK> for the canonical reference.
 ///
 /// ```text
 /// 7  bit  0
@@ -31,106 +37,108 @@
 pub struct PpuMask(pub u8);
 
 impl PpuMask {
-    /// Returns whether greyscale mode is enabled (bit 0).
+    /// Greyscale mode (bit 0).
     ///
-    /// When true, the PPU ANDs every palette lookup with `$30`, which maps all colors to the
-    /// grey column of the NES palette (`$00`, `$10`, `$20`, `$30`). The effect applies to both
-    /// background and sprite output and is visible immediately on the next rendered dot.
+    /// When set, the PPU ANDs every palette lookup with `$30`, snapping all colors to the
+    /// grey column of the NES palette (`$00`, `$10`, `$20`, `$30`). Hits both backgrounds
+    /// and sprites and takes effect on the very next dot.
     ///
     pub const fn greyscale(self) -> bool {
         self.0 & 0b0000_0001 != 0
     }
 
-    /// Returns whether the leftmost 8 pixels of the background are clipped (bit 1 clear).
+    /// Whether the leftmost 8 pixels of the background are clipped (bit 1 clear).
     ///
-    /// When true (bit clear), the leftmost 8-pixel column is forced to the backdrop color regardless
-    /// of what the background shift registers contain. Games clip this edge to hide partially-scrolled
-    /// tiles at the left border of the playfield when scrolling horizontally.
+    /// When true (the bit is clear), the leftmost 8-pixel column is forced to the backdrop
+    /// color no matter what the background shift registers hold. Games clip this edge to
+    /// hide partially-scrolled tiles peeking in at the left while scrolling horizontally.
     ///
-    /// Has no effect unless [`background_enabled`] is also true.
+    /// Has no effect unless [`PpuMask::background_enabled`] is also true.
     ///
     pub const fn background_left_clipped(self) -> bool {
         self.0 & 0b0000_0010 == 0
     }
 
-    /// Returns whether the leftmost 8 pixels of sprites are clipped (bit 2 clear).
+    /// Whether the leftmost 8 pixels of sprites are clipped (bit 2 clear).
     ///
-    /// When true (bit clear), all sprites within the leftmost 8-pixel column are suppressed. This
-    /// is typically set alongside [`background_left_clipped`] to hide rendering artifacts at the
-    /// left edge during horizontal scrolling, since the PPU cannot partially clip a tile at pixel
-    /// granularity.
+    /// When true (the bit is clear), any sprite pixels in the leftmost 8-pixel column are
+    /// suppressed. Usually set together with [`PpuMask::background_left_clipped`] so the
+    /// left edge stays clean while scrolling. The PPU can't partially clip a tile at pixel
+    /// granularity, so the choice is "all 8" or "none".
     ///
-    /// Has no effect unless [`sprites_enabled`] is also true.
+    /// Has no effect unless [`PpuMask::sprites_enabled`] is also true.
     ///
     pub const fn sprites_left_clipped(self) -> bool {
         self.0 & 0b0000_0100 == 0
     }
 
-    /// Returns whether background rendering is enabled (bit 3).
+    /// Background rendering enable (bit 3).
     ///
-    /// When false, the background layer outputs transparent pixels everywhere, leaving only the
-    /// backdrop (universal background) color visible through any sprites. The PPU still runs its
-    /// internal tile-fetch pipeline while this bit is clear, but the shift register output is
-    /// suppressed.
+    /// When clear, the background layer outputs transparent pixels everywhere, leaving only
+    /// the universal backdrop color visible through any sprites. The tile-fetch pipeline
+    /// still runs internally; only the shift register output is muted.
     ///
-    /// See also [`rendering_enabled`], which is true when either background or sprites are on.
+    /// See [`PpuMask::rendering_enabled`] for the "either layer is on" check the timing
+    /// code uses.
     ///
     pub const fn background_enabled(self) -> bool {
         self.0 & 0b0000_1000 != 0
     }
 
-    /// Returns whether sprite rendering is enabled (bit 4).
+    /// Sprite rendering enable (bit 4).
     ///
-    /// When false, no sprites are drawn and sprite-0 hit and sprite-overflow detection are also
-    /// disabled. The OAM evaluation pipeline still runs, but its output is suppressed before it
-    /// reaches the pixel compositor.
+    /// When clear, no sprites are drawn, and sprite-0 hit and sprite overflow detection
+    /// are also disabled. OAM evaluation still runs internally; the result just never
+    /// reaches the pixel mixer.
     ///
-    /// See also [`rendering_enabled`], which is true when either background or sprites are on.
+    /// See [`PpuMask::rendering_enabled`] for the "either layer is on" check the timing
+    /// code uses.
     ///
     pub const fn sprites_enabled(self) -> bool {
         self.0 & 0b0001_0000 != 0
     }
 
-    /// Returns whether the red channel is emphasized (bit 5).
+    /// Emphasize the red channel (bit 5).
     ///
-    /// Emphasis dims the other two channels (green and blue) by roughly 12 %, making red
-    /// appear more saturated relative to them. On **PAL and Dendy** hardware the R and G emphasis
-    /// bits are swapped; bit 5 emphasizes green and bit 6 emphasizes red.
+    /// Emphasis attenuates the *other* two channels (green and blue) by roughly 12%, so red
+    /// looks more saturated by comparison. On **PAL and Dendy** hardware bits 5 and 6 are
+    /// swapped: bit 5 emphasizes green, bit 6 emphasizes red.
     ///
-    /// The three emphasis bits can be combined freely; setting all three dims all channels equally,
-    /// which darkens the screen without a hue shift.
+    /// The three emphasis bits combine freely. Setting all three dims every channel evenly,
+    /// which fades the screen without shifting hue, often used for fade-to-black transitions.
     ///
     pub const fn emphasize_red(self) -> bool {
         self.0 & 0b0010_0000 != 0
     }
 
-    /// Returns whether the green channel is emphasized (bit 6).
+    /// Emphasize the green channel (bit 6).
     ///
-    /// Emphasis dims the other two channels (red and blue). On **PAL and Dendy** hardware the R and G
-    /// emphasis bits are swapped; bit 6 emphasizes red and bit 5 emphasizes green.
+    /// Emphasis attenuates the other two channels (red and blue). On **PAL and Dendy** hardware
+    /// bits 5 and 6 are swapped: bit 6 emphasizes red, bit 5 emphasizes green.
     ///
-    /// See [`emphasize_red`] for general notes on channel emphasis.
+    /// See [`PpuMask::emphasize_red`] for general notes on channel emphasis.
     ///
     pub const fn emphasize_green(self) -> bool {
         self.0 & 0b0100_0000 != 0
     }
 
-    /// Returns whether the blue channel is emphasized (bit 7).
+    /// Emphasize the blue channel (bit 7).
     ///
-    /// Emphasis dims the other two channels (red and green). The blue emphasis bit occupies the
-    /// same position on both NTSC and PAL hardware.
+    /// Emphasis attenuates the other two channels (red and green). The blue emphasis bit
+    /// stays in the same position on both NTSC and PAL hardware.
     ///
-    /// See [`emphasize_red`] for general notes on channel emphasis.
+    /// See [`PpuMask::emphasize_red`] for general notes on channel emphasis.
     ///
     pub const fn emphasize_blue(self) -> bool {
         self.0 & 0b1000_0000 != 0
     }
 
-    /// Returns whether any rendering is active (background or sprites, or both).
+    /// True if either background or sprite rendering is on.
     ///
-    /// Several PPU behaviors are gated on rendering being enabled: the `v`/`t` copy at frame and
-    /// scanline boundaries, address bus activity during tile fetches, and sprite-0 hit detection.
-    /// This is the canonical check used throughout the rendering pipeline.
+    /// A bunch of PPU behavior is gated on rendering being enabled: the `v`/`t` copies at
+    /// frame and scanline boundaries, the address-bus activity during tile fetches, and
+    /// sprite-0 hit detection. This is the canonical check the timing code uses.
+    /// See <https://www.nesdev.org/wiki/PPU_rendering> for the full timing diagram.
     ///
     pub const fn rendering_enabled(self) -> bool {
         self.background_enabled() || self.sprites_enabled()

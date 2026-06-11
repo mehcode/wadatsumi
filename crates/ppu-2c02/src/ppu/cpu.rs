@@ -4,34 +4,39 @@
 use crate::{Ppu2C02, PpuReadWrite};
 
 impl Ppu2C02 {
-    /// Advances the write latch and returns whether this is the second write.
+    /// Advances the two-write latch and returns whether this is the second write.
     ///
-    /// The latch starts `false` (first write pending) and toggles on each call.
-    /// Returns `true` only on the second call, then resets to `false` for the next pair.
-    /// Reading PPUSTATUS (`$2002`) also resets it to `false` at any time.
-    fn cpu_second_write(&mut self) -> bool {
-        // PPUSCROLL (`$2005`) and PPUADDR (`$2006`) each require two successive CPU writes
-        // to set a 15-bit quantity. Games read PPUSTATUS at the top of vblank to reset
-        // this latch, ensuring the first write of each pair lands in the correct half.
+    /// The latch starts at `false` (first write pending) and flips on every call. So this
+    /// returns `false` on call 1, `true` on call 2, `false` on call 3, and so on. A read
+    /// of `PPUSTATUS` (`$2002`) can reset it back to `false` at any time.
+    ///
+    /// `PPUSCROLL` (`$2005`) and `PPUADDR` (`$2006`) both need two CPU writes to set their
+    /// 15-bit value, and they share this single latch. That's why games are religious
+    /// about reading `$2002` at the top of vblank: it resets the latch so the next
+    /// `$2005`/`$2006` write definitely lands as the "first" half.
+    ///
+    const fn cpu_second_write(&mut self) -> bool {
         let result = self.w;
         self.w = !self.w;
         result
     }
 
-    /// Reads a CPU-facing PPU register without any side effects.
+    /// Reads a CPU-facing PPU register without any side effects, for debuggers and memory
+    /// viewers.
     ///
-    /// Intended for debuggers and memory viewers that need to inspect register state
-    /// without disturbing it. `address` is the register index (0–7), corresponding
-    /// to the low three bits of the CPU address range `$2000`–`$3FFF`.
+    /// `address` is the register index (0..7), i.e. the low three bits of a CPU address in
+    /// `$2000`..`$3FFF`. Unlike [`Ppu2C02::cpu_read`], this never clears the vblank flag,
+    /// resets `w`, or advances the read-ahead buffer.
+    ///
     #[must_use]
     pub fn cpu_peek(&self, address: u8) -> u8 {
         match address {
             // Status register (`$2002`).
-            // Returns the same merged value cpu_read would, but does NOT clear the vblank
-            // flag and does NOT reset w, the caller is observing state, not consuming it.
+            // Mirrors what cpu_read would return, but without clearing vblank and without
+            // touching `w`. We're observing state, not consuming it.
             2 => (self.status.0 & 0b1110_0000) | (self.io_latch & 0b0001_1111),
 
-            // OAM data register (`$2004`). No side effects on read anyway.
+            // OAM data register (`$2004`). No side effects on read either way.
             4 => self.oam[self.oam_address as usize],
 
             // Data register (`$2007`).
@@ -41,8 +46,9 @@ impl Ppu2C02 {
                 if vram_address >= 0x3F00 {
                     self.palette_read(vram_address)
                 } else {
-                    // Non-palette: return data_read_buffer, that is the value a real cpu_read
-                    // would return (the buffer is not advanced, so this is exact).
+                    // For non-palette addresses cpu_read would hand back the current
+                    // buffer contents (and refill it). We don't refill; the buffer value
+                    // is the byte cpu_read would return, so this stays exact.
                     self.data_read_buffer
                 }
             }
@@ -51,13 +57,15 @@ impl Ppu2C02 {
         }
     }
 
-    /// Reads a CPU-facing PPU register, applying all hardware side effects.
+    /// Reads a CPU-facing PPU register, with all the hardware side effects.
     ///
-    /// `address` is the register index (0–7). Most registers are write-only; reading them
-    /// returns `io_latch` (the last byte on the CPU data bus), unchanged. The exceptions
-    /// are PPUSTATUS (`2`), OAMDATA (`4`), and PPUDATA (`7`): each drives some or all bits
-    /// of the result, merges undriven bits from `io_latch`, and then stores the full byte
-    /// back into `io_latch` before returning.
+    /// `address` is the register index (0..7), i.e. the low three bits of a CPU address in
+    /// `$2000`..`$3FFF`. Most registers are write-only; reading them just returns
+    /// `io_latch` (the last byte on the CPU data bus). The exceptions are `PPUSTATUS` (2),
+    /// `OAMDATA` (4), and `PPUDATA` (7): each drives some or all bits of the result,
+    /// merges the undriven bits in from `io_latch`, and then stores the whole byte back
+    /// into `io_latch` before returning.
+    ///
     #[expect(clippy::match_same_arms)]
     pub fn cpu_read<B: PpuReadWrite>(&mut self, address: u8, bus: &mut B) -> u8 {
         let value = match address {
@@ -68,21 +76,20 @@ impl Ppu2C02 {
             1 => None,
 
             // Status register (`$2002`).
-            // https://www.nesdev.org/wiki/PPU_registers#PPUSTATUS
+            // <https://www.nesdev.org/wiki/PPU_registers#PPUSTATUS>
             2 => {
-                // The PPU drives only bits [7:5]; bits [4:0] are not driven and return
-                // whatever io_latch holds from the previous bus access.
-                // whatever io_latch holds from the previous bus access.
+                // Only bits 7..5 are driven by the PPU. Bits 4..0 float and pick up
+                // whatever io_latch holds from the last bus access.
                 let value = (self.status.0 & 0b1110_0000) | (self.io_latch & 0b0001_1111);
 
-                // Bit 7 (vblank flag) is cleared immediately after being captured.
-                // Polling this bit is the standard way to detect vblank entry; clearing
-                // it ensures software only sees it once per frame.
+                // Reading clears bit 7 (vblank) immediately. That's the standard way to
+                // detect vblank entry while making sure software only sees it once per
+                // frame.
                 self.status.0 &= !0b1000_0000;
 
-                // The w latch is reset to false (first-write state). Games read PPUSTATUS
-                // before the first PPUSCROLL or PPUADDR write to guarantee they are
-                // starting a fresh two-write sequence rather than completing a stale one.
+                // Reading also resets the `w` latch to "first write". Games rely on this
+                // so the next `$2005`/`$2006` write lands as the first half of the pair
+                // instead of finishing a stale one.
                 self.w = false;
 
                 Some(value)
@@ -92,9 +99,9 @@ impl Ppu2C02 {
             3 => None,
 
             // OAM data register (`$2004`).
-            // https://www.nesdev.org/wiki/PPU_registers#OAMDATA
-            // Returns the byte at the current OAM address without advancing it.
-            // Only writes post-increment oam_address; reads leave it unchanged.
+            // <https://www.nesdev.org/wiki/PPU_registers#OAMDATA>
+            // Returns the byte at the current OAM address. Only writes advance
+            // oam_address; reads leave it alone.
             4 => Some(self.oam[self.oam_address as usize]),
 
             // Scroll register (`$2005`). Write-only; returns io_latch.
@@ -104,21 +111,22 @@ impl Ppu2C02 {
             6 => None,
 
             // Data register (`$2007`).
-            // https://www.nesdev.org/wiki/PPU_registers#PPUDATA
+            // <https://www.nesdev.org/wiki/PPU_registers#PPUDATA>
             7 => {
                 let vram_address = self.v & 0b0011_1111_1111_1111;
 
                 let value = if vram_address >= 0x3F00 {
-                    // Palette reads are immediate: palette RAM is internal to the PPU.
-                    // The buffer is still updated with the nametable byte at the mirrored
-                    // address (`v & $2FFF`) as a side effect, because the PPU bus observes
-                    // that address even during a palette access.
+                    // Palette RAM is internal to the PPU, so palette reads come back
+                    // immediately with no buffering delay. We *still* refresh the buffer
+                    // with the nametable byte at the mirrored address (`v & $2FFF`),
+                    // because the PPU's address bus also sees that during the access.
                     self.data_read_buffer = bus.ppu_read(vram_address & 0x2FFF);
                     self.palette_read(vram_address)
                 } else {
-                    // The PPU's address and data buses are not directly accessible to the CPU,
-                    // so non-palette reads are delayed by one access through a read-ahead buffer:
-                    // the CPU receives the stale buffer contents while the buffer refills from VRAM.
+                    // The CPU can't see the PPU's address/data buses directly, so
+                    // non-palette reads come back one access late through a read-ahead
+                    // buffer: the CPU gets the stale buffer contents this cycle while
+                    // the buffer quietly refills from VRAM for next time.
                     let stale = self.data_read_buffer;
                     self.data_read_buffer = bus.ppu_read(vram_address);
                     stale
@@ -142,12 +150,13 @@ impl Ppu2C02 {
 
     /// Writes a CPU-facing PPU register.
     ///
-    /// `address` is the register index (0–7), corresponding to the low three bits
-    /// of the CPU address range `$2000`–`$3FFF`. Callers are expected to have already
-    /// masked the address to three bits.
+    /// `address` is the register index (0..7), i.e. the low three bits of a CPU address in
+    /// `$2000`..`$3FFF`. Callers are expected to mask the address themselves.
+    ///
     #[expect(clippy::match_same_arms)]
     pub fn cpu_write<B: PpuReadWrite>(&mut self, address: u8, value: u8, bus: &mut B) {
-        // Store the value in the IO latch.
+        // Latch the written byte so subsequent reads of write-only registers (and the
+        // undriven bits of `$2002`) echo it back.
         self.io_latch = value;
 
         match address {
@@ -155,11 +164,11 @@ impl Ppu2C02 {
             0 => {
                 self.control.0 = value;
 
-                // https://www.nesdev.org/wiki/PPU_scrolling#$2000_(PPUCTRL)_write
-                // The nametable select bits [1:0] are mirrored into t[11:10] (nt_x, nt_y).
-                // This ensures the correct base nametable is already encoded in t before
-                // the PPU copies t → v at the start of each frame, so the game doesn't
-                // need a separate PPUADDR write just to change which nametable is active.
+                // <https://www.nesdev.org/wiki/PPU_scrolling#$2000_(PPUCTRL)_write>
+                // Mirror the nametable select bits (0..1) into t[11:10] (nt_x, nt_y) so
+                // the right base nametable is already encoded in `t` before the PPU
+                // copies `t` into `v` at the next frame/scanline boundary. Without this,
+                // a game would have to write `PPUADDR` just to change nametables.
                 self.t = (self.t & !0b1100_0000_0000) | (self.control.nametable_index() << 10);
             }
 
@@ -184,60 +193,65 @@ impl Ppu2C02 {
             }
 
             // Scroll register (`$2005`).
-            // https://www.nesdev.org/wiki/PPU_registers#PPUSCROLL
-            // Two-write protocol: the first write sets the horizontal scroll position and
-            // the second sets the vertical. Together they encode a full pixel offset into
-            // the Loopy t register. The PPU uses t as the scroll origin when it copies
-            // t → v at the start of each frame (vertical bits) and each scanline (horizontal bits).
+            // <https://www.nesdev.org/wiki/PPU_registers#PPUSCROLL>
+            // Two writes encode a full pixel scroll offset into the loopy `t` register
+            // (and the separate fine-X register). The first write sets the horizontal
+            // scroll, the second sets the vertical. The PPU uses `t` as the scroll
+            // origin: copying it into `v` in full at frame start, and copying just the
+            // horizontal bits at the start of each scanline.
             5 => {
                 if self.cpu_second_write() {
-                    // https://www.nesdev.org/wiki/PPU_scrolling#$2005_(PPUSCROLL)_second_write_(w_is_1)
-                    // Second write: encode vertical scroll into t.
+                    // <https://www.nesdev.org/wiki/PPU_scrolling#$2005_second_write_(w_is_1)>
+                    // Second write: vertical scroll into `t`.
                     self.t = (self.t & !0b0111_0011_1110_0000)
-                        //   value[7:3] → t[9:5]    coarse Y  — which tile row (0–29)
+                        //   value[7:3] -> t[9:5]    coarse Y, which tile row (0..29)
                         | ((u16::from(value) & 0b1111_1000) << 2)
-                        //   value[2:0] → t[14:12]  fine Y    — which pixel row within the tile (0–7)
+                        //   value[2:0] -> t[14:12]  fine Y,   which pixel row inside the tile (0..7)
                         | ((u16::from(value) & 0b0000_0111) << 12);
                 } else {
-                    // https://www.nesdev.org/wiki/PPU_scrolling#$2005_(PPUSCROLL)_first_write_(w_is_0)
-                    // First write: encode horizontal scroll into t and the fine-X register.
-                    //   value[7:3] → t[4:0]  coarse X — which tile column (0–31)
+                    // <https://www.nesdev.org/wiki/PPU_scrolling#$2005_first_write_(w_is_0)>
+                    // First write: horizontal scroll into `t` and the fine-X register.
+                    //   value[7:3] -> t[4:0]  coarse X, which tile column (0..31)
                     self.t = (self.t & !0b0001_1111) | (u16::from(value) >> 3);
 
-                    // Fine X lives in its own 3-bit register rather than in t because the PPU
-                    // reads it separately on every dot to select a bit from the tile shift registers.
-                    //   value[2:0] → x       fine X   — which pixel column within the tile (0–7)
+                    // Fine X lives in its own 3-bit register instead of inside `t` because
+                    // the renderer reads it every dot to pick a bit out of the tile shift
+                    // registers.
+                    //   value[2:0] -> x       fine X,   which pixel column inside the tile (0..7)
                     self.x = value & 0b0111;
                 }
             }
 
             // Address register (`$2006`).
-            // https://www.nesdev.org/wiki/PPU_registers#PPUADDR_-_VRAM_address_($2006_write)
-            // Two-write protocol: together the two writes set a 14-bit VRAM address in t,
-            // which is then latched into v. All subsequent PPUDATA reads and writes use v
-            // as the address and advance it by the increment configured in PPUCTRL.
+            // <https://www.nesdev.org/wiki/PPU_registers#PPUADDR>
+            // Two writes set a 14-bit VRAM address in `t`, which then gets latched into
+            // `v` on the second write. Every subsequent `PPUDATA` read or write uses `v`
+            // as the address and advances it by the increment configured in `PPUCTRL`.
             6 => {
                 if self.cpu_second_write() {
-                    // https://www.nesdev.org/wiki/PPU_scrolling#$2006_(PPUADDR)_second_write_(w_is_1)
-                    // Second write: low byte → t[7:0], then copy t into v.
+                    // <https://www.nesdev.org/wiki/PPU_scrolling#$2006_second_write_(w_is_1)>
+                    // Second write: low byte goes into t[7:0], then copy `t` into `v`.
                     self.t = (self.t & 0b0111_1111_0000_0000) | u16::from(value);
 
-                    // The complete VRAM address is now known; latch it so PPUDATA takes effect immediately.
+                    // We have the full VRAM address now, so latch it so PPUDATA takes
+                    // effect immediately.
                     self.v = self.t;
                 } else {
-                    // https://www.nesdev.org/wiki/PPU_scrolling#$2006_(PPUADDR)_first_write_(w_is_0)
-                    // First write: high 6 bits → t[13:8], t[14] is always cleared.
-                    // VRAM is 14-bit (0x0000–0x3FFF), so the top 2 bits of the byte are discarded.
+                    // <https://www.nesdev.org/wiki/PPU_scrolling#$2006_first_write_(w_is_0)>
+                    // First write: high 6 bits go into t[13:8], and t[14] is forced clear.
+                    // VRAM is 14-bit (`$0000`..`$3FFF`), so the top 2 bits of the input
+                    // are discarded.
                     self.t =
                         (self.t & 0b0000_0000_1111_1111) | ((u16::from(value) & 0b0011_1111) << 8);
                 }
             }
 
             // Data register (`$2007`).
-            // https://www.nesdev.org/wiki/PPU_registers#PPUDATA_-_VRAM_data_($2007_read/write)
-            // Writes the byte to VRAM at the address in v, then advances v by 1 (moving
-            // across a row) or 32 (moving down a column), as configured by PPUCTRL bit 2.
-            // v is masked to 14 bits because VRAM is 14-bit even though v is 15 bits wide.
+            // <https://www.nesdev.org/wiki/PPU_registers#PPUDATA>
+            // Writes the byte to VRAM at the address in `v`, then advances `v` by 1 (one
+            // tile across) or 32 (one tile down), depending on `PPUCTRL` bit 2. `v` gets
+            // masked to 14 bits because VRAM is 14-bit, even though `v` itself is 15
+            // bits wide.
             7 => {
                 let vram_address = self.v & 0b0011_1111_1111_1111;
 
