@@ -10,6 +10,7 @@
 //!
 //! See <https://www.nesdev.org/wiki/PPU> for the hardware reference.
 
+mod address;
 mod bus;
 mod control;
 mod mask;

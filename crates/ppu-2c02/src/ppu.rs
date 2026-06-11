@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::PpuReadWrite;
+use crate::address::PpuAddress;
 use crate::control::PpuControl;
 use crate::mask::PpuMask;
 use crate::status::PpuStatus;
@@ -42,26 +43,16 @@ pub struct Ppu2C02 {
     /// Written directly by `OAMADDR` (`$2003`); auto-increments after each `OAMDATA` write.
     oam_address: u8,
 
-    /// Current VRAM address, the loopy `v` register (15 bits).
-    ///
-    /// Bit layout (low to high):
-    ///
-    /// ```text
-    /// yyy NN YYYYY XXXXX
-    /// ||| || ||||| +++++- coarse X (which tile column, 0..31)
-    /// ||| || +++++------- coarse Y (which tile row, 0..29 with 30 and 31 going off-screen)
-    /// ||| ++------------- nametable select (NN: nt_x then nt_y)
-    /// +++---------------- fine Y (which pixel row inside the tile, 0..7)
-    /// ```
+    /// Current VRAM address, the loopy `v` register. See [`PpuAddress`] for the bit
+    /// layout.
     ///
     /// This is the PPU's live pointer during rendering. It advances each dot through the
     /// nametable, attribute, and pattern fetches, and the CPU also pokes at it via
-    /// `PPUADDR`/`PPUDATA`. See <https://www.nesdev.org/wiki/PPU_scrolling> for the full
-    /// story.
+    /// `PPUADDR`/`PPUDATA`.
     ///
-    v: u16,
+    v: PpuAddress,
 
-    /// Temporary VRAM address, the loopy `t` register (15 bits). Same bit layout as `v`.
+    /// Temporary VRAM address, the loopy `t` register. Same bit layout as [`PpuAddress`].
     ///
     /// Think of this as the scroll origin: CPU writes to `PPUSCROLL` (`$2005`) and
     /// `PPUADDR` (`$2006`) update `t`, never `v` directly (except `PPUADDR`'s second
@@ -69,7 +60,7 @@ pub struct Ppu2C02 {
     /// into `v` in full, and at the start of each visible scanline only the horizontal
     /// bits get copied across.
     ///
-    t: u16,
+    t: PpuAddress,
 
     /// Fine X scroll (3 bits). Picks which pixel column inside the current 8-pixel tile
     /// column ends up at screen X = 0. Set by the first write to `PPUSCROLL` (`$2005`).
@@ -136,8 +127,8 @@ impl Ppu2C02 {
             status: PpuStatus(0),
             oam: [0; 256],
             oam_address: 0,
-            v: 0,
-            t: 0,
+            v: PpuAddress::new(),
+            t: PpuAddress::new(),
             x: 0,
             w: false,
             palette: [0; 32],

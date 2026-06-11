@@ -22,7 +22,7 @@ wadatsumi-system-nes = { path = "crates/system-nes" }
 
 [workspace.lints.rust]
 unused = { level = "allow", priority = -1 }
-missing_docs = { level = "warn", priority = -1 }
+missing_docs = { level = "warn", priority = -2 }
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
