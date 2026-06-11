@@ -3,6 +3,7 @@
 
 use crate::PpuReadWrite;
 use crate::address::PpuAddress;
+use crate::clock::PpuFrameClock;
 use crate::control::PpuControl;
 use crate::mask::PpuMask;
 use crate::status::PpuStatus;
@@ -107,6 +108,12 @@ pub struct Ppu2C02 {
     /// rest from this latch.
     ///
     io_latch: u8,
+
+    /// Frame-timing position: which dot of which scanline the PPU is currently processing,
+    /// plus the parity bit and absolute frame count. Advanced one dot per [`Self::tick`].
+    /// See [`PpuFrameClock`] for the dot/scanline layout.
+    ///
+    pub frame: PpuFrameClock,
 }
 
 impl Default for Ppu2C02 {
@@ -134,6 +141,7 @@ impl Ppu2C02 {
             palette: [0; 32],
             data_read_buffer: 0,
             io_latch: 0,
+            frame: PpuFrameClock::new(),
         }
     }
 
@@ -175,7 +183,33 @@ impl Ppu2C02 {
     ///
     /// See <https://www.nesdev.org/wiki/PPU_frame_timing> for the full dot timeline.
     ///
-    pub fn tick<B: PpuReadWrite>(&mut self, bus: &mut B) {
-        // TODO: drive the dot/scanline timing state machine
+    pub fn tick<B: PpuReadWrite>(&mut self, _bus: &mut B) {
+        // Edge events fire on the current (scanline, dot), then we advance the clock to
+        // the next dot. So on tick N the PPU sees the state it should produce *for* dot
+        // N; the next tick sees N+1. The 2C02 hardware reference uses this same
+        // convention (work happens "during" a dot, then the counter increments).
+
+        match (self.frame.scanline, self.frame.dot) {
+            // Vblank entry: set the flag at dot 1 of scanline 241. NMI assertion is wired
+            // up separately once the PPU exposes its output line; this just owns the flag.
+            (241, 1) => {
+                self.status.set_vblank(true);
+            }
+
+            // Pre-render: clear vblank, sprite-0 hit, and sprite overflow at dot 1 of
+            // scanline 261. Hardware clears all three on the same dot.
+            (261, 1) => {
+                self.status.set_vblank(false);
+                self.status.set_sprite_0_hit(false);
+                self.status.set_sprite_overflow(false);
+            }
+
+            _ => {}
+        }
+
+        // Advance one dot. The NTSC pre-render dot-skip at (261, 339) on odd frames is
+        // gated by whether rendering is on *right now*, so we sample the mask at call
+        // time rather than caching it.
+        self.frame.advance(self.mask.rendering_enabled());
     }
 }

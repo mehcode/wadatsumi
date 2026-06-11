@@ -12,10 +12,12 @@
 
 mod address;
 mod bus;
+mod clock;
 mod control;
 mod mask;
 mod ppu;
 mod status;
 
 pub use bus::{PpuPeek, PpuReadWrite};
+pub use clock::{PpuFrameClock, PpuFrameParity};
 pub use ppu::Ppu2C02;

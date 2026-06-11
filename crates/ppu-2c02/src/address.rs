@@ -16,7 +16,7 @@
 ///
 /// Only bits [13:0] reach the PPU's external address bus; bit 14 is part of fine Y
 /// storage and gets masked off on every fetch. The CPU never sees this register
-/// directly — it pokes at it through `PPUCTRL` (`$2000`), `PPUSCROLL` (`$2005`),
+/// directly; it pokes at it through `PPUCTRL` (`$2000`), `PPUSCROLL` (`$2005`),
 /// `PPUADDR` (`$2006`), and `PPUDATA` (`$2007`).
 ///
 /// See <https://www.nesdev.org/wiki/PPU_scrolling> for the canonical reference.
@@ -66,8 +66,8 @@ impl PpuAddress {
 
     /// Sets coarse X from the high 5 bits of a `PPUSCROLL` (`$2005`) first write.
     ///
-    /// Fine X is not touched — it lives in its own register because the renderer reads
-    /// it every dot to pick a bit out of the tile shift registers.
+    /// Fine X is not touched; it lives in its own register because the renderer reads it
+    /// every dot to pick a bit out of the tile shift registers.
     ///
     /// See <https://www.nesdev.org/wiki/PPU_scrolling#$2005_first_write_(w_is_0)>.
     ///
