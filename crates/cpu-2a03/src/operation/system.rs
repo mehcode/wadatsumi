@@ -1,68 +1,33 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! CPU system operations: status flag manipulation (`CLC`, `SEC`, `CLI`, `SEI`,
-//! `CLD`, `SED`, `CLV`) and the no-op (`NOP`). Nothing here touches general-purpose
-//! registers or memory. `BRK` belongs here when added.
+//! CPU system operations: software interrupt (`BRK`), status flag manipulation
+//! (`CLC`, `SEC`, `CLI`, `SEI`, `CLD`, `SED`, `CLV`), and the no-op (`NOP`).
+//! Nothing here touches general-purpose registers or memory.
 
 use std::task::Poll;
 
 use crate::CpuReadWrite;
 use crate::cpu::Cpu2A03;
+use crate::interrupt::{InterruptKind, interrupt};
 use crate::operation::{MemoryAccess, Operation};
 use crate::status::CpuStatus;
 
+/// Triggers a software interrupt; pushes the return address (`PC + 2`, the
+/// byte after the padding) and the processor status (with both `B` and `U`
+/// set so the handler can tell BRK from a hardware IRQ), sets the `I` flag
+/// to mask further IRQs while in the handler, and loads PC from the IRQ/BRK
+/// vector at `$FFFE/F`. 7 cycles, [`Implied`][crate::addressing] addressing.
+///
+/// The per-cycle body lives in [`interrupt`] and is shared with the hardware
+/// IRQ and NMI paths; this struct is just the [`Operation`] wrapper that
+/// hooks BRK into the opcode dispatch table.
 pub struct BRK;
 
 impl Operation for BRK {
-    #[allow(clippy::cast_possible_truncation)]
     #[inline]
     fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
-        match cpu.t {
-            1 => {
-                // Implied already read the padding byte spuriously; advance PC past it
-                // so the return address pushed below is BRK+2, as the 6502 requires.
-                cpu.pc = cpu.pc.wrapping_add(1);
-
-                Poll::Pending
-            }
-
-            // Push PCH on stack, decrement S
-            2 => {
-                cpu.stack_push(bus, (cpu.pc >> 8) as u8);
-
-                Poll::Pending
-            }
-
-            3 => {
-                // Push PCL on stack, decrement S
-                cpu.stack_push(bus, cpu.pc as u8);
-
-                Poll::Pending
-            }
-
-            4 => {
-                // Push P on stack with B and U always set, decrement S
-                cpu.stack_push(bus, cpu.p.0 | CpuStatus::B | CpuStatus::U);
-
-                Poll::Pending
-            }
-
-            5 => {
-                // Fetch PCL; set I to suppress further IRQs while in the handler
-                cpu.pc = u16::from(bus.read(0xfffe));
-                cpu.p.insert(CpuStatus::I);
-
-                Poll::Pending
-            }
-
-            _ => {
-                // Fetch PCH
-                cpu.pc |= u16::from(bus.read(0xffff)) << 8;
-
-                Poll::Ready(())
-            }
-        }
+        interrupt::<{ InterruptKind::BRK }, B>(cpu, bus)
     }
 }
 

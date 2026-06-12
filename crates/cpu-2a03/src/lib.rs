@@ -7,6 +7,7 @@ mod addressing;
 mod bus;
 mod cpu;
 mod instruction;
+mod interrupt;
 mod operation;
 mod status;
 mod table;
