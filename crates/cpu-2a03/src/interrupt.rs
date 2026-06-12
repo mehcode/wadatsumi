@@ -84,39 +84,42 @@ pub fn interrupt<const K: InterruptKind, B: CpuReadWrite>(
     bus: &mut B,
 ) -> Poll<()> {
     match cpu.t {
+        // T1: second dummy read at PC. For BRK the spurious read was issued
+        // by Implied addressing before this body ran, so this arm only
+        // advances PC past the padding byte; the return address pushed below
+        // then lands at BRK+2, the "BRK is two bytes" behavior. For hardware
+        // IRQ/NMI the read is issued here directly with no PC advance.
         1 => {
             if matches!(K, InterruptKind::BRK) {
-                // BRK: Implied already read the padding byte spuriously; advance PC past it
-                // so the return address pushed below is BRK+2, as the 6502 requires.
                 cpu.pc = cpu.pc.wrapping_add(1);
             } else {
-                // IRQ/NMI: Second dummy read at PC without advancing
                 let _ = bus.read(cpu.pc);
             }
 
             Poll::Pending
         }
 
-        // Push PCH on stack, decrement S
+        // T2: push PCH (return-address high byte). SP decrements.
         2 => {
             cpu.stack_push(bus, (cpu.pc >> 8) as u8);
 
             Poll::Pending
         }
 
-        // Push PCL on stack, decrement S
+        // T3: push PCL (return-address low byte). SP decrements.
         3 => {
             cpu.stack_push(bus, cpu.pc as u8);
 
             Poll::Pending
         }
 
-        // Push P on stack with `U` always set, decrement S
+        // T4: push the processor status. `U` is always set in the pushed
+        // byte; BRK additionally sets `B` so the handler can tell a software
+        // interrupt from a hardware IRQ by inspecting the pushed status.
         4 => {
             let mut status = cpu.p.0 | CpuStatus::U;
 
             if matches!(K, InterruptKind::BRK) {
-                // BRK sets `B` to differentiate from IRQ
                 status |= CpuStatus::B;
             }
 
@@ -125,7 +128,8 @@ pub fn interrupt<const K: InterruptKind, B: CpuReadWrite>(
             Poll::Pending
         }
 
-        // Fetch PCL; set I to suppress further IRQs while in the handler
+        // T5: read the vector low byte into PCL and set `I`, masking
+        // further IRQs before the handler's first instruction runs.
         5 => {
             cpu.pc = u16::from(bus.read(K.vector()));
             cpu.p.insert(CpuStatus::I);
@@ -133,7 +137,7 @@ pub fn interrupt<const K: InterruptKind, B: CpuReadWrite>(
             Poll::Pending
         }
 
-        // Fetch PCH
+        // T6: read the vector high byte into PCH and complete the jump.
         _ => {
             cpu.pc |= u16::from(bus.read(K.vector() + 1)) << 8;
 

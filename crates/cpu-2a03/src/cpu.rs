@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::mem::transmute;
-use std::task::Poll;
 
 use crate::bus::CpuReadWrite;
 use crate::instruction::Instruction;
+use crate::reset::reset;
 use crate::status::CpuStatus;
 use crate::table::InstructionTable;
 
@@ -256,68 +256,5 @@ impl Cpu2A03 {
     pub(crate) fn stack_push<B: CpuReadWrite>(&mut self, bus: &mut B, value: u8) {
         bus.write(self.stack_address(), value);
         self.sp = self.sp.wrapping_sub(1);
-    }
-}
-
-/// Drives one cycle of the 7-cycle hardware reset sequence (T0–T6).
-///
-/// Returns `Poll::Pending` while the sequence is in progress and `Poll::Ready(())` on T6 once
-/// PC has been loaded from the reset vector and execution can resume.
-#[expect(clippy::match_same_arms)]
-fn reset<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
-    match cpu.t {
-        // T0–T1: internal pipeline cycles; the bus is read but the result is discarded.
-        0 => {
-            bus.read(cpu.pc);
-
-            Poll::Pending
-        }
-
-        1 => {
-            bus.read(cpu.pc.wrapping_add(1));
-
-            Poll::Pending
-        }
-
-        // T2–T4: phantom stack accesses. On a live reset the R/W line is forced high so three
-        // reads are issued at the stack address instead of writes; SP still decrements each cycle.
-        2 => {
-            bus.read(cpu.stack_address());
-
-            cpu.sp = cpu.sp.wrapping_sub(1);
-
-            Poll::Pending
-        }
-
-        3 => {
-            bus.read(cpu.stack_address());
-
-            cpu.sp = cpu.sp.wrapping_sub(1);
-
-            Poll::Pending
-        }
-
-        4 => {
-            bus.read(cpu.stack_address());
-
-            cpu.sp = cpu.sp.wrapping_sub(1);
-            cpu.p.insert(CpuStatus::I);
-
-            Poll::Pending
-        }
-
-        // T5–T6: fetch the reset vector from $FFFC/$FFFD and load PC.
-        5 => {
-            cpu.adl = bus.read(0xFFFC);
-
-            Poll::Pending
-        }
-
-        _ => {
-            cpu.adh = bus.read(0xFFFD);
-            cpu.pc = cpu.address();
-
-            Poll::Ready(())
-        }
     }
 }

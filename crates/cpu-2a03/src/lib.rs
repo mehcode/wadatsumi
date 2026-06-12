@@ -9,6 +9,7 @@ mod cpu;
 mod instruction;
 mod interrupt;
 mod operation;
+mod reset;
 mod status;
 mod table;
 
