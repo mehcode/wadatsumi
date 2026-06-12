@@ -8,9 +8,10 @@
 use std::task::Poll;
 
 use crate::CpuReadWrite;
-use crate::cpu::operation::Register::{self, A, X, Y};
-use crate::cpu::operation::{MemoryAccess, Operand, Operation};
-use crate::cpu::{Cpu2A03, CpuStatus};
+use crate::cpu::Cpu2A03;
+use crate::operation::Register::{self, A, X, Y};
+use crate::operation::{MemoryAccess, Operand, Operation};
+use crate::status::CpuStatus;
 
 /// Adds the accumulator, a byte from the effective address, and the carry flag (`ADC`).
 /// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.

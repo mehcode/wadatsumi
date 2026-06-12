@@ -8,8 +8,9 @@
 use std::task::Poll;
 
 use crate::CpuReadWrite;
-use crate::cpu::operation::Operation;
-use crate::cpu::{Cpu2A03, CpuStatus};
+use crate::cpu::Cpu2A03;
+use crate::operation::Operation;
+use crate::status::CpuStatus;
 
 /// Pushes the accumulator onto the stack. 3 cycles.
 /// Cycle 1 is a spurious read at PC; cycle 2 writes `A` to the stack pointer address and decrements `S`.

@@ -3,8 +3,14 @@
 
 #![feature(min_adt_const_params)]
 
+mod addressing;
 mod bus;
 mod cpu;
+mod instruction;
+mod operation;
+mod status;
+mod table;
 
 pub use bus::{CpuBus, CpuPeek, CpuReadWrite};
 pub use cpu::Cpu2A03;
+pub use status::CpuStatus;

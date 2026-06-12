@@ -8,10 +8,11 @@
 use std::task::{Poll, ready};
 
 use crate::CpuReadWrite;
-use crate::cpu::operation::Operand::{self, Memory, Register};
-use crate::cpu::operation::Register::A;
-use crate::cpu::operation::{ADC, MemoryAccess, Operation};
-use crate::cpu::{Cpu2A03, CpuStatus};
+use crate::cpu::Cpu2A03;
+use crate::operation::Operand::{self, Memory, Register};
+use crate::operation::Register::A;
+use crate::operation::{ADC, MemoryAccess, Operation};
+use crate::status::CpuStatus;
 
 /// AND accumulator with immediate byte, then LSR the accumulator (`ALR`).
 /// Sets `C` from bit 0 before the shift. Stores the result in `A`. Updates `Z`, `N`, and `C`.

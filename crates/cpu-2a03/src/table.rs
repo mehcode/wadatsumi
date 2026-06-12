@@ -1,13 +1,13 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::bus::CpuReadWrite;
-use crate::cpu::addressing::{
+use crate::addressing::{
     Absolute, AbsoluteX, AbsoluteY, AddressingMode, Immediate, Implied, Indirect, IndirectX,
     IndirectY, Relative, ZeroPage, ZeroPageX, ZeroPageY,
 };
-use crate::cpu::instruction::{Instruction, execute};
-use crate::cpu::operation::{
+use crate::bus::CpuReadWrite;
+use crate::instruction::{Instruction, execute};
+use crate::operation::{
     ADC, ALR, ANC, AND, ARR, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BRK, BVC, BVS, CLC, CLD, CLI,
     CLV, CMP, CPX, CPY, DCP, DEC, DEX, DEY, EOR, INC, INX, INY, ISC, JMP, JSR, LAS, LAX, LDA, LDX,
     LDY, LSR, LXA, NOP, ORA, Operation, PHA, PHP, PLA, PLP, RLA, ROL, ROR, RRA, RTI, RTS, SAX, SBC,
@@ -30,8 +30,8 @@ impl<B: CpuReadWrite> InstructionTable<B> {
     #[allow(clippy::too_many_lines)]
     #[must_use]
     pub const fn new() -> Self {
-        use crate::cpu::operation::Operand::{Memory, Register};
-        use crate::cpu::operation::Register::A;
+        use crate::operation::Operand::{Memory, Register};
+        use crate::operation::Register::A;
 
         let mut table = Self { instructions: [None; 256] };
 

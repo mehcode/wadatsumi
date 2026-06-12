@@ -8,8 +8,9 @@
 use std::task::Poll;
 
 use crate::CpuReadWrite;
-use crate::cpu::operation::{MemoryAccess, Operation};
-use crate::cpu::{Cpu2A03, CpuStatus};
+use crate::cpu::Cpu2A03;
+use crate::operation::{MemoryAccess, Operation};
+use crate::status::CpuStatus;
 
 pub struct BRK;
 

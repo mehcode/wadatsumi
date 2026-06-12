@@ -10,8 +10,8 @@ use std::task::{Poll, ready};
 
 use crate::CpuReadWrite;
 use crate::cpu::Cpu2A03;
-use crate::cpu::operation::Register::{self, A, SP, X, Y};
-use crate::cpu::operation::{MemoryAccess, Operation};
+use crate::operation::Register::{self, A, SP, X, Y};
+use crate::operation::{MemoryAccess, Operation};
 
 /// Reads memory, ANDs with `SP`, and stores the result into `A`, `X`, and `SP` (`LAS`/`LAE`/`LAR`).
 /// Updates `Z` and `N`.

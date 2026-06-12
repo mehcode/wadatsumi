@@ -5,8 +5,8 @@ use std::task::Poll;
 
 use crate::bus::CpuReadWrite;
 use crate::cpu::Cpu2A03;
-use crate::cpu::operation::Register::{self, X, Y};
-use crate::cpu::operation::{MemoryAccess, Operation};
+use crate::operation::Register::{self, X, Y};
+use crate::operation::{MemoryAccess, Operation};
 
 /// Determines how an instruction locates its operand.
 ///

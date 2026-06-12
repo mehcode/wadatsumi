@@ -3,10 +3,10 @@
 
 use std::task::Poll;
 
+use crate::addressing::AddressingMode;
 use crate::bus::CpuReadWrite;
 use crate::cpu::Cpu2A03;
-use crate::cpu::addressing::AddressingMode;
-use crate::cpu::operation::{MemoryAccess, Operation};
+use crate::operation::{MemoryAccess, Operation};
 
 /// Single-cycle callback for one in-flight 6502 instruction.
 ///

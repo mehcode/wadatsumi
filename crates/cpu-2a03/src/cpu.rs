@@ -5,16 +5,9 @@ use std::mem::transmute;
 use std::task::Poll;
 
 use crate::bus::CpuReadWrite;
-use crate::cpu::instruction::Instruction;
-use crate::cpu::table::InstructionTable;
-
-mod addressing;
-mod instruction;
-mod operation;
-mod status;
-mod table;
-
-pub use status::CpuStatus;
+use crate::instruction::Instruction;
+use crate::status::CpuStatus;
+use crate::table::InstructionTable;
 
 /// Tracks which stage of the CPU pipeline is active.
 enum Phase {
@@ -66,26 +59,26 @@ pub struct Cpu2A03 {
 
     /// The current T-state: 0 during the opcode fetch cycle, incrementing by one each subsequent
     /// clock cycle. Also used as the step counter within the reset sequence (T0–T6).
-    t: u8,
+    pub(crate) t: u8,
 
     /// Current pipeline phase.
     phase: Phase,
 
     /// Scratch register used during indirect addressing to hold the zero-page pointer
     /// byte before it is expanded into a full 16-bit address.
-    ptr: u8,
+    pub(crate) ptr: u8,
 
     /// High byte of the effective address (ADH). Written once the second address byte
     /// is fetched; for zero-page modes it stays `$00` for the duration of the instruction.
-    adh: u8,
+    pub(crate) adh: u8,
 
     /// Low byte of the effective address (ADL). Always the first byte fetched during
     /// address resolution; mutated in-place for zero-page indexed wrap-around.
-    adl: u8,
+    pub(crate) adl: u8,
 
     /// Single-byte data latch used to pass a value between the read and write cycles
     /// of a read-modify-write instruction.
-    data: u8,
+    pub(crate) data: u8,
 
     /// Total clock cycles elapsed since construction, incremented on every [`Cpu2A03::tick`].
     pub cycles: u64,
@@ -228,7 +221,7 @@ impl Cpu2A03 {
     }
 
     /// Reads the byte at PC, and advances PC.
-    fn fetch<B: CpuReadWrite>(&mut self, bus: &mut B) -> u8 {
+    pub(crate) fn fetch<B: CpuReadWrite>(&mut self, bus: &mut B) -> u8 {
         let value = bus.read(self.pc);
         self.pc = self.pc.wrapping_add(1);
 
@@ -239,14 +232,14 @@ impl Cpu2A03 {
     /// Used at bus read/write sites once address resolution is complete.
     #[must_use]
     #[inline(always)]
-    const fn address(&self) -> u16 {
+    pub(crate) const fn address(&self) -> u16 {
         u16::from_le_bytes([self.adl, self.adh])
     }
 
     /// Sets both address bytes together, used when a full 16-bit address is known at once
     /// (e.g. zero-page fetch where `adh` is always `$00`, or indirect target assembly).
     #[inline(always)]
-    const fn set_address(&mut self, adl: u8, adh: u8) {
+    pub(crate) const fn set_address(&mut self, adl: u8, adh: u8) {
         self.adl = adl;
         self.adh = adh;
     }
@@ -254,13 +247,13 @@ impl Cpu2A03 {
     /// Returns the full 16-bit address of the current stack top: `$0100 | SP`.
     #[inline(always)]
     #[must_use]
-    const fn stack_address(&self) -> u16 {
+    pub(crate) const fn stack_address(&self) -> u16 {
         0x0100 | self.sp as u16
     }
 
     /// Writes `value` to `$0100 + SP`, then decrements SP.
     #[inline]
-    fn stack_push<B: CpuReadWrite>(&mut self, bus: &mut B, value: u8) {
+    pub(crate) fn stack_push<B: CpuReadWrite>(&mut self, bus: &mut B, value: u8) {
         bus.write(self.stack_address(), value);
         self.sp = self.sp.wrapping_sub(1);
     }

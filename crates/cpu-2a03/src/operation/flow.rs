@@ -8,8 +8,9 @@
 use std::task::Poll;
 
 use crate::CpuReadWrite;
-use crate::cpu::operation::Operation;
-use crate::cpu::{Cpu2A03, CpuStatus};
+use crate::cpu::Cpu2A03;
+use crate::operation::Operation;
+use crate::status::CpuStatus;
 
 /// Branches to a relative offset when status flag `FLAG` equals `EXPECTED` (`BCC`, `BCS`, `BEQ`, `BNE`, `BMI`, `BPL`, `BVC`, `BVS`).
 /// Takes 2 cycles if not taken, 3 if taken same-page, or 4 if the branch crosses a page boundary.
