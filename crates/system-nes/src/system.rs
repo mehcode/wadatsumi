@@ -11,8 +11,14 @@ use crate::ppu::SystemNesPpuReadWrite;
 
 /// The top-level NES system, tying together the CPU, WRAM, PPU and APU.
 pub struct SystemNes {
+    /// The 2A03 CPU core. Exposed so frontends and debuggers can read register state
+    /// and check `cpu.halted()` to know when the system has jammed.
     pub cpu: Cpu2A03,
+
+    /// The 2C02 PPU core. Exposed so frontends can pull the framebuffer and debuggers
+    /// can inspect rendering state.
     pub ppu: Ppu2C02,
+
     pak: Option<Pak>,
     wram: Box<[u8; 2048]>,
     ciram: Box<[u8; 2048]>,
