@@ -201,6 +201,18 @@ impl Pak {
         self.mapper.nametable_read(self.nt_ram.as_deref().unwrap_or(&[]), ciram, address)
     }
 
+    /// Current level of the pak's `/IRQ` output line: `true` while the mapper is asking
+    /// the CPU for an IRQ. Boards without an IRQ source always return `false`.
+    ///
+    /// The system bus wired-ORs this with the APU's IRQ sources before handing the
+    /// combined level to the CPU through [`CpuBus::irq`](wadatsumi_cpu_2a03::CpuBus::irq).
+    ///
+    #[inline]
+    #[must_use]
+    pub fn irq(&self) -> bool {
+        self.mapper.irq()
+    }
+
     /// Write one byte into the nametable space (`$2000–$3EFF`).
     #[inline]
     pub fn nametable_write(&mut self, ciram: &mut [u8; 2048], address: u16, value: u8) {

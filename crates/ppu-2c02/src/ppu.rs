@@ -174,6 +174,23 @@ impl Ppu2C02 {
         self.palette[Self::palette_index(address)] = value;
     }
 
+    /// Current level of the PPU's `/NMI` output line: `true` while the PPU is asking the
+    /// CPU for an NMI, `false` otherwise. Modeled active-high (the real pin is active-low).
+    ///
+    /// The PPU drives this as `vblank_flag AND PPUCTRL bit 7`, so it goes high at `(241,
+    /// 1)` if NMI is enabled, stays high through vblank, and falls again at `(261, 1)`
+    /// when the vblank flag clears. A `$2002` read clears the flag and pulls the line low
+    /// immediately. Writing `$2000` to flip NMI-enable on while vblank is still set
+    /// re-asserts the line, the "multi-NMI" trick.
+    ///
+    /// The CPU does its own rising-edge latching on this; the level read here is just
+    /// what the line *is*, not what the CPU has decided to do about it.
+    ///
+    #[must_use]
+    pub const fn nmi(&self) -> bool {
+        self.status.vblank() && self.control.nmi_enabled()
+    }
+
     /// Advances the PPU by one dot.
     ///
     /// The host is expected to call this three times per CPU cycle on NTSC (interleaved

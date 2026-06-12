@@ -5,7 +5,7 @@ use wadatsumi_cpu_2a03::{Cpu2A03, CpuPeek};
 use wadatsumi_ppu_2c02::Ppu2C02;
 use wadatsumi_system::System;
 
-use crate::cpu::{SystemNesCpuPeek, SystemNesCpuReadWrite};
+use crate::cpu::{SystemNesCpuBus, SystemNesCpuPeek};
 use crate::pak::Pak;
 use crate::ppu::SystemNesPpuReadWrite;
 
@@ -90,7 +90,7 @@ impl System for SystemNes {
         // by the leading dot above; register writes take effect before the
         // trailing dots run, so PPUCTRL/PPUMASK changes are immediately visible
         // to the rest of this tick's rendering work.
-        self.cpu.tick(&mut SystemNesCpuReadWrite {
+        self.cpu.tick(&mut SystemNesCpuBus {
             ciram: &mut self.ciram,
             wram: &mut self.wram,
             ppu: &mut self.ppu,

@@ -6,5 +6,5 @@
 mod bus;
 mod cpu;
 
-pub use bus::{CpuPeek, CpuReadWrite};
+pub use bus::{CpuBus, CpuPeek, CpuReadWrite};
 pub use cpu::Cpu2A03;

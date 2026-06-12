@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use wadatsumi_cpu_2a03::{CpuPeek, CpuReadWrite};
+use wadatsumi_cpu_2a03::{CpuBus, CpuPeek, CpuReadWrite};
 use wadatsumi_ppu_2c02::Ppu2C02;
 
 use crate::pak::Pak;
@@ -39,14 +39,14 @@ impl CpuPeek for SystemNesCpuPeek<'_> {
     }
 }
 
-pub struct SystemNesCpuReadWrite<'s> {
+pub struct SystemNesCpuBus<'s> {
     pub(super) wram: &'s mut [u8; 2048],
     pub(super) ciram: &'s mut [u8; 2048],
     pub(super) ppu: &'s mut Ppu2C02,
     pub(super) pak: Option<&'s mut Pak>,
 }
 
-impl CpuReadWrite for SystemNesCpuReadWrite<'_> {
+impl CpuReadWrite for SystemNesCpuBus<'_> {
     fn read(&mut self, address: u16) -> u8 {
         match address {
             0x2000..=0x3fff => self.ppu.cpu_read(
@@ -98,5 +98,26 @@ impl CpuReadWrite for SystemNesCpuReadWrite<'_> {
                 // TODO: Pak PRG-RAM (?)
             }
         }
+    }
+}
+
+impl CpuBus for SystemNesCpuBus<'_> {
+    fn nmi(&self) -> bool {
+        // The PPU is the only NMI source on a stock NES; the line is just
+        // `vblank_flag AND PPUCTRL bit 7`, exposed directly by the chip.
+        self.ppu.nmi()
+    }
+
+    fn irq(&self) -> bool {
+        // Wired-OR of every IRQ source on the CPU's /IRQ pin. Today only the mapper
+        // can drive it (and NROM never does); the APU's frame-counter and DMC IRQs
+        // get OR'd in here once the APU exists.
+        self.pak.as_deref().is_some_and(Pak::irq)
+    }
+
+    fn rdy(&self) -> bool {
+        // No DMA controller wired in yet, so the CPU is always free to run. Once the
+        // APU exists, OAM DMA (`$4014`) and DMC DMA will pull this low to steal cycles.
+        true
     }
 }

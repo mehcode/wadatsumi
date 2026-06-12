@@ -53,6 +53,20 @@ pub trait Mapper {
     /// `sram_size()`.
     fn write_sram(&mut self, sram: &mut [u8], address: u16, value: u8);
 
+    /// Current level of the mapper's `/IRQ` output line: `true` while the mapper is
+    /// asking the CPU for an IRQ, `false` otherwise. Modeled active-high.
+    ///
+    /// Boards without an IRQ source (NROM, UxROM, CNROM, AxROM, and so on) inherit the
+    /// `false` default. Mappers with a scanline counter (MMC3, MMC5, FME-7) or a CPU-clock
+    /// timer (VRC4/6/7, FME-7) override this and hold the line high until the game writes
+    /// their IRQ-ack register. The system bus wired-ORs this with the APU's IRQ sources
+    /// before handing the combined level to the CPU.
+    ///
+    #[inline]
+    fn irq(&self) -> bool {
+        false
+    }
+
     /// Read one byte from CHR-ROM/RAM at the given PPU address (`$0000–$1FFF`) without
     /// advancing mapper state.
     ///
