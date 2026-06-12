@@ -1,3 +1,21 @@
+// Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//! Drives the 2A03 core against the `SingleStepTests/65x02` `nes6502/v1` corpus: 10 000
+//! per-instruction test cases for every one of the 256 opcodes (official and unofficial),
+//! checking final register state, modified RAM bytes, and the exact per-cycle bus trace.
+//!
+//! Each fixture file covers one opcode and was generated from the visual6502 transistor-level
+//! simulation, so the expected traces are what real silicon does — not what a reference
+//! emulator claims it does. That makes this the strictest CPU conformance test we run:
+//! `nestest` checks the architectural state at instruction boundaries, but SingleStepTests
+//! checks every read, every write, every dummy cycle, in order. A single misplaced dummy
+//! read on a page-crossed indexed addressing mode fails here even when nestest passes.
+//!
+//! Fixtures are cloned into the cargo target directory on first run, so the test is hermetic
+//! after the initial download. See <https://github.com/SingleStepTests/65x02> for the corpus
+//! and <https://www.nesdev.org/wiki/Emulator_tests#SingleStepTests> for context.
+
 use std::cell::LazyCell;
 use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
@@ -20,25 +38,25 @@ fn main() -> anyhow::Result<()> {
     libtest_mimic::run(&args, trials).exit();
 }
 
-/// Exercises a single opcode by running ten thousand test cases from `SingleStepTests`.
+/// Exercises a single opcode by running every test case in its fixture file.
 ///
-/// Each test case supplies an exact initial machine state (registers + a sparse RAM snapshot),
-/// the expected final state after one instruction, and the exact sequence of bus transactions
-/// (address, value, read/write) that the real 6502 performs on every clock cycle.
+/// Each case carries an exact initial machine state (registers plus a sparse RAM snapshot),
+/// the expected final state after one instruction, and the cycle-by-cycle bus trace
+/// `(address, value, read/write)` the real 6502 performs. We run the CPU through that many
+/// ticks, then compare all three.
 fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
     let fixture = fs::read_to_string(path)?;
     let cases: Vec<TestCase> = serde_json::from_str(&fixture)?;
 
-    // Allocate the bus once and reset it between cases to avoid a 64 KB heap allocation
-    // per test case (10,000 cases × one file per opcode = 2.56 M potential allocations).
-
+    // One bus allocated up front and reused across cases. A naive per-case allocation would
+    // be 10 000 × 64 KB on every opcode file, totalling ~2.5 M heap allocations across the
+    // whole run — measurable in test wall time.
     let mut bus = FlatCpuReadWrite { ram: vec![0u8; 65536].into_boxed_slice(), trace: Vec::new() };
 
     for case in cases {
-        // Restore the bus to a known-zero state, then stamp in only the locations
-        // the test cares about. The sparse initial.ram list covers every address the
-        // instruction will touch, so anything not listed can safely stay zero.
-
+        // Wipe RAM back to zero, then stamp in only the addresses the case declares. The
+        // fixture's `initial.ram` is sparse but exhaustive — it lists every address the
+        // instruction will read or write — so anything absent can safely stay zero.
         bus.ram.fill(0);
         bus.trace.clear();
 
@@ -46,12 +64,15 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
             bus.ram[address as usize] = val;
         }
 
-        // Cpu2A03::new() starts in Phase::Fetch so the first tick executes the instruction
-        // at PC rather than running the hardware reset sequence.
-
+        // `Cpu2A03::new` parks the core in `Phase::Fetch`, so the very first `tick` executes
+        // the instruction sitting at PC instead of replaying the hardware reset sequence.
+        // That matches what the fixtures expect — each case starts at an instruction boundary.
         let mut cpu = Cpu2A03::new();
 
-        // SingleStepTests is generated from the visual6502 simulation, which uses 0xEE.
+        // The "magic" byte models open-bus / unstable behavior on unofficial opcodes that
+        // mix an internal register value into ALU operands. visual6502 (and therefore the
+        // SingleStepTests corpus) settles on `0xEE` for this value; we match it so the
+        // unofficial-opcode cases line up.
         cpu.magic = 0xEE;
 
         cpu.pc = case.initial.pc;
@@ -61,9 +82,10 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
         cpu.sp = case.initial.sp;
         cpu.p.0 = case.initial.p;
 
-        // Tick for exactly as many cycles as the test case specifies. Normal instructions
-        // exit early when t() returns to 0 (instruction boundary). KIL never exits, it jams
-        // the CPU in a halt loop, so the halted() check prevents a premature break.
+        // Tick for at most the cycle count the case lists. A normal instruction returns to
+        // `t() == 0` exactly at its final cycle, so we can break early. KIL (a.k.a. JAM /
+        // HLT) deliberately never reaches another instruction boundary — it stalls the
+        // bus forever — so `halted()` keeps us from mistaking that for a clean exit.
         for _ in 0..case.cycles.len() {
             cpu.tick(&mut bus);
 
@@ -72,9 +94,9 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
             }
         }
 
-        // U (bit 5) is hardwired high on the physical chip and always set in the test's
-        // expected P value, but our internal CpuStatus strips it. OR it back in before
-        // comparing so the representations agree.
+        // Bit 5 (U) of P is hardwired high on the physical chip and the fixture's expected
+        // P always sets it. Our internal `CpuStatus` doesn't track it, so we OR it back in
+        // before comparing.
 
         let p = cpu.p.0 | 0b0010_0000;
         let fin = &case.r#final;
@@ -95,9 +117,9 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
             .into());
         }
 
-        // final.ram is sparse: it lists only the addresses the instruction is expected to
-        // have read or written. We verify each one but leave unmentioned addresses alone.
-
+        // `final.ram` is sparse the same way `initial.ram` is — it lists only the addresses
+        // the instruction is expected to have touched. We check each declared address;
+        // anything absent from the list is intentionally untested.
         for &(address, expected) in &fin.ram {
             let got = bus.ram[address as usize];
             if got != expected {
@@ -109,9 +131,11 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
             }
         }
 
-        // The cycle trace records every bus transaction in order: the opcode fetch, any
-        // address resolution reads, operand reads/writes, and dummy cycles. A mismatch here
-        // catches missing dummy reads, wrong addresses, or incorrect read/write direction.
+        // The cycle trace records every bus transaction the CPU performed, in order: the
+        // opcode fetch, address-resolution reads, operand reads/writes, and any dummy
+        // cycles. Comparing it against the fixture catches the subtle bugs no other test
+        // sees — missing dummy reads, wrong addresses on indexed page-crosses, or a write
+        // where the silicon does a read-modify-write.
 
         if bus.trace.len() != case.cycles.len() {
             return Err(format!(
@@ -147,9 +171,10 @@ fn exercise_opcode(path: &Path) -> Result<(), libtest_mimic::Failed> {
 /// A flat 64 KB address space with a side-channel bus trace, used as the CPU's memory backend
 /// during single-step tests.
 ///
-/// Every [`Bus::read`] and [`Bus::write`] call appends an entry to `trace` so the test can
-/// verify the exact sequence of bus transactions the CPU performed against the golden cycles
-/// list from `SingleStepTests`. [`Bus::peek`] is side-effect-free and does not record anything.
+/// Every [`CpuReadWrite::read`] and [`CpuReadWrite::write`] call appends `(address, value,
+/// is_read)` to `trace`, giving the test an exact record of what the CPU put on the bus
+/// each cycle. [`CpuPeek::peek`] is side-effect-free and does not record — matching the
+/// debugger-vs-CPU split the real bus traits draw elsewhere in the crate.
 struct FlatCpuReadWrite {
     ram: Box<[u8]>,
     trace: Vec<(u16, u8, bool)>,
@@ -174,7 +199,8 @@ impl CpuReadWrite for FlatCpuReadWrite {
     }
 }
 
-/// A snapshot of the 6502 machine state at a single point in time.
+/// A snapshot of 6502 machine state at a single point in time, as it appears in the
+/// fixture JSON. Field names mirror the on-disk schema (`s` for SP).
 #[derive(serde::Deserialize)]
 struct CpuState {
     pc: u16,
@@ -185,27 +211,31 @@ struct CpuState {
     y: u8,
     p: u8,
 
-    /// Lists only the addresses relevant to the instruction being tested, not the full 64 KB.
+    /// Sparse: only the addresses the case cares about, not the full 64 KB.
     ram: Vec<(u16, u8)>,
 }
 
-/// One test case from `SingleStepTests`: a named scenario for a single instruction execution.
+/// One case from a SingleStepTests fixture file: a named scenario for executing a single
+/// instruction, with the before/after state and the cycle trace the real chip produces.
 #[derive(serde::Deserialize)]
 struct TestCase {
     name: String,
 
-    /// The machine state before the instruction runs.
+    /// Machine state at the instruction-fetch cycle, before the opcode runs.
     initial: CpuState,
 
-    /// The machine state after the instruction completes.
+    /// Machine state at the next instruction-fetch cycle, after the opcode completes.
     r#final: CpuState,
 
-    /// The ordered list of every bus transaction the real 6502 performs during execution.
+    /// Every bus transaction the real 6502 performs during execution, in order. The third
+    /// tuple field is `"read"` or `"write"`, kept as a `String` because that's how the
+    /// JSON encodes it; we compare against it directly rather than translating to an enum.
     cycles: Vec<(u16, u8, String)>,
 }
 
-/// Collects each test case (provided from `SingleStepTests`) into
-/// an array of `Trials`.
+/// Walks the cloned fixture directory and produces one `Trial` per opcode (one JSON file
+/// per opcode), letting `libtest_mimic` run them in parallel and report each opcode as its
+/// own test in cargo's output.
 fn collect_trials() -> anyhow::Result<Vec<Trial>> {
     let mut entries = fs::read_dir(FIXTURES.join("nes6502/v1"))?
         .filter_map(Result::ok)
@@ -225,11 +255,16 @@ fn collect_trials() -> anyhow::Result<Vec<Trial>> {
         .collect())
 }
 
-/// Download the 6502 processor tests from `SingleStepTests`.
-// https://github.com/SingleStepTests/65x02/tree/main/nes6502/v1
+/// Clones the `SingleStepTests/65x02` corpus into the cargo target directory on first run,
+/// using a blobless sparse checkout to fetch only `nes6502/v1` (the 6502 variant the 2A03
+/// implements). The full repo carries fixtures for every 65x02-family CPU and runs to a
+/// gigabyte+; the slice we need is tens of megabytes.
+///
+/// See <https://github.com/SingleStepTests/65x02/tree/main/nes6502/v1> for the upstream
+/// path layout.
 fn download_processor_tests() -> anyhow::Result<()> {
     if FIXTURES.exists() {
-        // Assume the tests are already downloaded.
+        // Fixtures are append-only once cloned; if the directory exists we trust it.
         return Ok(());
     }
 
