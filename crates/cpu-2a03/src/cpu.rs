@@ -2,16 +2,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::mem::transmute;
+use std::task::Poll;
 
-use crate::bus::CpuReadWrite;
+use crate::bus::{CpuBus, CpuReadWrite};
 use crate::instruction::Instruction;
+use crate::interrupt::{IRQ, InterruptKind, NMI, interrupt};
 use crate::reset::reset;
 use crate::status::CpuStatus;
 use crate::table::InstructionTable;
 
 /// Tracks which stage of the CPU pipeline is active.
+#[expect(clippy::upper_case_acronyms)]
 enum Phase {
-    /// At an instruction boundary: the next tick will fetch the opcode.
+    /// At an instruction boundary: the next tick will fetch the opcode (or service a
+    /// pending interrupt in its place).
     Fetch,
 
     /// An instruction is in flight; the stored handler drives one T-state per [`Cpu2A03::tick`].
@@ -19,6 +23,12 @@ enum Phase {
 
     /// The 7-cycle hardware reset sequence is in progress.
     Reset,
+
+    /// A hardware IRQ sequence is in-flight.
+    IRQ,
+
+    /// A hardware NMI sequence is in-flight.
+    NMI,
 
     /// The CPU has jammed on a KIL instruction; only a hardware RESET can escape.
     ///
@@ -58,7 +68,7 @@ pub struct Cpu2A03 {
     pub p: CpuStatus,
 
     /// The current T-state: 0 during the opcode fetch cycle, incrementing by one each subsequent
-    /// clock cycle. Also used as the step counter within the reset sequence (T0–T6).
+    /// clock cycle. Also used as the step counter within the reset sequence (`T0..=T6`).
     pub(crate) t: u8,
 
     /// Current pipeline phase.
@@ -89,6 +99,30 @@ pub struct Cpu2A03 {
     /// chip revision, and temperature. Common values: `0xFF` (nestest), `0xEE` (`SingleStepTests` /
     /// visual6502). Defaults to `0xFF`.
     pub magic: u8,
+
+    /// Level of `/NMI` sampled on the previous [`Cpu2A03::tick`]. Used to detect the
+    /// low→high edge that latches a pending NMI: the chip fires exactly one NMI per
+    /// rising edge regardless of how long the line stays asserted, so the previous
+    /// level is what tells a fresh assertion apart from one we've already latched.
+    nmi_previous: bool,
+
+    /// Latched rising edge on `/NMI`, waiting to be serviced at the next fetch boundary.
+    /// Set by the edge sampler in [`Cpu2A03::tick`] and cleared either when `Phase::Fetch`
+    /// enters NMI service or when `interrupt`'s T5 arm consumes it as a vector hijack.
+    /// Kept separate from the live bus level so a one-cycle pulse still fires exactly
+    /// one NMI even if `/NMI` drops back low before the boundary.
+    pub(crate) nmi_latch: bool,
+
+    /// Frozen interrupt decision from the previous instruction or interrupt sequence,
+    /// captured at its second-to-last cycle. Set by [`Cpu2A03::advance`] when a step
+    /// returns `Ready`, consumed by `Phase::Fetch` on the next tick. Mirrors the
+    /// chip's internal interrupt-grant flip-flop.
+    ///
+    /// Only a bool; NMI-vs-IRQ kind is re-derived at `Phase::Fetch` from `nmi_latch`
+    /// (NMI wins priority if latched). This lets an NMI that arrived after the
+    /// second-to-last cycle but before fetch upgrade a pending IRQ to NMI, matching
+    /// chip behavior.
+    interrupt_pending: bool,
 }
 
 impl Default for Cpu2A03 {
@@ -117,6 +151,9 @@ impl Cpu2A03 {
             data: 0,
             cycles: 0,
             magic: 0xFF,
+            nmi_previous: false,
+            nmi_latch: false,
+            interrupt_pending: false,
         }
     }
 
@@ -130,11 +167,23 @@ impl Cpu2A03 {
         self.p = CpuStatus(0);
         self.t = 0;
         self.phase = Phase::Reset;
+        self.nmi_previous = false;
+        self.nmi_latch = false;
+        self.interrupt_pending = false;
     }
 
     /// Advances the CPU by one clock cycle.
-    pub fn tick<B: CpuReadWrite>(&mut self, bus: &mut B) {
+    pub fn tick<B: CpuBus>(&mut self, bus: &mut B) {
         self.cycles += 1;
+
+        // Sample `/NMI` every cycle and latch a rising edge into `nmi_latch`. The 2A03
+        // samples NMI on every clock; a one-cycle pulse is enough to fire exactly one NMI,
+        // and holding the line asserted indefinitely still only fires once per assertion.
+        // Sampling unconditionally (including during Reset/Halted) matches the chip and
+        // also keeps `nmi` aligned with the bus across phase transitions.
+        let nmi = bus.nmi();
+        self.nmi_latch |= nmi && !self.nmi_previous;
+        self.nmi_previous = nmi;
 
         match self.phase {
             // KIL halt loop: T0=PC+1, T1=$FFFF, T2-T3=$FFFE, T4+=$FFFF (matches visual6502).
@@ -150,19 +199,39 @@ impl Cpu2A03 {
                 self.t = self.t.saturating_add(1);
             }
 
-            // Drive the 7-cycle hardware reset sequence one step forward.
-            Phase::Reset => {
-                if reset(self, bus).is_ready() {
-                    self.t = 0;
-                    self.phase = Phase::Fetch;
-                } else {
-                    self.t += 1;
-                }
-            }
+            // Advance the 7-cycle hardware reset sequence one step forward.
+            Phase::Reset => self.advance(bus, reset),
 
-            // T0: fetch the opcode and cache its handler. T advances to 1 so the first
-            // execution T-state enters at T1.
+            // Advance the hardware IRQ/NMI sequence one step forward. Each kind monomorphizes
+            // to its own copy of `interrupt` with the vector and pushed-P mask folded in.
+            Phase::IRQ => self.advance(bus, IRQ),
+            Phase::NMI => self.advance(bus, NMI),
+
             Phase::Fetch => {
+                // The previous instruction's second-to-last-cycle interrupt
+                // decision said "service something." NMI wins at dispatch time
+                // if it's latched, since a fresh edge that arrived after the
+                // decision can upgrade IRQ to NMI here. `advance` hands off to
+                // `interrupt`'s T0 arm; the current cycle is spent there as the
+                // dummy PC read.
+                if self.interrupt_pending {
+                    self.interrupt_pending = false;
+
+                    #[expect(clippy::semicolon_if_nothing_returned)]
+                    return if self.nmi_latch {
+                        self.nmi_latch = false;
+                        self.phase = Phase::NMI;
+
+                        self.advance(bus, NMI)
+                    } else {
+                        self.phase = Phase::IRQ;
+
+                        self.advance(bus, IRQ)
+                    };
+                }
+
+                // T0: fetch the opcode and cache its handler. T advances to 1 so the first
+                // execution T-state enters at T1.
                 let opcode = self.fetch(bus);
 
                 let Some(instruction) = InstructionTable::<B>::dispatch(opcode) else {
@@ -190,14 +259,31 @@ impl Cpu2A03 {
             Phase::Execute { instruction } => {
                 // SAFETY: instruction was stored as Instruction<B> in the Fetch arm of this same tick<B>.
                 let instruction: Instruction<B> = unsafe { transmute(instruction) };
-
-                if instruction(self, bus).is_ready() {
-                    self.t = 0;
-                    self.phase = Phase::Fetch;
-                } else {
-                    self.t += 1;
-                }
+                self.advance(bus, instruction);
             }
+        }
+    }
+
+    /// Advances a multi-cycle pipeline phase by one cycle, and on the last cycle
+    /// latches the interrupt decision into `interrupt_pending`.
+    ///
+    /// Reset, hardware IRQ/NMI, and instruction execution all share the same shape:
+    /// call a `Poll<()>`-returning step that consumes one bus cycle, bump `t` while
+    /// it returns `Pending`, and on `Ready` snap back to the fetch boundary while
+    /// freezing the interrupt decision. The decision uses the I flag captured before
+    /// the step runs, so a CLI/SEI/PLP that writes I on its last cycle still lands
+    /// its delay-by-one-instruction behavior.
+    #[inline]
+    fn advance<B: CpuBus>(&mut self, bus: &mut B, step: fn(&mut Self, &mut B) -> Poll<()>) {
+        let i = self.p.contains(CpuStatus::I);
+
+        if step(self, bus).is_ready() {
+            self.interrupt_pending = self.nmi_latch || (bus.irq() && !i);
+
+            self.t = 0;
+            self.phase = Phase::Fetch;
+        } else {
+            self.t += 1;
         }
     }
 

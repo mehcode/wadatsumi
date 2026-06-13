@@ -8,7 +8,7 @@
 //! Each fixture file covers one opcode and was generated from the visual6502 transistor-level
 //! simulation, so the expected traces are what real silicon does — not what a reference
 //! emulator claims it does. That makes this the strictest CPU conformance test we run:
-//! `nestest` checks the architectural state at instruction boundaries, but SingleStepTests
+//! `nestest` checks the architectural state at instruction boundaries, but `SingleStepTests`
 //! checks every read, every write, every dummy cycle, in order. A single misplaced dummy
 //! read on a page-crossed indexed addressing mode fails here even when nestest passes.
 //!
@@ -23,7 +23,7 @@ use std::process::Command;
 use std::sync::LazyLock;
 
 use libtest_mimic::Trial;
-use wadatsumi_cpu_2a03::{Cpu2A03, CpuPeek, CpuReadWrite};
+use wadatsumi_cpu_2a03::{Cpu2A03, CpuBus, CpuPeek, CpuReadWrite};
 
 static FIXTURES: LazyLock<PathBuf> =
     LazyLock::new(|| PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("single-step-nes6502"));
@@ -199,6 +199,11 @@ impl CpuReadWrite for FlatCpuReadWrite {
     }
 }
 
+// SingleStepTests fixtures cover one instruction in isolation with no interrupt or DMA
+// activity, so the trait's defaults (`nmi`/`irq` low, `rdy` high) are exactly what the
+// corpus assumes. This empty impl just opts in to the wider bus bound on `tick`.
+impl CpuBus for FlatCpuReadWrite {}
+
 /// A snapshot of 6502 machine state at a single point in time, as it appears in the
 /// fixture JSON. Field names mirror the on-disk schema (`s` for SP).
 #[derive(serde::Deserialize)]
@@ -215,7 +220,7 @@ struct CpuState {
     ram: Vec<(u16, u8)>,
 }
 
-/// One case from a SingleStepTests fixture file: a named scenario for executing a single
+/// One case from a `SingleStepTests` fixture file: a named scenario for executing a single
 /// instruction, with the before/after state and the cycle trace the real chip produces.
 #[derive(serde::Deserialize)]
 struct TestCase {

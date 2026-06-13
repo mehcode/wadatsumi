@@ -33,7 +33,7 @@ pub(crate) fn reset<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>
         // whatever it was doing when /RES asserted, so this read is along
         // for the ride.
         0 => {
-            bus.read(cpu.pc);
+            let _ = bus.read(cpu.pc);
 
             Poll::Pending
         }
@@ -41,7 +41,7 @@ pub(crate) fn reset<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>
         // T1: dummy read at PC+1; result discarded. Second of the two
         // internal pipeline cycles.
         1 => {
-            bus.read(cpu.pc.wrapping_add(1));
+            let _ = bus.read(cpu.pc.wrapping_add(1));
 
             Poll::Pending
         }
@@ -50,7 +50,7 @@ pub(crate) fn reset<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>
         // high, so the chip issues a *read* at the stack address even though
         // it's going through the motions of a push. SP decrements.
         2 => {
-            bus.read(cpu.stack_address());
+            let _ = bus.read(cpu.stack_address());
 
             cpu.sp = cpu.sp.wrapping_sub(1);
 
@@ -59,7 +59,7 @@ pub(crate) fn reset<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>
 
         // T3: phantom stack access; SP decrements.
         3 => {
-            bus.read(cpu.stack_address());
+            let _ = bus.read(cpu.stack_address());
 
             cpu.sp = cpu.sp.wrapping_sub(1);
 
@@ -69,7 +69,7 @@ pub(crate) fn reset<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>
         // T4: phantom stack access; SP decrements. Sets `I` here, masking
         // IRQs before the vector read.
         4 => {
-            bus.read(cpu.stack_address());
+            let _ = bus.read(cpu.stack_address());
 
             cpu.sp = cpu.sp.wrapping_sub(1);
             cpu.p.insert(CpuStatus::I);

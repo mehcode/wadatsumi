@@ -56,7 +56,7 @@ pub trait Mapper {
     /// Current level of the mapper's `/IRQ` output line: `true` while the mapper is
     /// asking the CPU for an IRQ, `false` otherwise. Modeled active-high.
     ///
-    /// Boards without an IRQ source (NROM, UxROM, CNROM, AxROM, and so on) inherit the
+    /// Boards without an IRQ source (`NROM`, `UxROM`, `CNROM`, `AxROM`, and so on) inherit the
     /// `false` default. Mappers with a scanline counter (MMC3, MMC5, FME-7) or a CPU-clock
     /// timer (VRC4/6/7, FME-7) override this and hold the line high until the game writes
     /// their IRQ-ack register. The system bus wired-ORs this with the APU's IRQ sources

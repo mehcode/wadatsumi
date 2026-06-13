@@ -62,18 +62,24 @@ impl InterruptKind {
 
 /// Drives the 6502 interrupt sequence one cycle at a time, shared by BRK,
 /// hardware IRQ, and hardware NMI. The variant points (T1 step, pushed-P
-/// mask, vector) come from `K` and fold to compile-time constants.
+/// mask, nominal vector) come from `K` and fold to compile-time constants.
 ///
-/// Entered at T1; T0 is absorbed by whichever path got here. For BRK that
-/// means T0 was the `$00` opcode fetch in the CPU's fetch phase, and the
-/// spurious operand read at T1 is done by [`Implied`][crate::addressing]
-/// before this body runs. For hardware IRQ and NMI, T0 is the first dummy
-/// read at PC, driven by the fetch phase before it hands off to the
-/// dedicated interrupt phase that runs this routine.
+/// Entry differs by source. Hardware IRQ and NMI enter at T0 from
+/// [`Phase::Fetch`][crate::cpu]: the cycle that would have been the next
+/// opcode fetch is spent here as the first dummy read at PC. BRK enters
+/// at T1, since its T0 was the `$00` opcode fetch in
+/// [`Phase::Fetch`][crate::cpu] and its T1 spurious read is done upstream
+/// by [`Implied`][crate::addressing] addressing in the same tick, so the
+/// T1 arm here only advances PC for BRK rather than reading.
 ///
-/// Either way the bus pattern is: two dummy reads at PC (T0, T1), push PCH
-/// (T2), push PCL (T3), push P (T4), read vector low and set `I` (T5),
-/// read vector high (T6). Seven cycles total.
+/// Bus pattern: two dummy reads at PC (T0, T1), push PCH (T2), push PCL
+/// (T3), push P (T4), read vector low and set `I` (T5), read vector high
+/// (T6). Seven cycles total.
+///
+/// A pending /NMI latched anywhere during `T0..=T4` hijacks the vector at T5:
+/// a BRK or IRQ ends up jumping through `$FFFA/B` while still pushing the
+/// triggering signal's status byte (so a hijacked BRK still pushes B=1).
+/// See the T5 arm for the mechanics.
 ///
 /// See <https://www.nesdev.org/wiki/CPU_interrupts> for the canonical
 /// per-cycle reference.
@@ -84,8 +90,19 @@ pub fn interrupt<const K: InterruptKind, B: CpuReadWrite>(
     bus: &mut B,
 ) -> Poll<()> {
     match cpu.t {
-        // T1: second dummy read at PC. For BRK the spurious read was issued
-        // by Implied addressing before this body ran, so this arm only
+        // T0: first dummy read at PC. Only hardware IRQ and NMI reach this
+        // arm: `Phase::Fetch` skips the opcode fetch on a
+        // serviced cycle and spends it here as the chip's first dummy read.
+        // BRK skips this arm because its T0 was the `$00` opcode fetch in
+        // `Phase::Fetch`, so it enters at T1.
+        0 => {
+            let _ = bus.read(cpu.pc);
+
+            Poll::Pending
+        }
+
+        // T1: second dummy read at PC. For BRK the spurious read is issued
+        // by Implied addressing earlier in the same tick, so this arm only
         // advances PC past the padding byte; the return address pushed below
         // then lands at BRK+2, the "BRK is two bytes" behavior. For hardware
         // IRQ/NMI the read is issued here directly with no PC advance.
@@ -128,20 +145,62 @@ pub fn interrupt<const K: InterruptKind, B: CpuReadWrite>(
             Poll::Pending
         }
 
-        // T5: read the vector low byte into PCL and set `I`, masking
-        // further IRQs before the handler's first instruction runs.
+        // T5: read the vector low byte into PCL and set `I`. Also the last
+        // chance for a pending NMI to hijack the sequence: if /NMI was
+        // latched anywhere during T0..T4 and we aren't already running
+        // NMI, swap `K`'s vector for $FFFA. The pushed PCH/PCL/P at T2..T4
+        // stay as they were, so a hijacked BRK still pushes B=1 and a
+        // hijacked IRQ still pushes B=0; only the destination changes.
         5 => {
-            cpu.pc = u16::from(bus.read(K.vector()));
+            // The K=NMI guard keeps this arm from clearing `nmi_latch`
+            // while we're already servicing NMI. Without it, a fresh /NMI
+            // edge that arrived during T1..T4 of an in-flight NMI would
+            // get silently consumed here (the vector swap is already a
+            // no-op, but the latch clear isn't) instead of queued for the
+            // next fetch boundary.
+            let kind = if !matches!(K, InterruptKind::NMI) && cpu.nmi_latch {
+                cpu.nmi_latch = false;
+
+                InterruptKind::NMI
+            } else {
+                K
+            };
+
+            // Stash the chosen address in `(adl, adh)` so T6 can pull the
+            // high byte from `address() + 1` without a separate "hijacked?"
+            // flag. Setting `I` here masks IRQs before the handler's first
+            // instruction runs.
+            let vector = kind.vector();
+            [cpu.adl, cpu.adh] = vector.to_le_bytes();
+
+            cpu.pc = u16::from(bus.read(vector));
             cpu.p.insert(CpuStatus::I);
 
             Poll::Pending
         }
 
         // T6: read the vector high byte into PCH and complete the jump.
+        // The address comes from `(adl, adh) + 1`; those bytes were latched
+        // at T5 with the chosen vector base, so the read targets $FFFB for
+        // NMI (or a hijacked BRK/IRQ) and $FFFF for a non-hijacked BRK/IRQ.
         _ => {
-            cpu.pc |= u16::from(bus.read(K.vector() + 1)) << 8;
+            cpu.pc |= u16::from(bus.read(cpu.address() + 1)) << 8;
 
             Poll::Ready(())
         }
     }
+}
+
+/// Thin alias for [`interrupt`] with `K` pinned to [`InterruptKind::IRQ`].
+#[expect(non_snake_case)]
+#[inline(always)]
+pub fn IRQ<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    interrupt::<{ InterruptKind::IRQ }, B>(cpu, bus)
+}
+
+/// Thin alias for [`interrupt`] with `K` pinned to [`InterruptKind::NMI`].
+#[expect(non_snake_case)]
+#[inline(always)]
+pub fn NMI<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()> {
+    interrupt::<{ InterruptKind::NMI }, B>(cpu, bus)
 }

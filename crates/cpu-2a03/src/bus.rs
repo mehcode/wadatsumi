@@ -17,6 +17,7 @@ pub trait CpuPeek {
     /// register, this returns the value the CPU *would* have seen and leaves the
     /// underlying state alone.
     ///
+    #[must_use]
     fn peek(&self, address: u16) -> u8;
 }
 
@@ -40,6 +41,7 @@ pub trait CpuReadWrite {
     /// IRQ, and open-bus addresses return whatever the data lines were floating
     /// at. Use [`CpuPeek::peek`] when you want the value without the side effect.
     ///
+    #[must_use]
     fn read(&mut self, address: u16) -> u8;
 
     /// Writes `value` to `address`, applying any hardware side effects.
