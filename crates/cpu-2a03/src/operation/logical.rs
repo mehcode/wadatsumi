@@ -1,9 +1,17 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Bitwise logical operations on the accumulator: `AND`, `EOR`, `ORA`, and `BIT`.
-//! Unlike [`arithmetic`], operands are treated as bit patterns, no carry or overflow is produced.
-//! Shifts and rotates (`ASL`, `LSR`, `ROL`, `ROR`) belong here when added.
+//! Bitwise logical operations and the shift/rotate family: `AND`, `EOR`, `ORA`, `BIT`,
+//! `ASL`, `LSR`, `ROL`, `ROR`, plus the undocumented combinations (`ALR`, `ANC`, `ARR`,
+//! `RLA`, `RRA`, `SLO`, `SRE`).
+//!
+//! Unlike [`arithmetic`], operands here are treated as bit patterns, no signed-overflow
+//! semantics are applied. The plain logical ops never touch `C` or `V`, while the shifts
+//! and rotates surface the bit shifted out through `C` so software can stitch shifts
+//! across multiple bytes.
+//!
+//! See <https://www.nesdev.org/obelisk-6502-guide/reference.html> for the per-instruction
+//! reference.
 
 use std::task::{Poll, ready};
 
@@ -14,8 +22,13 @@ use crate::operation::Register::A;
 use crate::operation::{ADC, MemoryAccess, Operation};
 use crate::status::CpuStatus;
 
-/// AND accumulator with immediate byte, then LSR the accumulator (`ALR`).
-/// Sets `C` from bit 0 before the shift. Stores the result in `A`. Updates `Z`, `N`, and `C`.
+/// AND the accumulator with an immediate byte, then `LSR` the accumulator in place
+/// (`ALR`/`ASR`).
+///
+/// An undocumented fused `AND` plus `LSR`. `C` ends up holding bit 0 of the AND result
+/// (the bit shifted out), with `A` holding the shifted value. Updates `Z`, `N`, and `C`.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct ALR;
 
 impl Operation for ALR {
@@ -31,8 +44,14 @@ impl Operation for ALR {
     }
 }
 
-/// AND accumulator with immediate byte, then copy bit 7 of result to carry (`ANC`).
-/// Stores the result in `A`. Updates `Z`, `N`, and `C`.
+/// AND the accumulator with an immediate byte, then copy bit 7 of the result into `C`
+/// (`ANC`/`AAC`).
+///
+/// An undocumented combination of `AND` and the bit-7-to-carry behaviour of `ROL`. `C`
+/// effectively mirrors `N` after the AND, which makes signed-bit branches doable without
+/// an explicit shift. Updates `Z`, `N`, and `C`.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct ANC;
 
 impl Operation for ANC {
@@ -50,8 +69,11 @@ impl Operation for ANC {
     }
 }
 
-/// Bitwise AND of the accumulator with a byte from the effective address (`AND`).
-/// Stores the result in `A`. Updates `Z` and `N`.
+/// Bitwise AND of the accumulator with the byte at the effective address (`AND`).
+///
+/// Stores the result in `A`. Updates `Z` and `N`, leaves `C` and `V` alone.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#AND>.
 pub struct AND;
 
 impl Operation for AND {
@@ -68,9 +90,14 @@ impl Operation for AND {
     }
 }
 
-/// AND accumulator with immediate byte, then rotate right through carry (`ARR`).
-/// Unlike a plain `AND`+`ROR`, `C` is taken from bit 6 of the result and `V` from bit 6 XOR bit 5.
-/// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.
+/// AND the accumulator with an immediate byte, then rotate the result right through `C`
+/// (`ARR`).
+///
+/// Looks like `AND` + `ROR` but the flag semantics are weirder: `C` comes from bit 6 of
+/// the result (not bit 0 of the input) and `V` is bit 6 XOR bit 5, mimicking the BCD-mode
+/// adder flags from the original NMOS 6502. Updates `Z`, `N`, `C`, and `V`.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct ARR;
 
 impl Operation for ARR {
@@ -93,9 +120,13 @@ impl Operation for ARR {
 }
 
 /// Shifts operand `O` one bit left, filling bit 0 with zero (`ASL`).
-/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
-/// For register operands, executes in a single implicit cycle.
-/// Sets `C` to the original bit 7. Updates `Z` and `N`.
+///
+/// Memory operands go through the read-modify-write pipeline (the spurious write of the
+/// original byte then the real write of the shifted byte). Register operands resolve in
+/// a single implicit cycle. `C` receives the original bit 7, making chained left shifts
+/// across multi-byte values straightforward. Updates `Z`, `N`, and `C`.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL>.
 pub struct ASL<const O: Operand>;
 
 impl<const O: Operand> Operation for ASL<O> {
@@ -117,7 +148,13 @@ impl<const O: Operand> Operation for ASL<O> {
 }
 
 /// Tests bits in memory against the accumulator (`BIT`).
-/// Sets `Z` from `A & data`, copies bit 7 of `data` to `N`, and bit 6 of `data` to `V`. `A` is not modified.
+///
+/// Sets `Z` from `A & data`, copies bit 7 of the memory byte into `N`, and bit 6 into
+/// `V`. `A` is not modified. Frequently paired with `BMI`/`BPL`/`BVS`/`BVC` for cheap
+/// one-bit flag polling, the PPU's `$2002` register layout is designed around this
+/// trick: bits 6 and 7 (sprite-0 hit and vblank) land directly in `V` and `N`.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#BIT>.
 pub struct BIT;
 
 impl Operation for BIT {
@@ -133,8 +170,11 @@ impl Operation for BIT {
     }
 }
 
-/// Bitwise exclusive OR of the accumulator with a byte from the effective address (`EOR`).
-/// Stores the result in `A`. Updates `Z` and `N`.
+/// Bitwise exclusive-OR of the accumulator with the byte at the effective address (`EOR`).
+///
+/// Stores the result in `A`. Updates `Z` and `N`, leaves `C` and `V` alone.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#EOR>.
 pub struct EOR;
 
 impl Operation for EOR {
@@ -152,9 +192,14 @@ impl Operation for EOR {
 }
 
 /// Shifts operand `O` one bit right, filling bit 7 with zero (`LSR`).
-/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
-/// For register operands, executes in a single implicit cycle.
-/// Sets `C` to the original bit 0. Updates `Z` and `N`.
+///
+/// Memory operands go through the read-modify-write pipeline (the spurious write of the
+/// original byte then the real write of the shifted byte). Register operands resolve in
+/// a single implicit cycle. `C` receives the original bit 0. `N` is always cleared by
+/// definition (bit 7 ends at zero), so this is a quick way to clear `N` if you don't
+/// mind also clobbering the value. Updates `Z`, `N`, and `C`.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#LSR>.
 pub struct LSR<const O: Operand>;
 
 impl<const O: Operand> Operation for LSR<O> {
@@ -175,8 +220,11 @@ impl<const O: Operand> Operation for LSR<O> {
     }
 }
 
-/// Bitwise OR of the accumulator with a byte from the effective address (`ORA`).
-/// Stores the result in `A`. Updates `Z` and `N`.
+/// Bitwise OR of the accumulator with the byte at the effective address (`ORA`).
+///
+/// Stores the result in `A`. Updates `Z` and `N`, leaves `C` and `V` alone.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#ORA>.
 pub struct ORA;
 
 impl Operation for ORA {
@@ -194,9 +242,14 @@ impl Operation for ORA {
 }
 
 /// Rotates operand `O` one bit left through the carry flag (`ROL`).
-/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
-/// For register operands, executes in a single implicit cycle.
-/// Bit 0 is filled with `C`; sets `C` to the original bit 7. Updates `Z` and `N`.
+///
+/// Bit 0 is filled with the *incoming* `C`, then the *outgoing* `C` receives the original
+/// bit 7, so a chain of `ROL`s across consecutive bytes performs a multi-byte left shift.
+/// Memory operands go through the read-modify-write pipeline (the spurious write of the
+/// original byte then the real write of the rotated byte). Register operands resolve in
+/// a single implicit cycle. Updates `Z`, `N`, and `C`.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#ROL>.
 pub struct ROL<const O: Operand>;
 
 impl<const O: Operand> Operation for ROL<O> {
@@ -218,9 +271,14 @@ impl<const O: Operand> Operation for ROL<O> {
 }
 
 /// Rotates operand `O` one bit right through the carry flag (`ROR`).
-/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
-/// For register operands, executes in a single implicit cycle.
-/// Bit 7 is filled with `C`; sets `C` to the original bit 0. Updates `Z` and `N`.
+///
+/// Bit 7 is filled with the *incoming* `C`, then the *outgoing* `C` receives the original
+/// bit 0, mirroring `ROL` for multi-byte right shifts. Memory operands go through the
+/// read-modify-write pipeline (the spurious write of the original byte then the real
+/// write of the rotated byte). Register operands resolve in a single implicit cycle.
+/// Updates `Z`, `N`, and `C`.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#ROR>.
 pub struct ROR<const O: Operand>;
 
 impl<const O: Operand> Operation for ROR<O> {
@@ -242,7 +300,12 @@ impl<const O: Operand> Operation for ROR<O> {
 }
 
 /// Rotate memory left through carry, then AND the result into the accumulator (`RLA`).
-/// Uses the read-modify-write pipeline. Sets `C` from original bit 7. Updates `Z` and `N` from `A`.
+///
+/// An undocumented fused `ROL` + `AND` sharing one read-modify-write pipeline. `C`
+/// receives the original bit 7 of memory (from the rotate), and `Z`/`N` come from the
+/// final value of `A`. Updates `Z`, `N`, and `C`.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct RLA;
 
 impl Operation for RLA {
@@ -259,8 +322,13 @@ impl Operation for RLA {
 }
 
 /// Rotate memory right through carry, then add the result to the accumulator (`RRA`).
-/// Uses the read-modify-write pipeline. Bit 7 is filled with old `C`; sets `C` from bit 0,
-/// then that new `C` feeds into the ADC. Updates `Z`, `N`, `C`, and `V`.
+///
+/// An undocumented fused `ROR` + `ADC` sharing one read-modify-write pipeline. The
+/// rotate fills bit 7 with the *old* `C` and pushes the original bit 0 out into `C`,
+/// then the `ADC` consumes that new `C` as its carry-in.
+/// Updates `Z`, `N`, `C`, and `V`.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct RRA;
 
 impl Operation for RRA {
@@ -275,8 +343,13 @@ impl Operation for RRA {
     }
 }
 
-/// Shift memory left one bit, then OR the result into the accumulator (`SLO`).
-/// Uses the read-modify-write pipeline. Sets `C` to the original bit 7. Updates `Z` and `N` from `A`.
+/// Shift memory left one bit, then OR the result into the accumulator (`SLO`/`ASO`).
+///
+/// An undocumented fused `ASL` + `ORA` sharing one read-modify-write pipeline. `C`
+/// receives the original bit 7 of memory (from the shift), and `Z`/`N` come from the
+/// final value of `A`. Updates `Z`, `N`, and `C`.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct SLO;
 
 impl Operation for SLO {
@@ -292,8 +365,13 @@ impl Operation for SLO {
     }
 }
 
-/// Shift memory right one bit, then EOR the result into the accumulator (`SRE`).
-/// Uses the read-modify-write pipeline. Sets `C` to the original bit 0. Updates `Z` and `N` from `A`.
+/// Shift memory right one bit, then EOR the result into the accumulator (`SRE`/`LSE`).
+///
+/// An undocumented fused `LSR` + `EOR` sharing one read-modify-write pipeline. `C`
+/// receives the original bit 0 of memory (from the shift), and `Z`/`N` come from the
+/// final value of `A`. Updates `Z`, `N`, and `C`.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct SRE;
 
 impl Operation for SRE {

@@ -1,9 +1,17 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Explicit stack operations: push and pull of the accumulator (`PHA`, `PLA`) and
-//! status register (`PHP`, `PLP`). Operations in [`flow`] that incidentally use the
-//! stack (`JSR`, `RTS`, `RTI`) live there instead, grouped by their primary identity.
+//! Explicit stack operations: push and pull of the accumulator (`PHA`, `PLA`) and the
+//! status register (`PHP`, `PLP`).
+//!
+//! The stack lives in page 1 (`$0100`..`$01FF`) and grows downward, the stack pointer
+//! `SP` always holds the *next* free byte. `TXS` (in [`transfer`][crate::operation])
+//! seeds `SP` and `TSX` reads it back; the operations here only touch the stack itself.
+//! Flow-control instructions that also touch the stack (`JSR`, `RTS`, `RTI`, `BRK`) live
+//! in [`flow`] and [`system`], grouped by their primary purpose.
+//!
+//! See <https://www.nesdev.org/obelisk-6502-guide/reference.html> for the per-instruction
+//! reference.
 
 use std::task::Poll;
 
@@ -12,9 +20,15 @@ use crate::cpu::Cpu2A03;
 use crate::operation::Operation;
 use crate::status::CpuStatus;
 
-/// Pushes the accumulator onto the stack. 3 cycles.
-/// Cycle 1 is a spurious read at PC; cycle 2 writes `A` to the stack pointer address and decrements `S`.
+/// Pushes the accumulator onto the stack (`PHA`). 3 cycles.
+///
+/// - Cycle 1: opcode fetch (handled by the addressing-mode pipeline)
+/// - Cycle 2: spurious read at `PC` (the canonical 6502 idle cycle for implied ops)
+/// - Cycle 3: writes `A` to `$0100 | SP`, then decrements `SP`
+///
 /// No flags are modified.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA>.
 pub struct PHA;
 
 impl Operation for PHA {
@@ -33,9 +47,18 @@ impl Operation for PHA {
     }
 }
 
-/// Pushes the processor status register onto the stack with `U` and `B` always set. 3 cycles.
-/// Cycle 1 is a spurious read at PC; cycle 2 writes `P | U | B` to the stack.
-/// The live `P` register is not modified.
+/// Pushes the processor status register onto the stack with `B` and `U` always set
+/// (`PHP`). 3 cycles.
+///
+/// Same timing as `PHA`. The pushed byte is `P | B | U`, so software peeking at the
+/// stacked status sees the canonical "this was a PHP/BRK" form regardless of how `P`
+/// looks at the moment. The live `P` register is not modified, so neither bit lingers
+/// after the push.
+///
+/// `B` and `U` have no physical storage on the chip, they're synthesized at push time
+/// here and at pull time in [`PLP`]/[`RTI`](crate::operation::RTI).
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#PHP>.
 pub struct PHP;
 
 impl Operation for PHP {
@@ -54,9 +77,17 @@ impl Operation for PHP {
     }
 }
 
-/// Pulls the accumulator from the stack. 4 cycles.
-/// Cycles 1–2 are a spurious read and a stack-pointer increment; cycle 3 reads the new stack top into `A`.
-/// Updates `Z` and `N`.
+/// Pulls the accumulator from the stack (`PLA`). 4 cycles.
+///
+/// - Cycle 1: opcode fetch
+/// - Cycle 2: spurious read at `PC`
+/// - Cycle 3: spurious read at the current stack top, then increment `SP`
+/// - Cycle 4: read the new stack top into `A`
+///
+/// The two stack-side reads are how the hardware bridges the pre-increment `SP` and the
+/// "where the data actually lives" address. Updates `Z` and `N`.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#PLA>.
 pub struct PLA;
 
 impl Operation for PLA {
@@ -84,10 +115,17 @@ impl Operation for PLA {
     }
 }
 
-/// Pulls the processor status register from the stack. 4 cycles.
-/// Mirrors `PLA` timing but loads the pulled byte directly into `P` rather than `A`.
-/// `B` (bit 4) has no physical register counterpart and is always cleared; `U` (bit 5) is
-/// hardwired to 1 on the chip and is always set, regardless of what was on the stack.
+/// Pulls the processor status register from the stack (`PLP`). 4 cycles.
+///
+/// Same timing as `PLA`, but the pulled byte lands in `P` instead of `A`. The `B` and
+/// `U` bits get rewritten on load: `B` (bit 4) is always cleared (it has no on-chip
+/// counterpart, software just sees `0`), and `U` (bit 5) is always set (the bit is
+/// hardwired to `1` on the real chip). Every other flag bit is taken verbatim from the
+/// stacked byte.
+///
+/// Updates every flag except `B` and `U`, which are forced as described above.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#PLP>.
 pub struct PLP;
 
 impl Operation for PLP {

@@ -26,39 +26,76 @@ pub use transfer::{
     TYA, XAA,
 };
 
-/// Classifies how an operation accesses memory, driving the addressing-mode pipeline.
-/// The addressing mode uses this to issue the correct read or write cycles before handing off to `apply`.
+/// Classifies how an operation accesses memory at the effective address. Drives the
+/// addressing-mode pipeline so the right read or write cycles fire before [`Operation::apply`]
+/// runs.
+///
+/// `Read` issues a single bus read into `cpu.data`. `Write` skips the read and lets
+/// `apply` perform the bus write itself. `ReadModifyWrite` does the read, then a
+/// spurious write of the *original* value back to the same address (a 6502 timing
+/// quirk), then `apply` produces the modified byte and the addressing mode finishes
+/// with the real write.
 #[derive(Debug, Clone, Copy)]
 pub enum MemoryAccess {
+    /// One bus read into `cpu.data`. Used by load and arithmetic-on-memory ops.
     Read,
+
+    /// No read, `apply` is responsible for emitting the write. Used by store ops.
     Write,
+
+    /// Read, spurious write-back, then `apply` followed by the real write. Used by
+    /// `INC`/`DEC`/`ASL`/`LSR`/`ROL`/`ROR` and their undocumented combinations.
     ReadModifyWrite,
 }
 
 /// The effect of a single 2A03 instruction mnemonic.
 ///
-/// An `Operation` is the second half of instruction dispatch, after an
-/// [`AddressingMode`] resolves the effective address into `cpu.address`,
-/// the operation applies the mnemonic's effect to CPU and bus state.
+/// An `Operation` is the second half of instruction dispatch. The addressing mode runs
+/// first, resolving the effective address into `cpu.address` (and, depending on
+/// [`ACCESS`][Self::ACCESS], pre-reading the byte into `cpu.data` or doing the spurious
+/// read-modify-write dance). Then `apply` runs and produces the actual mnemonic effect
+/// against CPU and bus state.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html> for what each
+/// mnemonic is supposed to do, and <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>
+/// for the undocumented family.
 pub trait Operation {
+    /// How this operation accesses memory at the effective address, or `None` if it
+    /// touches no memory beyond what the addressing mode already did (`JMP`, register
+    /// ops, implied-only ops). Drives the addressing-mode pipeline before `apply`.
     const ACCESS: Option<MemoryAccess> = None;
 
-    /// Applies the operation's effect for the current cycle.
+    /// Runs one cycle of the operation against `cpu` and `bus`.
     ///
-    /// Called only after the addressing mode has fully resolved. `cpu.address`
-    /// holds the effective address. Returns `Poll::Ready(())` when the operation is
-    /// complete, signalling the CPU to clear the in-flight instruction.
+    /// Called only after the addressing mode has fully resolved. `cpu.address` holds the
+    /// effective address. Returns [`Poll::Pending`] to consume another cycle (multi-step
+    /// ops like `JSR`, `RTS`, `RTI`, branches), or [`Poll::Ready`] to retire the
+    /// instruction and let the CPU fetch the next opcode.
     fn apply<B: CpuReadWrite>(cpu: &mut Cpu2A03, bus: &mut B) -> Poll<()>
     where
         Self: Sized;
 }
 
-/// A CPU register (`A`, `X`, `Y`, or `SP`).
+/// One of the 2A03's four user-visible registers.
+///
+/// Used as a const generic parameter so register-flavored variants of the same mnemonic
+/// share a single generic implementation: `LDA`/`LDX`/`LDY` collapse into one `LOAD<R>`,
+/// `INX`/`INY`/`DEX`/`DEY` reuse the same increment/decrement body, transfer ops route
+/// through `TRANSFER<SRC, DST>`, and so on. The compiler monomorphizes each `R` into a
+/// dedicated specialization, so there is no runtime cost.
 #[derive(Debug, Clone, Copy, ConstParamTy, PartialEq, Eq)]
 pub enum Register {
+    /// Accumulator. Source and destination for most arithmetic and logical operations.
     A,
+
+    /// Index register `X`. Used for indexed addressing (`zp,X`, `abs,X`) and for the
+    /// stack-pointer transfer pair `TSX`/`TXS`.
     X,
+
+    /// Index register `Y`. Used for indexed addressing (`zp,Y`, `abs,Y`, `(zp),Y`).
     Y,
+
+    /// Stack pointer. The low byte of an address in page 1 (`$0100`..`$01FF`).
     SP,
 }
 
@@ -99,17 +136,22 @@ impl Register {
     }
 }
 
-/// The source or destination of an operation's data,
-/// either a CPU register or a memory location.
+/// Where an operation's data lives, either a CPU register or the effective memory
+/// address.
 ///
-/// Used as a const generic parameter so register and memory variants of the same mnemonic
-/// (e.g. `INX`/`INY` vs `INC`) can share a single generic implementation.
+/// Used as a const generic parameter so register and memory variants of the same
+/// mnemonic share one implementation. `INC`/`INX`/`INY` are all instances of
+/// `INCREMENT<O>`, `ASL A` and `ASL $addr` are both `ASL<O>`, and so on. Const-eval
+/// turns [`Operand::access`] into a fixed [`MemoryAccess`] for memory variants and
+/// `None` for register variants, so the addressing-mode pipeline is configured at
+/// compile time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ConstParamTy)]
 pub enum Operand {
     /// A CPU register (`A`, `X`, `Y`, or `SP`).
     Register(Register),
 
-    /// The effective address resolved by the addressing mode.
+    /// The effective address resolved by the addressing mode (read or written through
+    /// `cpu.data` / `cpu.address`).
     Memory,
 }
 

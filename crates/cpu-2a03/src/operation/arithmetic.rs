@@ -2,8 +2,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Arithmetic operations: addition, subtraction, increment, decrement, and comparison.
-//! Unlike [`logical`], operands are treated as numbers, `ADC` and `SBC` update `C` and `V`
-//! in addition to `Z` and `N`, reflecting carries and borrows across byte boundaries.
+//!
+//! Unlike [`logical`], operands here are treated as numbers. `ADC` and `SBC` update `C`
+//! and `V` (in addition to `Z` and `N`) to surface unsigned carry and signed overflow
+//! across byte boundaries, so chained multi-byte arithmetic can stitch the result back
+//! together one byte at a time.
+//!
+//! See <https://www.nesdev.org/obelisk-6502-guide/reference.html> for the canonical
+//! per-instruction reference.
 
 use std::task::Poll;
 
@@ -13,8 +19,16 @@ use crate::operation::Register::{self, A, X, Y};
 use crate::operation::{MemoryAccess, Operand, Operation};
 use crate::status::CpuStatus;
 
-/// Adds the accumulator, a byte from the effective address, and the carry flag (`ADC`).
-/// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.
+/// Adds the byte at the effective address and the carry flag into the accumulator (`ADC`).
+///
+/// Stores the result in `A`. Sets `C` on unsigned carry-out and `V` on signed overflow,
+/// so consecutive `ADC`s can chain across multi-byte numbers without losing bits.
+/// Updates `Z`, `N`, `C`, and `V`.
+///
+/// The 2A03 omits the 65xx decimal mode entirely, so the `D` flag has no effect here
+/// even when it is set, this implementation always computes in plain binary.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC>.
 pub struct ADC;
 
 impl Operation for ADC {
@@ -36,9 +50,15 @@ impl Operation for ADC {
     }
 }
 
-/// Subtracts the byte at the effective address from register `R` without storing the result (`CMP`, `CPX`, `CPY`).
-/// Sets `C` if the register is greater than or equal to the operand (no borrow), clears it otherwise.
-/// Updates `Z` and `N` from the difference.
+/// Subtracts the byte at the effective address from register `R` and discards the result
+/// (`CMP`, `CPX`, `CPY`).
+///
+/// The register is left untouched, only the flags move. Sets `C` when the register is
+/// greater than or equal to the operand (no borrow), clears it on borrow, and updates
+/// `Z` and `N` from the difference. `V` is never touched, which is what distinguishes
+/// `CMP` from a discarded `SBC` and lets branches read each flag independently.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#CMP>.
 pub struct COMPARE<const R: Register>;
 
 impl<const R: Register> Operation for COMPARE<R> {
@@ -60,8 +80,14 @@ pub type CMP = COMPARE<{ A }>;
 pub type CPX = COMPARE<{ X }>;
 pub type CPY = COMPARE<{ Y }>;
 
-/// Decrement memory by one, then compare the result with the accumulator (`DCP`).
-/// Uses the read-modify-write pipeline. Sets `C` if `A >= result`. Updates `Z` and `N`.
+/// Decrement memory by one, then compare the result against the accumulator (`DCP`).
+///
+/// An undocumented combination of `DEC` and `CMP` sharing a single read-modify-write
+/// pipeline. Writes the decremented byte back to memory, then sets `C` when
+/// `A >= result` (no borrow) and updates `Z` and `N` from `A - result`. `A` is not
+/// modified.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct DCP;
 
 impl Operation for DCP {
@@ -79,9 +105,14 @@ impl Operation for DCP {
 }
 
 /// Decrements operand `O` by one (`DEC`, `DEX`, `DEY`).
-/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
-/// For register operands, executes in a single implicit cycle.
-/// Updates `Z` and `N`.
+///
+/// Memory operands go through the read-modify-write pipeline (the spurious write of the
+/// original byte then the real write of the decremented byte). Register operands resolve
+/// in a single implicit cycle. Wraps from `$00` to `$FF`. Updates `Z` and `N`, leaves
+/// `C` and `V` alone, so this can sit inside a carry-propagating arithmetic sequence
+/// without trashing it.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#DEC>.
 pub struct DECREMENT<const O: Operand>;
 
 impl<const O: Operand> Operation for DECREMENT<O> {
@@ -103,9 +134,13 @@ pub type DEX = DECREMENT<{ Operand::Register(X) }>;
 pub type DEY = DECREMENT<{ Operand::Register(Y) }>;
 
 /// Increments operand `O` by one (`INC`, `INX`, `INY`).
-/// For memory operands, uses the read-modify-write pipeline (spurious write then final write).
-/// For register operands, executes in a single implicit cycle.
-/// Updates `Z` and `N`.
+///
+/// Memory operands go through the read-modify-write pipeline (the spurious write of the
+/// original byte then the real write of the incremented byte). Register operands resolve
+/// in a single implicit cycle. Wraps from `$FF` to `$00`. Updates `Z` and `N`, leaves
+/// `C` and `V` alone.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#INC>.
 pub struct INCREMENT<const O: Operand>;
 
 impl<const O: Operand> Operation for INCREMENT<O> {
@@ -126,8 +161,14 @@ pub type INC = INCREMENT<{ Operand::Memory }>;
 pub type INX = INCREMENT<{ Operand::Register(X) }>;
 pub type INY = INCREMENT<{ Operand::Register(Y) }>;
 
-/// Increment memory by one, then subtract the result from the accumulator (`ISC`).
-/// Uses the read-modify-write pipeline. Updates `Z`, `N`, `C`, and `V`.
+/// Increment memory by one, then subtract the result from the accumulator (`ISC`/`ISB`).
+///
+/// An undocumented combination of `INC` and `SBC` sharing a single read-modify-write
+/// pipeline. Writes the incremented byte back to memory, then performs the SBC against
+/// `A` with the carry flag acting as the inverted borrow input.
+/// Updates `Z`, `N`, `C`, and `V`.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct ISC;
 
 impl Operation for ISC {
@@ -143,8 +184,14 @@ impl Operation for ISC {
     }
 }
 
-/// Subtracts a byte at the effective address and the borrow from the accumulator (`SBC`).
-/// Stores the result in `A`. Updates `Z`, `N`, `C`, and `V`.
+/// Subtracts the byte at the effective address and the borrow from the accumulator (`SBC`).
+///
+/// The 6502 defines borrow as the inverse of `C`, so `C` must be set before the first
+/// `SBC` in a chain to avoid a phantom borrow. Stores the result in `A`. Sets `C` when
+/// no borrow was needed (the unsigned result fits in a byte), and `V` on signed overflow.
+/// Updates `Z`, `N`, `C`, and `V`.
+///
+/// See <https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC>.
 pub struct SBC;
 
 impl Operation for SBC {
@@ -161,9 +208,14 @@ impl Operation for SBC {
     }
 }
 
-/// ANDs the accumulator with `X`, subtracts the byte at the effective address, and stores
-/// the result in `X` (`SBX`). Sets `C` if `A & X >= operand` (no borrow). Updates `Z` and `N`.
-/// Does not affect `V`.
+/// ANDs `A` with `X`, subtracts the byte at the effective address, and stores the result
+/// in `X` (`SBX`/`AXS`/`SAX`).
+///
+/// An undocumented hybrid of `CMP` (it sets `C` like a compare rather than chaining
+/// borrow through it) and a destination-`X` subtraction. Sets `C` when `A & X` is greater
+/// than or equal to the operand (no borrow). Updates `Z` and `N`. `V` is left alone.
+///
+/// See <https://www.nesdev.org/wiki/CPU_unofficial_opcodes>.
 pub struct SBX;
 
 impl Operation for SBX {
