@@ -206,22 +206,29 @@ impl Ppu2C02 {
         // N; the next tick sees N+1. The 2C02 hardware reference uses this same
         // convention (work happens "during" a dot, then the counter increments).
 
-        match (self.frame.scanline, self.frame.dot) {
-            // Vblank entry: set the flag at dot 1 of scanline 241. NMI assertion is wired
-            // up separately once the PPU exposes its output line; this just owns the flag.
-            (241, 1) => {
-                self.status.set_vblank(true);
-            }
+        // Both flag edges fire at dot 1, so check dot first. 340 of every 341 dots fall
+        // straight through on the first compare; only one in 341 even consults the
+        // scanline. With this tick inlined 3× per CPU cycle, that's the difference
+        // between ~6 branches and ~3 branches per cycle in the common case.
+        if self.frame.dot == 1 {
+            match self.frame.scanline {
+                // Vblank entry: set the flag at dot 1 of scanline 241. NMI assertion is
+                // wired up separately once the PPU exposes its output line; this just
+                // owns the flag.
+                241 => {
+                    self.status.set_vblank(true);
+                }
 
-            // Pre-render: clear vblank, sprite-0 hit, and sprite overflow at dot 1 of
-            // scanline 261. Hardware clears all three on the same dot.
-            (261, 1) => {
-                self.status.set_vblank(false);
-                self.status.set_sprite_0_hit(false);
-                self.status.set_sprite_overflow(false);
-            }
+                // Pre-render: clear vblank, sprite-0 hit, and sprite overflow at dot 1
+                // of scanline 261. Hardware clears all three on the same dot.
+                261 => {
+                    self.status.set_vblank(false);
+                    self.status.set_sprite_0_hit(false);
+                    self.status.set_sprite_overflow(false);
+                }
 
-            _ => {}
+                _ => {}
+            }
         }
 
         // Advance one dot. The NTSC pre-render dot-skip at (261, 339) on odd frames is

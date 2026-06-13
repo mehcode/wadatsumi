@@ -112,7 +112,7 @@ impl PpuFrameClock {
     /// of the call. Sampling at call time matches hardware: turning rendering off between
     /// dots 339 and 340 of an odd pre-render scanline cancels the skip for that frame.
     ///
-    pub const fn advance(&mut self, rendering_enabled: bool) {
+    pub fn advance(&mut self, rendering_enabled: bool) {
         // NTSC pre-render dot-skip. On odd frames with rendering on, the PPU jumps
         // straight from (261, 339) to (0, 0) of the next (even) frame, skipping dot 340
         // entirely. Handled as a special case before the normal step so the regular
