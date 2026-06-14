@@ -22,18 +22,20 @@ use wadatsumi_system::System;
 use wadatsumi_system_nes::SystemNes;
 
 datatest_stable::harness! {
-    {
-        test = instr_test_v5,
-        root = "tests/instr-test-v5",
-        pattern = r"^.*\.nes$",
-    },
+    { test = blargg, root = "tests", pattern = r"^cpu-dummy-reads/.*\.nes$" },
+    { test = blargg, root = "tests", pattern = r"^cpu-dummy-writes/.*\.nes$" },
+    { test = blargg, root = "tests", pattern = r"^cpu-exec-space/.*\.nes$" },
+    { test = blargg, root = "tests", pattern = r"^cpu-interrupts-v2/.*\.nes$" },
+    { test = blargg, root = "tests", pattern = r"^cpu-reset/.*\.nes$" },
+    { test = blargg, root = "tests", pattern = r"^instr-test-v5/.*\.nes$" },
+    { test = blargg, root = "tests", pattern = r"^instr-timing/.*\.nes$" },
 }
 
 /// Cycle budget before we call a hang. At the 2A03's ~1.79 MHz this is roughly 56 s of
 /// emulated time, comfortably over the slowest sub-test in the suite (well under 30 s).
 const MAX_CYCLES: u64 = 100_000_000;
 
-fn instr_test_v5(path: &Path) -> datatest_stable::Result<()> {
+fn blargg(path: &Path) -> datatest_stable::Result<()> {
     let pak = fs::read(path)?;
     let mut system = SystemNes::open(pak)?;
 

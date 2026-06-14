@@ -27,5 +27,5 @@ name = "cpu-2a03"
 harness = false
 
 [[test]]
-name = "instr-test-v5"
+name = "blargg"
 harness = false
