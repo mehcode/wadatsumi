@@ -49,6 +49,7 @@ fn nestest() -> anyhow::Result<()> {
             && let Some((line, entry)) = expected.next()
         {
             let cpu = &system.cpu;
+            let ppu = &system.ppu;
 
             // Bit 5 (U) of P is hardwired high on the physical chip: it isn't backed by a
             // real flip-flop, so reads always see a 1 there. The log records it as such;
@@ -62,8 +63,10 @@ fn nestest() -> anyhow::Result<()> {
                     && cpu.y == entry.y
                     && p == entry.p
                     && cpu.sp == entry.sp
-                    && cpu.cycles == entry.cycle,
-                "diverged on line {}:\n  expected: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}\n    actual: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}",
+                    && cpu.cycles == entry.cycle
+                    && ppu.frame.scanline == entry.ppu_scanline
+                    && ppu.frame.dot == entry.ppu_dot,
+                "diverged on line {}:\n  expected: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} PPU:{:3},{:3} CYC:{}\n    actual: PC:{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} PPU:{:3},{:3} CYC:{}",
                 line + 1,
                 entry.pc,
                 entry.a,
@@ -71,6 +74,8 @@ fn nestest() -> anyhow::Result<()> {
                 entry.y,
                 entry.p,
                 entry.sp,
+                entry.ppu_scanline,
+                entry.ppu_dot,
                 entry.cycle,
                 cpu.pc,
                 cpu.a,
@@ -78,6 +83,8 @@ fn nestest() -> anyhow::Result<()> {
                 cpu.y,
                 p,
                 cpu.sp,
+                ppu.frame.scanline,
+                ppu.frame.dot,
                 cpu.cycles,
             );
         }
@@ -96,7 +103,6 @@ fn nestest() -> anyhow::Result<()> {
 
 /// One entry from the nestest golden log: the CPU's architectural state at the SYNC /
 /// opcode-fetch cycle of a single instruction.
-#[expect(unused)]
 struct LogEntry {
     pc: u16,
     a: u8,
@@ -105,7 +111,6 @@ struct LogEntry {
     p: u8,
     sp: u8,
 
-    // TODO: assert PPU state
     ppu_scanline: u16,
     ppu_dot: u16,
 
