@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Ryan Leckey <leckey.ryan@gmail.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use wadatsumi_apu_2a03::Apu2A03;
 use wadatsumi_cpu_2a03::{Cpu2A03, CpuPeek};
 use wadatsumi_ppu_2c02::Ppu2C02;
 use wadatsumi_system::System;
@@ -19,6 +20,8 @@ pub struct SystemNes {
     /// can inspect rendering state.
     pub ppu: Ppu2C02,
 
+    apu: Apu2A03,
+
     pak: Option<Pak>,
     wram: Box<[u8; 2048]>,
     ciram: Box<[u8; 2048]>,
@@ -30,6 +33,7 @@ impl SystemNes {
         Self {
             cpu: Cpu2A03::new(),
             ppu: Ppu2C02::new(),
+            apu: Apu2A03::new(),
             pak: None,
             wram: Box::new([0u8; 2048]),
             ciram: Box::new([0u8; 2048]),
@@ -102,6 +106,8 @@ impl System for SystemNes {
             ppu: &mut self.ppu,
             pak: self.pak.as_mut(),
         });
+
+        self.apu.tick();
 
         // Trailing two dots complete the 3:1 PPU-to-CPU ratio. Edges they
         // raise become visible to the *next* tick's CPU cycle, one cycle later

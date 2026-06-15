@@ -14,6 +14,7 @@ thiserror.workspace = true
 tracing.workspace = true
 wadatsumi-cpu-2a03.workspace = true
 wadatsumi-ppu-2c02.workspace = true
+wadatsumi-apu-2a03.workspace = true
 wadatsumi-system.workspace = true
 
 [dev-dependencies]

@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/cpu-2a03", "crates/ppu-2c02", "crates/system-nes", "crates/system"]
+members = [".", "crates/*"]
 
 [workspace.dependencies]
 anyhow = "1.0.102"
@@ -15,6 +15,7 @@ serde_json = "1.0.150"
 thiserror = "2.0.18"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+wadatsumi-apu-2a03 = { path = "crates/apu-2a03" }
 wadatsumi-cpu-2a03 = { path = "crates/cpu-2a03" }
 wadatsumi-ppu-2c02 = { path = "crates/ppu-2c02" }
 wadatsumi-system = { path = "crates/system" }
